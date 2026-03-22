@@ -172,8 +172,6 @@ graph LR
     style F fill:#16213e,stroke:#f90,color:#f90
 ```
 
-For detailed architecture and pipeline diagrams, see [DIAGRAMS.md](../DIAGRAMS.md).
-
 ## Evaluation Pipeline
 
 First deny stops the pipeline.
