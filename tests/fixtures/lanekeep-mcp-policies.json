@@ -1,0 +1,12 @@
+{
+  "rules": [],
+  "policies": {
+    "mcp_servers": {
+      "enabled": true,
+      "default": "allow",
+      "allowed": ["trusted"],
+      "denied": ["evil", "rogue.*"],
+      "type": "free"
+    }
+  }
+}

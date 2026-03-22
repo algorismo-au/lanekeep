@@ -1,0 +1,10 @@
+{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git commit --no-verify -m 'skip'"
+  },
+  "tool_use_id": "toolu_12NVR",
+  "session_id": "sess_test_001",
+  "cwd": "/home/user/project"
+}

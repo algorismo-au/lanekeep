@@ -1,0 +1,644 @@
+{
+  "platform": "windows",
+  "description": "Windows and PowerShell specific rules - loaded automatically on Windows",
+  "rules": [
+    {
+      "id": "sys-019",
+      "match": {
+        "command": "Format-Volume"
+      },
+      "decision": "deny",
+      "reason": "PowerShell volume format blocked",
+      "category": "system",
+      "intent": "Formatting a volume destroys all data on it — never appropriate in a dev context",
+      "type": "free"
+    },
+    {
+      "id": "sys-020",
+      "match": {
+        "command": "Clear-Disk"
+      },
+      "decision": "deny",
+      "reason": "PowerShell disk wipe blocked",
+      "category": "system",
+      "intent": "Wiping a disk destroys all data including partition tables — unrecoverable",
+      "type": "free"
+    },
+    {
+      "id": "sys-021",
+      "match": {
+        "command": "Stop-Computer"
+      },
+      "decision": "deny",
+      "reason": "PowerShell shutdown blocked",
+      "category": "system",
+      "intent": "AI agents must not control host power state — this disrupts all running work",
+      "type": "free"
+    },
+    {
+      "id": "sys-022",
+      "match": {
+        "command": "Restart-Computer"
+      },
+      "decision": "deny",
+      "reason": "PowerShell reboot blocked",
+      "category": "system",
+      "intent": "AI agents must not control host power state — this disrupts all running work",
+      "type": "free"
+    },
+    {
+      "id": "sys-023",
+      "match": {
+        "pattern": "ExecutionPolicy\\s*(Bypass|Unrestricted)"
+      },
+      "decision": "deny",
+      "reason": "PowerShell execution policy bypass blocked",
+      "category": "system",
+      "intent": "Bypassing execution policy disables PowerShell's script safety checks, allowing unsigned scripts to run",
+      "type": "free"
+    },
+    {
+      "id": "sys-024",
+      "match": {
+        "command": "-Verb RunAs"
+      },
+      "decision": "deny",
+      "reason": "PowerShell privilege escalation blocked",
+      "category": "system",
+      "intent": "The -Verb RunAs flag runs processes with elevated privileges — AI agents should operate with least privilege",
+      "type": "free"
+    },
+    {
+      "id": "sys-025",
+      "match": {
+        "pattern": "Remove-Item.*-Recurse.*-Force|Remove-Item.*-Force.*-Recurse"
+      },
+      "decision": "deny",
+      "reason": "PowerShell recursive force delete blocked",
+      "category": "system",
+      "intent": "Remove-Item -Recurse -Force bypasses confirmation and can destroy entire directory trees in one shot",
+      "type": "free"
+    },
+    {
+      "id": "sys-030",
+      "match": {
+        "command": "Invoke-Expression"
+      },
+      "decision": "ask",
+      "reason": "PowerShell Invoke-Expression — confirm this is intentional",
+      "category": "system",
+      "intent": "Invoke-Expression (iex) executes arbitrary strings as code — commonly used in download-and-execute attacks",
+      "type": "free"
+    },
+    {
+      "id": "sys-031",
+      "match": {
+        "command": "DownloadString"
+      },
+      "decision": "ask",
+      "reason": "PowerShell remote string download — confirm this is intentional",
+      "category": "system",
+      "intent": "DownloadString fetches remote content as a string — commonly piped to Invoke-Expression for remote code execution",
+      "type": "free"
+    },
+    {
+      "id": "sys-087",
+      "match": {
+        "pattern": "\\bdel\\b.*/[sS].*/[qQ]"
+      },
+      "decision": "deny",
+      "reason": "del /S /Q recursive silent deletion blocked",
+      "category": "system",
+      "intent": "del /S /Q recursively deletes files without confirmation — equivalent to rm -rf on Windows",
+      "type": "free"
+    },
+    {
+      "id": "sys-088",
+      "match": {
+        "pattern": "\\b(rd|rmdir)\\b.*/[sS]\\s*/[qQ]"
+      },
+      "decision": "deny",
+      "reason": "rmdir /S /Q recursive directory deletion blocked",
+      "category": "system",
+      "intent": "rd /S /Q or rmdir /S /Q recursively removes entire directory trees without confirmation",
+      "type": "free"
+    },
+    {
+      "id": "sys-089",
+      "match": {
+        "command": "sdelete"
+      },
+      "decision": "deny",
+      "reason": "Sysinternals secure delete blocked — irrecoverable",
+      "category": "system",
+      "intent": "SDelete overwrites file data before deletion, making recovery impossible",
+      "type": "free"
+    },
+    {
+      "id": "sys-090",
+      "match": {
+        "pattern": "Clear-Content|Set-Content\\s.*\\$null"
+      },
+      "decision": "deny",
+      "reason": "File content clearing blocked",
+      "category": "system",
+      "intent": "Clear-Content and Set-Content $null erase file contents, causing data loss",
+      "type": "free"
+    },
+    {
+      "id": "sys-091",
+      "match": {
+        "command": "diskpart"
+      },
+      "decision": "deny",
+      "reason": "diskpart blocked — disk partition manipulation",
+      "category": "system",
+      "intent": "diskpart can create, delete, and resize partitions — destructive operations that can wipe entire disks",
+      "type": "free"
+    },
+    {
+      "id": "sys-092",
+      "match": {
+        "pattern": "\\bcipher\\b.*/[wW]"
+      },
+      "decision": "deny",
+      "reason": "cipher /w blocked — secure wipe of free space",
+      "category": "system",
+      "intent": "cipher /w overwrites all free space on a volume, making deleted file recovery impossible",
+      "type": "free"
+    },
+    {
+      "id": "sys-093",
+      "match": {
+        "command": "Initialize-Disk"
+      },
+      "decision": "deny",
+      "reason": "Initialize-Disk blocked — destroys partitions",
+      "category": "system",
+      "intent": "Initialize-Disk wipes the partition table on a disk, destroying all existing data",
+      "type": "free"
+    },
+    {
+      "id": "sys-094",
+      "match": {
+        "command": "Remove-Partition"
+      },
+      "decision": "deny",
+      "reason": "Remove-Partition blocked — deletes disk partitions",
+      "category": "system",
+      "intent": "Remove-Partition deletes a disk partition and all data on it",
+      "type": "free"
+    },
+    {
+      "id": "sys-095",
+      "match": {
+        "pattern": "\\btaskkill\\b.*/[fF]"
+      },
+      "decision": "ask",
+      "reason": "taskkill /f — forced process termination, confirm intent",
+      "category": "system",
+      "intent": "taskkill /F forcefully terminates processes without allowing graceful shutdown — may cause data loss",
+      "type": "free"
+    },
+    {
+      "id": "sys-096",
+      "match": {
+        "pattern": "Stop-Process.*-Force|Stop-Service.*-Force"
+      },
+      "decision": "ask",
+      "reason": "Force stop process/service — confirm intent",
+      "category": "system",
+      "intent": "Stop-Process -Force and Stop-Service -Force terminate without graceful shutdown — may cause data loss or service disruption",
+      "type": "free"
+    },
+    {
+      "id": "sys-097",
+      "match": {
+        "pattern": "\\breg\\b\\s+delete\\b"
+      },
+      "decision": "deny",
+      "reason": "Registry deletion blocked",
+      "category": "system",
+      "intent": "reg delete removes registry keys and values — can break Windows configuration and installed software",
+      "type": "free"
+    },
+    {
+      "id": "sys-098",
+      "match": {
+        "pattern": "\\breg\\b\\s+import\\b"
+      },
+      "decision": "deny",
+      "reason": "Bulk registry import blocked",
+      "category": "system",
+      "intent": "reg import bulk-loads registry entries from a .reg file — can silently reconfigure the system",
+      "type": "free"
+    },
+    {
+      "id": "sys-099",
+      "match": {
+        "pattern": "\\bregedit\\b.*/[sS]"
+      },
+      "decision": "deny",
+      "reason": "Silent registry import blocked",
+      "category": "system",
+      "intent": "regedit /s silently imports registry files without user confirmation",
+      "type": "free"
+    },
+    {
+      "id": "sys-100",
+      "match": {
+        "pattern": "Remove-Item.*HK(LM|CU|CR):"
+      },
+      "decision": "deny",
+      "reason": "Registry key/tree deletion via Remove-Item blocked",
+      "category": "system",
+      "intent": "Remove-Item can delete entire registry trees (HKLM:, HKCU:, HKCR:) — more dangerous than rm -rf as it affects OS configuration",
+      "type": "free"
+    },
+    {
+      "id": "sys-101",
+      "match": {
+        "pattern": "Remove-ItemProperty.*(HKLM|HKCU)"
+      },
+      "decision": "deny",
+      "reason": "Registry property removal blocked",
+      "category": "system",
+      "intent": "Remove-ItemProperty on HKLM or HKCU deletes individual registry values that may be critical to system operation",
+      "type": "free"
+    },
+    {
+      "id": "sys-102",
+      "match": {
+        "pattern": "netsh\\s+advfirewall.*state\\s+off"
+      },
+      "decision": "deny",
+      "reason": "Firewall disable blocked",
+      "category": "system",
+      "intent": "Disabling Windows Firewall exposes the system to network attacks",
+      "type": "free"
+    },
+    {
+      "id": "sys-103",
+      "match": {
+        "command": "New-NetFirewallRule"
+      },
+      "decision": "deny",
+      "reason": "Firewall rule creation blocked — opens ports",
+      "category": "system",
+      "intent": "Creating firewall rules can open ports and expose services to untrusted networks",
+      "type": "free"
+    },
+    {
+      "id": "sys-104",
+      "match": {
+        "pattern": "Set-DnsClientServerAddress"
+      },
+      "decision": "deny",
+      "reason": "DNS server change blocked — MitM risk",
+      "category": "system",
+      "intent": "Changing DNS servers can redirect all traffic through a malicious resolver for man-in-the-middle attacks",
+      "type": "free"
+    },
+    {
+      "id": "sys-105",
+      "match": {
+        "pattern": "Invoke-Command.*-ComputerName"
+      },
+      "decision": "deny",
+      "reason": "Remote code execution blocked",
+      "category": "system",
+      "intent": "Invoke-Command -ComputerName executes arbitrary code on remote machines — lateral movement vector",
+      "type": "free"
+    },
+    {
+      "id": "sys-106",
+      "match": {
+        "command": "Enter-PSSession"
+      },
+      "decision": "deny",
+      "reason": "Remote interactive PS session blocked",
+      "category": "system",
+      "intent": "Enter-PSSession opens an interactive PowerShell session on a remote machine — enables lateral movement",
+      "type": "free"
+    },
+    {
+      "id": "sys-107",
+      "match": {
+        "command": "Enable-PSRemoting"
+      },
+      "decision": "deny",
+      "reason": "PS remoting enable blocked",
+      "category": "system",
+      "intent": "Enable-PSRemoting configures the machine to accept remote PowerShell connections — expands attack surface",
+      "type": "free"
+    },
+    {
+      "id": "sys-108",
+      "match": {
+        "pattern": "\\bwinrm\\b.*quickconfig"
+      },
+      "decision": "deny",
+      "reason": "WinRM enable blocked",
+      "category": "system",
+      "intent": "winrm quickconfig enables Windows Remote Management — allows remote command execution",
+      "type": "free"
+    },
+    {
+      "id": "sys-109",
+      "match": {
+        "pattern": "\\bnet\\b\\s+localgroup\\s+administrators.*/add"
+      },
+      "decision": "deny",
+      "reason": "Admin privilege grant blocked",
+      "category": "system",
+      "intent": "Adding users to the Administrators group grants full system control — privilege escalation vector",
+      "type": "free"
+    },
+    {
+      "id": "sys-110",
+      "match": {
+        "pattern": "\\bnet\\b\\s+user.*/delete"
+      },
+      "decision": "deny",
+      "reason": "User account deletion blocked",
+      "category": "system",
+      "intent": "net user /delete removes a user account and can cause loss of user data and access",
+      "type": "free"
+    },
+    {
+      "id": "sys-111",
+      "match": {
+        "pattern": "icacls.*/grant.*Everyone"
+      },
+      "decision": "deny",
+      "reason": "Wide-open permission grant blocked",
+      "category": "system",
+      "intent": "Granting permissions to Everyone via icacls makes files accessible to all users including attackers",
+      "type": "free"
+    },
+    {
+      "id": "sys-112",
+      "match": {
+        "pattern": "\\btakeown\\b.*/[fF]"
+      },
+      "decision": "deny",
+      "reason": "File ownership takeover blocked",
+      "category": "system",
+      "intent": "takeown /F forcefully takes ownership of files — can be used to access protected system files",
+      "type": "free"
+    },
+    {
+      "id": "sys-113",
+      "match": {
+        "pattern": "Set-MpPreference.*DisableRealtimeMonitoring.*\\$true"
+      },
+      "decision": "deny",
+      "reason": "Windows Defender disable blocked",
+      "category": "system",
+      "intent": "Disabling Windows Defender real-time monitoring leaves the system unprotected against malware",
+      "type": "free"
+    },
+    {
+      "id": "sys-114",
+      "match": {
+        "pattern": "\\bbcdedit\\b.*/set"
+      },
+      "decision": "deny",
+      "reason": "Boot configuration change blocked",
+      "category": "system",
+      "intent": "bcdedit /set modifies boot configuration data — can disable security features or render system unbootable",
+      "type": "free"
+    },
+    {
+      "id": "sys-115",
+      "match": {
+        "command": "Unblock-File"
+      },
+      "decision": "deny",
+      "reason": "Mark-of-the-web removal blocked",
+      "category": "system",
+      "intent": "Unblock-File removes the Zone.Identifier mark-of-the-web — bypasses Windows security warnings on downloaded files",
+      "type": "free"
+    },
+    {
+      "id": "sys-116",
+      "match": {
+        "pattern": "-[Ee]ncoded[Cc]ommand"
+      },
+      "decision": "deny",
+      "reason": "PowerShell encoded command blocked — obfuscation vector",
+      "category": "system",
+      "intent": "The -EncodedCommand parameter accepts base64-encoded scripts — commonly used to evade detection and hide malicious payloads",
+      "type": "free"
+    },
+    {
+      "id": "sys-117",
+      "match": {
+        "pattern": "[Bb]ypass.*-[Nn]o[Pp]rofile|-[Nn]o[Pp]rofile.*[Bb]ypass"
+      },
+      "decision": "deny",
+      "reason": "PowerShell evasion combo blocked",
+      "category": "system",
+      "intent": "Combining -ExecutionPolicy Bypass with -NoProfile is a common evasion technique that skips all security controls",
+      "type": "free"
+    },
+    {
+      "id": "sys-118",
+      "match": {
+        "command": "mshta"
+      },
+      "decision": "deny",
+      "reason": "mshta.exe blocked — HTA execution vector",
+      "category": "system",
+      "intent": "mshta.exe executes HTML Applications with full system access — a well-known living-off-the-land binary (LOLBin)",
+      "type": "free"
+    },
+    {
+      "id": "sys-119",
+      "match": {
+        "pattern": "\\bcscript\\b|\\bwscript\\b"
+      },
+      "decision": "deny",
+      "reason": "Windows Script Host execution blocked",
+      "category": "system",
+      "intent": "cscript and wscript execute VBScript/JScript with system access — commonly abused for malware delivery",
+      "type": "free"
+    },
+    {
+      "id": "sys-120",
+      "match": {
+        "pattern": "\\bcertutil\\b.*-urlcache"
+      },
+      "decision": "deny",
+      "reason": "certutil download blocked — LOLBin technique",
+      "category": "system",
+      "intent": "certutil -urlcache is a well-known LOLBin technique for downloading files while evading security tools",
+      "type": "free"
+    },
+    {
+      "id": "sys-121",
+      "match": {
+        "pattern": "\\bbitsadmin\\b.*/transfer"
+      },
+      "decision": "deny",
+      "reason": "bitsadmin download blocked — LOLBin technique",
+      "category": "system",
+      "intent": "bitsadmin /transfer downloads files via BITS — commonly abused as a LOLBin to bypass security controls",
+      "type": "free"
+    },
+    {
+      "id": "sys-122",
+      "match": {
+        "pattern": "\\brundll32\\b"
+      },
+      "decision": "deny",
+      "reason": "rundll32 blocked — DLL export execution",
+      "category": "system",
+      "intent": "rundll32 executes DLL exports directly — a primary LOLBin used for code execution and defense evasion",
+      "type": "free"
+    },
+    {
+      "id": "sys-123",
+      "match": {
+        "pattern": "\\bmsiexec\\b.*/[iI].*https?:"
+      },
+      "decision": "deny",
+      "reason": "Remote MSI install blocked",
+      "category": "system",
+      "intent": "msiexec /i with a remote URL installs packages from untrusted sources — can install malware",
+      "type": "free"
+    },
+    {
+      "id": "sys-124",
+      "match": {
+        "pattern": "\\[ScriptBlock\\]::Create"
+      },
+      "decision": "deny",
+      "reason": "Dynamic scriptblock execution blocked",
+      "category": "system",
+      "intent": "[ScriptBlock]::Create dynamically compiles and executes arbitrary PowerShell code — used to evade static analysis",
+      "type": "free"
+    },
+    {
+      "id": "sys-125",
+      "match": {
+        "pattern": "\\[Reflection\\.Assembly\\]::Load"
+      },
+      "decision": "deny",
+      "reason": "Fileless assembly loading blocked",
+      "category": "system",
+      "intent": "[Reflection.Assembly]::Load executes .NET assemblies from memory without touching disk — fileless malware technique",
+      "type": "free"
+    },
+    {
+      "id": "sys-126",
+      "match": {
+        "pattern": "Add-Type.*-TypeDefinition"
+      },
+      "decision": "deny",
+      "reason": "Inline C# compilation blocked",
+      "category": "system",
+      "intent": "Add-Type -TypeDefinition compiles and loads C# code at runtime — can execute arbitrary native code from PowerShell",
+      "type": "free"
+    },
+    {
+      "id": "sys-127",
+      "match": {
+        "pattern": "Net\\.Sockets\\.TCPClient|System\\.Net\\.Sockets"
+      },
+      "decision": "deny",
+      "reason": "PowerShell reverse shell blocked",
+      "category": "system",
+      "intent": "Net.Sockets.TCPClient and System.Net.Sockets are used to build PowerShell reverse shells for remote access",
+      "type": "free"
+    },
+    {
+      "id": "sys-128",
+      "match": {
+        "pattern": "New-Object.*IO\\.StreamReader"
+      },
+      "decision": "deny",
+      "reason": "PowerShell stream-based shell blocked",
+      "category": "system",
+      "intent": "IO.StreamReader with New-Object is commonly used to read from network streams in PowerShell reverse shells",
+      "type": "free"
+    },
+    {
+      "id": "sys-129",
+      "match": {
+        "pattern": "Invoke-WebRequest.*\\|\\s*iex|iwr.*\\|\\s*Invoke-Expression"
+      },
+      "decision": "deny",
+      "reason": "Download-and-execute pattern blocked",
+      "category": "system",
+      "intent": "Piping Invoke-WebRequest/iwr output to iex/Invoke-Expression downloads and executes remote code — classic attack pattern",
+      "type": "free"
+    },
+    {
+      "id": "sys-130",
+      "match": {
+        "pattern": "\\bwevtutil\\b\\s+cl|Clear-EventLog"
+      },
+      "decision": "deny",
+      "reason": "Event log clearing blocked — anti-forensics",
+      "category": "system",
+      "intent": "Clearing event logs destroys forensic evidence — a hallmark of attacker cover-up and ransomware operations",
+      "type": "free"
+    },
+    {
+      "id": "sys-131",
+      "match": {
+        "pattern": "vssadmin.*delete\\s+shadows|wmic.*shadowcopy.*delete"
+      },
+      "decision": "deny",
+      "reason": "Shadow copy deletion blocked — ransomware technique",
+      "category": "system",
+      "intent": "Deleting Volume Shadow Copies prevents file recovery — the signature precursor to ransomware encryption",
+      "type": "free"
+    },
+    {
+      "id": "sys-132",
+      "match": {
+        "command": "Get-Credential"
+      },
+      "decision": "ask",
+      "reason": "Credential prompt — confirm intent",
+      "category": "system",
+      "intent": "Get-Credential prompts for and captures user credentials — verify this is for a legitimate authentication flow",
+      "type": "free"
+    },
+    {
+      "id": "sys-133",
+      "match": {
+        "command": "ConvertFrom-SecureString"
+      },
+      "decision": "ask",
+      "reason": "Secure string conversion — confirm intent",
+      "category": "system",
+      "intent": "ConvertFrom-SecureString exports secure strings to plaintext-recoverable form — can expose stored credentials",
+      "type": "free"
+    },
+    {
+      "id": "sys-134",
+      "match": {
+        "pattern": "\\bschtasks\\b.*/create"
+      },
+      "decision": "ask",
+      "reason": "Scheduled task creation — confirm intent",
+      "category": "system",
+      "intent": "schtasks /create sets up persistent scheduled tasks — commonly used for persistence by attackers",
+      "type": "free"
+    },
+    {
+      "id": "sys-135",
+      "match": {
+        "command": "New-ScheduledTask"
+      },
+      "decision": "ask",
+      "reason": "PowerShell scheduled task — confirm intent",
+      "category": "system",
+      "intent": "New-ScheduledTask creates persistent scheduled tasks via PowerShell — a common persistence mechanism",
+      "type": "free"
+    }
+  ]
+}

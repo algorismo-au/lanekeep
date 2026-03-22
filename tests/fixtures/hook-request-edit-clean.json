@@ -1,0 +1,12 @@
+{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "src/main.py",
+    "old_string": "print('hello')",
+    "new_string": "print('hello world')"
+  },
+  "tool_use_id": "toolu_08EDT",
+  "session_id": "sess_test_001",
+  "cwd": "/home/user/project"
+}

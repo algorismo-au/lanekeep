@@ -1,0 +1,10 @@
+{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Agent",
+  "tool_input": {
+    "prompt": "Analyze codebase"
+  },
+  "tool_use_id": "toolu_09AGT",
+  "session_id": "sess_test_001",
+  "cwd": "/home/user/project"
+}

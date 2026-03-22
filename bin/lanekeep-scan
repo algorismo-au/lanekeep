@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Deterministic security scanner for Claude Code plugins.
+# Bash port of trailofbits/skills-curated scan_plugin.py
+
+LANEKEEP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+source "$LANEKEEP_DIR/lib/scan.sh"
+
+usage() {
+  echo "Usage: lanekeep-scan [--format text|markdown] <target> [target...]"
+  echo ""
+  echo "Scan plugin directories for security issues."
+  echo ""
+  echo "  target    Plugin directory (with .claude-plugin/) or plugins/ parent"
+  echo "  --format  Output format: text (default) or markdown"
+  echo ""
+  echo "Exit codes: 0=clean, 1=usage error, 2=BLOCK findings, 3=WARN only"
+}
+
+output_format="text"
+targets=()
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --format)
+      shift
+      output_format="${1:-}"
+      if [ "$output_format" != "text" ] && [ "$output_format" != "markdown" ]; then
+        echo "Error: --format must be 'text' or 'markdown'" >&2
+        exit 1
+      fi
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      targets+=("$1")
+      ;;
+  esac
+  shift
+done
+
+if [ "${#targets[@]}" -eq 0 ]; then
+  echo "Error: no targets specified" >&2
+  usage >&2
+  exit 1
+fi
+
+for target in "${targets[@]}"; do
+  if [ ! -d "$target" ]; then
+    echo "Error: $target is not a directory" >&2
+    exit 1
+  fi
+
+  while IFS= read -r plugin_dir; do
+    scan_plugin "$plugin_dir"
+  done < <(discover_plugins "$target")
+done
+
+if [ "$output_format" = "markdown" ]; then
+  format_markdown
+else
+  format_text
+fi
+
+# Exit code based on findings
+if [ "$SCAN_BLOCK_COUNT" -gt 0 ]; then
+  exit 2
+elif [ "$SCAN_WARN_COUNT" -gt 0 ]; then
+  exit 3
+fi
+exit 0

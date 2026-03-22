@@ -1,0 +1,567 @@
+#!/usr/bin/env bash
+set -euo pipefail
+trap '' PIPE
+
+LANEKEEP_DIR="${LANEKEEP_DIR:?}"
+
+# Fast JSON string escaper for known-schema internal data (replaces jq -n --arg)
+_json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  s="${s//$'\r'/\\r}"
+  s="${s//$'\t'/\\t}"
+  printf '%s' "$s"
+}
+
+# Phase 1: Always-needed modules (config resolution, license tier)
+source "$LANEKEEP_DIR/lib/config.sh"
+source "$LANEKEEP_DIR/lib/license.sh"
+resolve_license_tier
+
+# Read request JSON from stdin — may be multi-line (pretty-printed from Claude Code)
+RAW_INPUT=$(cat)
+
+if [ -z "$RAW_INPUT" ]; then
+  echo '{"decision":"deny","reason":"[LaneKeep] DENIED: Empty request"}'
+  exit 0
+fi
+
+# Normalize, validate, and extract request fields in a single jq call (3→1 subprocess)
+_REQ_EXTRACT=$(printf '%s' "$RAW_INPUT" | jq -r '
+  if type != "object" then empty
+  elif (has("tool_name") and has("tool_input")) | not then empty
+  else
+    "REQUEST=" + (tojson | @sh),
+    "TOOL_NAME=" + (.tool_name // "" | @sh),
+    "TOOL_INPUT=" + (.tool_input // {} | tojson | @sh),
+    "TOOL_USE_ID=" + (.tool_use_id // "" | @sh),
+    "HOOK_EVENT=" + (.hook_event_name // "PreToolUse" | @sh),
+    "SESSION_ID=" + (.session_id // "" | @sh),
+    "TRANSCRIPT_PATH=" + (.transcript_path // "" | @sh)
+  end' 2>/dev/null) || _REQ_EXTRACT=""
+
+if [ -z "$_REQ_EXTRACT" ]; then
+  echo '{"decision":"deny","reason":"[LaneKeep] DENIED: Malformed request or Missing required fields: tool_name, tool_input"}'
+  exit 0
+fi
+eval "$_REQ_EXTRACT"
+
+# P1: Pre-extract all config flags in one jq call
+# Eliminates ~8 downstream jq calls that each parse the full config
+_CFG_RULES_COUNT=0
+_CFG_HAS_POLICIES="false"
+_CFG_MAX_ACTIONS=""
+_CFG_TIMEOUT_SECONDS=""
+_CFG_MAX_TOKENS=""
+_CFG_PLUGIN_HASHES=""
+_CFG_MAX_INPUT_TOKENS=""
+_CFG_MAX_OUTPUT_TOKENS=""
+_CFG_MAX_TOTAL_ACTIONS=""
+_CFG_MAX_TOTAL_INPUT_TOKENS=""
+_CFG_MAX_TOTAL_OUTPUT_TOKENS=""
+_CFG_MAX_TOTAL_TOKENS=""
+_CFG_MAX_TOTAL_TIME=""
+_CFG_HIDDEN_TEXT_ENABLED="true"
+_CFG_INPUT_PII_ENABLED="true"
+_CFG_RESULT_TRANSFORM_ENABLED="true"
+_CFG_SEMANTIC_ENABLED="true"
+# Hardblock arrays (newline-separated — safe for substrings and single-line regex)
+_CFG_HARD_BLOCKS=""
+_CFG_HARD_BLOCKS_REGEX=""
+# Hidden text evaluator config (RS-delimited for pattern arrays)
+_CFG_HT_ANSI_ENABLED="true"
+_CFG_HT_ANSI_PATTERNS=""
+_CFG_HT_ANSI_DECISION="deny"
+_CFG_HT_CSS_ENABLED="true"
+_CFG_HT_CSS_PATTERNS=""
+_CFG_HT_CSS_DECISION="ask"
+_CFG_HT_HTML_ENABLED="true"
+_CFG_HT_HTML_PATTERNS=""
+_CFG_HT_HTML_DECISION="ask"
+# Input PII evaluator config
+_CFG_INPUT_PII_ON_DETECT="ask"
+_CFG_INPUT_PII_PATTERNS=""
+_CFG_INPUT_PII_COMPLIANCE="[]"
+if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
+  eval "$(jq -r '
+    "_CFG_RULES_COUNT=" + (.rules | length | tostring | @sh),
+    "_CFG_HAS_POLICIES=" + (if has("policies") and (.policies | length > 0) then "true" else "false" end | @sh),
+    "_CFG_MAX_ACTIONS=" + (.budget.max_actions // "" | tostring | @sh),
+    "_CFG_TIMEOUT_SECONDS=" + (.budget.timeout_seconds // "" | tostring | @sh),
+    "_CFG_MAX_TOKENS=" + (.budget.max_tokens // "" | tostring | @sh),
+    "_CFG_MAX_INPUT_TOKENS=" + (.budget.max_input_tokens // "" | tostring | @sh),
+    "_CFG_MAX_OUTPUT_TOKENS=" + (.budget.max_output_tokens // "" | tostring | @sh),
+    "_CFG_MAX_TOTAL_ACTIONS=" + (.budget.max_total_actions // "" | tostring | @sh),
+    "_CFG_MAX_TOTAL_INPUT_TOKENS=" + (.budget.max_total_input_tokens // "" | tostring | @sh),
+    "_CFG_MAX_TOTAL_OUTPUT_TOKENS=" + (.budget.max_total_output_tokens // "" | tostring | @sh),
+    "_CFG_MAX_TOTAL_TOKENS=" + (.budget.max_total_tokens // "" | tostring | @sh),
+    "_CFG_MAX_TOTAL_TIME=" + (.budget.max_total_time_seconds // "" | tostring | @sh),
+    "_CFG_PLUGIN_HASHES=" + ((.plugins.allowed_hashes // {} | to_entries | map("\(.key)=\(.value)") | join(";")) | @sh),
+    "_CFG_HIDDEN_TEXT_ENABLED=" + (if .evaluators.hidden_text.enabled == false then "false" else "true" end | @sh),
+    "_CFG_INPUT_PII_ENABLED=" + (if .evaluators.input_pii.enabled == false then "false" else "true" end | @sh),
+    "_CFG_RESULT_TRANSFORM_ENABLED=" + (if .evaluators.result_transform.enabled == false then "false" else "true" end | @sh),
+    "_CFG_SEMANTIC_ENABLED=" + (if .evaluators.semantic.enabled == false then "false" else "true" end | @sh),
+    # -- Hardblock arrays (newline-separated) --
+    "_CFG_HARD_BLOCKS=" + (.hard_blocks // [] | join("\n") | @sh),
+    "_CFG_HARD_BLOCKS_REGEX=" + (.hard_blocks_regex // [] | join("\n") | @sh),
+    # -- Hidden text evaluator (RS \x1e delimiter for pattern arrays) --
+    "_CFG_HT_ANSI_ENABLED=" + (if .evaluators.hidden_text.ansi.enabled == false then "false" else "true" end | @sh),
+    "_CFG_HT_ANSI_PATTERNS=" + (.evaluators.hidden_text.ansi.patterns // [] | join("\u001e") | @sh),
+    "_CFG_HT_ANSI_DECISION=" + (.evaluators.hidden_text.ansi.decision // "deny" | @sh),
+    "_CFG_HT_CSS_ENABLED=" + (if .evaluators.hidden_text.css_hiding.enabled == false then "false" else "true" end | @sh),
+    "_CFG_HT_CSS_PATTERNS=" + (.evaluators.hidden_text.css_hiding.patterns // [] | join("\u001e") | @sh),
+    "_CFG_HT_CSS_DECISION=" + (.evaluators.hidden_text.css_hiding.decision // "ask" | @sh),
+    "_CFG_HT_HTML_ENABLED=" + (if .evaluators.hidden_text.html_injection.enabled == false then "false" else "true" end | @sh),
+    "_CFG_HT_HTML_PATTERNS=" + (.evaluators.hidden_text.html_injection.patterns // [] | join("\u001e") | @sh),
+    "_CFG_HT_HTML_DECISION=" + (.evaluators.hidden_text.html_injection.decision // "ask" | @sh),
+    # -- Input PII evaluator --
+    "_CFG_INPUT_PII_ON_DETECT=" + (.evaluators.input_pii.on_detect // "ask" | @sh),
+    "_CFG_INPUT_PII_PATTERNS=" + ((.evaluators.input_pii.pii_patterns // .evaluators.result_transform.pii_patterns // []) | join("\u001e") | @sh),
+    "_CFG_INPUT_PII_COMPLIANCE=" + (.evaluators.input_pii.compliance_by_category.pii // .evaluators.result_transform.compliance_by_category.pii // [] | tojson | @sh)
+  ' "$LANEKEEP_CONFIG_FILE" 2>/dev/null)" || true
+fi
+
+# Phase 2: Always-needed pipeline modules
+source "$LANEKEEP_DIR/lib/dispatcher.sh"
+source "$LANEKEEP_DIR/lib/trace.sh"
+source "$LANEKEEP_DIR/lib/cumulative.sh"
+source "$LANEKEEP_DIR/lib/eval-rules.sh"
+source "$LANEKEEP_DIR/lib/eval-budget.sh"
+source "$LANEKEEP_DIR/lib/eval-schema.sh"
+
+# Phase 3: Conditionally source evaluator modules based on config flags
+# Hardblock always runs as a non-optional pre-filter (Finding 2: security parity)
+source "$LANEKEEP_DIR/lib/eval-hardblock.sh"
+if ! rules_enabled 2>/dev/null; then
+  source "$LANEKEEP_DIR/lib/eval-codediff.sh"
+fi
+if [ "$_CFG_HIDDEN_TEXT_ENABLED" != "false" ]; then
+  source "$LANEKEEP_DIR/lib/eval-hidden-text.sh"
+fi
+if [ "$_CFG_INPUT_PII_ENABLED" != "false" ]; then
+  source "$LANEKEEP_DIR/lib/eval-input-pii.sh"
+fi
+if [ "$_CFG_SEMANTIC_ENABLED" != "false" ]; then
+  source "$LANEKEEP_DIR/lib/eval-semantic.sh"
+fi
+if [ "$_CFG_RESULT_TRANSFORM_ENABLED" != "false" ]; then
+  source "$LANEKEEP_DIR/lib/eval-result-transform.sh"
+fi
+
+# Phase 4: Capture all timestamp forms at once (1B — one date per request)
+_NOW_NS=$(date +%s%N)
+_NOW_EPOCH=${_NOW_NS:0:10}
+_NOW_ISO=$(date -u -d "@$_NOW_EPOCH" +%Y-%m-%dT%H:%M:%S.%3NZ 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%S.000Z)
+START_NS=$_NOW_NS
+
+case "$HOOK_EVENT" in
+  PreToolUse)
+    # === EXISTING TIER 0-8 PIPELINE ===
+
+    RESULTS=()
+    BLOCKED=false
+    BLOCK_REASON=""
+    BLOCK_DECISION="deny"  # "deny" or "ask"
+    WARN_REASON=""          # warn: allow but inject context
+
+    # --- Tier 0: Config integrity ---
+    if ! verify_config_integrity; then
+      BLOCKED=true
+      BLOCK_REASON="$INTEGRITY_REASON"
+      RESULTS+=("$(printf '{"name":"ConfigIntegrity","tier":0,"score":1.0,"passed":false,"detail":"%s"}' "$(_json_escape "$INTEGRITY_REASON")")")
+    fi
+
+    # --- Tier 0.5: Schema (TaskSpec access control — check before content scanners) ---
+    if [ "$BLOCKED" = false ]; then
+      if ! schema_eval "$TOOL_NAME"; then
+        BLOCKED=true
+        BLOCK_REASON="$SCHEMA_REASON"
+        BLOCK_DECISION="deny"
+      fi
+      _se_score=1; [ "$SCHEMA_PASSED" = true ] && _se_score=0
+      RESULTS+=("$(printf '{"name":"SchemaEvaluator","tier":0.5,"score":%d,"passed":%s,"detail":"%s"}' \
+        "$_se_score" "$SCHEMA_PASSED" "$(_json_escape "$SCHEMA_REASON")")")
+    fi
+
+    # --- Tier 1: Hardblock (always runs — input normalization + substring match) ---
+    if [ "$BLOCKED" = false ]; then
+      if ! hardblock_check "$TOOL_NAME" "$TOOL_INPUT"; then
+        BLOCKED=true
+        BLOCK_REASON="$HARDBLOCK_REASON"
+        RESULTS+=("$(printf '{"name":"HardBlock","tier":1,"score":1.0,"passed":false,"detail":"%s"}' "$(_json_escape "$BLOCK_REASON")")")
+      fi
+    fi
+
+    # --- Tier 2: Rules engine OR legacy codediff ---
+    if rules_enabled; then
+      # Unified decision table (content-aware rules)
+      if [ "$BLOCKED" = false ]; then
+        if ! rules_eval "$TOOL_NAME" "$TOOL_INPUT"; then
+          if [ "$RULES_DECISION" = "ask" ]; then
+            # "ask" doesn't block — let later tiers run, then escalate
+            BLOCK_DECISION="ask"
+            BLOCK_REASON="$RULES_REASON"
+          else
+            BLOCKED=true
+            BLOCK_REASON="$RULES_REASON"
+            BLOCK_DECISION="$RULES_DECISION"
+          fi
+        elif [ "$RULES_DECISION" = "warn" ]; then
+          WARN_REASON="$RULES_REASON"
+        fi
+      fi
+      _re_score=1; _re_intent=""
+      [ "$RULES_PASSED" = true ] && _re_score=0
+      [ -n "$RULES_INTENT" ] && _re_intent="$(printf ',"intent":"%s"' "$(_json_escape "$RULES_INTENT")")"
+      RESULTS+=("$(printf '{"name":"RuleEngine","tier":2,"score":%d,"passed":%s,"detail":"%s","compliance":%s%s}' \
+        "$_re_score" "$RULES_PASSED" "$(_json_escape "$RULES_REASON")" "$RULES_COMPLIANCE" "$_re_intent")")
+    else
+      # Legacy: codediff only (hardblock now runs unconditionally at Tier 1)
+      if [ "$BLOCKED" = false ]; then
+        if ! codediff_eval "$TOOL_NAME" "$TOOL_INPUT"; then
+          BLOCKED=true
+          BLOCK_REASON="$CODEDIFF_REASON"
+          BLOCK_DECISION="$CODEDIFF_DECISION"
+        fi
+        _cd_score="0.9"; [ "$CODEDIFF_PASSED" = true ] && _cd_score="0"
+        RESULTS+=("$(printf '{"name":"CodeDiffEvaluator","tier":2,"score":%s,"passed":%s,"detail":"%s"}' \
+          "$_cd_score" "$CODEDIFF_PASSED" "$(_json_escape "$CODEDIFF_REASON")")")
+      fi
+    fi
+
+    # --- Tier 3: Hidden text (CSS/ANSI/HTML injection) ---
+    if [ "$BLOCKED" = false ] && [ "$_CFG_HIDDEN_TEXT_ENABLED" != "false" ]; then
+      if ! hidden_text_eval "$TOOL_NAME" "$TOOL_INPUT"; then
+        BLOCKED=true
+        BLOCK_REASON="$HIDDEN_TEXT_REASON"
+        BLOCK_DECISION="$HIDDEN_TEXT_DECISION"
+      fi
+      _ht_score="0.9"; [ "$HIDDEN_TEXT_PASSED" = true ] && _ht_score="0"
+      RESULTS+=("$(printf '{"name":"HiddenTextEvaluator","tier":3,"score":%s,"passed":%s,"detail":"%s"}' \
+        "$_ht_score" "$HIDDEN_TEXT_PASSED" "$(_json_escape "$HIDDEN_TEXT_REASON")")")
+    fi
+
+    # --- Tier 4: Input PII ---
+    if [ "$BLOCKED" = false ] && [ "$_CFG_INPUT_PII_ENABLED" != "false" ]; then
+      if ! input_pii_eval "$TOOL_NAME" "$TOOL_INPUT"; then
+        if [ "$INPUT_PII_DECISION" = "ask" ] && [ "$BLOCK_DECISION" = "ask" ]; then
+          # Aggregate "ask" reasons from multiple tiers
+          BLOCK_REASON="${BLOCK_REASON}; ${INPUT_PII_REASON}"
+          BLOCKED=true
+        else
+          BLOCKED=true
+          BLOCK_REASON="$INPUT_PII_REASON"
+          BLOCK_DECISION="$INPUT_PII_DECISION"
+        fi
+      elif [ "$INPUT_PII_DECISION" = "warn" ] && [ -n "$INPUT_PII_REASON" ] && [ "$INPUT_PII_REASON" != "Passed" ]; then
+        WARN_REASON="$INPUT_PII_REASON"
+      fi
+      _ip_score="0.9"; [ "$INPUT_PII_PASSED" = true ] && _ip_score="0"
+      RESULTS+=("$(printf '{"name":"InputPII","tier":4,"score":%s,"passed":%s,"detail":"%s","compliance":%s,"detections":%s}' \
+        "$_ip_score" "$INPUT_PII_PASSED" "$(_json_escape "$INPUT_PII_REASON")" "$INPUT_PII_COMPLIANCE" "$INPUT_PII_DETECTIONS")")
+    fi
+
+    # --- Tier 5: Budget (always called — tracks total_events even when blocked) ---
+    # When decision is "ask", skip counter increment to avoid phantom budget consumption
+    # (user may deny the ask prompt, so the action never executes)
+    _budget_skip_increment="false"
+    [ "$BLOCK_DECISION" = "ask" ] && _budget_skip_increment="true"
+    if ! budget_eval "$TOOL_INPUT" "$_NOW_EPOCH" "$BLOCKED" "" "$SESSION_ID" "$_budget_skip_increment"; then
+      if [ "$BLOCKED" = false ]; then
+        BLOCKED=true
+        BLOCK_REASON="$BUDGET_REASON"
+        BLOCK_DECISION="deny"
+      fi
+    fi
+    _be_score=1; [ "$BUDGET_PASSED" = true ] && _be_score=0
+    RESULTS+=("$(printf '{"name":"BudgetEvaluator","tier":5,"score":%d,"passed":%s,"detail":"%s"}' \
+      "$_be_score" "$BUDGET_PASSED" "$(_json_escape "$BUDGET_REASON")")")
+
+    # --- Tier 6: Plugins ---
+    if [ "$BLOCKED" = false ]; then
+      PLUGIN_DIR="$LANEKEEP_DIR/plugins.d"
+      if [ -d "$PLUGIN_DIR" ]; then
+        # Use pre-extracted plugin hash allowlist from config (1A)
+        _plugin_hashes="$_CFG_PLUGIN_HASHES"
+
+        for plugin in "$PLUGIN_DIR"/*.plugin.sh "$PLUGIN_DIR"/*.plugin.py \
+                     "$PLUGIN_DIR"/*.plugin.js "$PLUGIN_DIR"/*.plugin; do
+          [ -f "$plugin" ] || continue
+          if [ "$BLOCKED" = true ]; then break; fi
+
+          # Plugin integrity check: verify hash if allowlist is configured
+          if [ -n "$_plugin_hashes" ]; then
+            _pname=$(basename "$plugin")
+
+            # Use cached hash from lanekeep-serve startup (1D), or compute on the fly
+            _phash=""
+            if [ -n "${LANEKEEP_PLUGIN_HASHES:-}" ]; then
+              IFS=';' read -ra _hash_entries <<< "$LANEKEEP_PLUGIN_HASHES"
+              for _he in "${_hash_entries[@]}"; do
+                if [ "${_he%%=*}" = "$_pname" ]; then
+                  _phash="${_he#*=}"
+                  break
+                fi
+              done
+            fi
+            [ -z "$_phash" ] && _phash=$(sha256sum "$plugin" 2>/dev/null | cut -d' ' -f1)
+
+            # Look up expected hash from config allowlist
+            _expected=""
+            IFS=';' read -ra _allow_entries <<< "$_plugin_hashes"
+            for _ae in "${_allow_entries[@]}"; do
+              [ -z "$_ae" ] && continue
+              if [ "${_ae%%=*}" = "$_pname" ]; then
+                _expected="${_ae#*=}"
+                break
+              fi
+            done
+            if [ -z "$_expected" ]; then
+              BLOCKED=true
+              BLOCK_REASON="[LaneKeep] DENIED: Plugin not in hash allowlist: $_pname"
+              BLOCK_DECISION="deny"
+              RESULTS+=("$(printf '{"name":"Plugin:%s","tier":6,"score":1.0,"passed":false,"detail":"Plugin not in hash allowlist, denied"}' "$(_json_escape "$_pname")")")
+              break
+            elif [ "$_phash" != "$_expected" ]; then
+              BLOCKED=true
+              BLOCK_REASON="[LaneKeep] DENIED: Plugin integrity check failed: $_pname (hash mismatch)"
+              BLOCK_DECISION="deny"
+              RESULTS+=("$(printf '{"name":"Plugin:%s","tier":6,"score":1.0,"passed":false,"detail":"%s"}' \
+                "$(_json_escape "$_pname")" "$(_json_escape "Hash mismatch: expected $_expected, got $_phash")")")
+              break
+            fi
+          fi
+
+          # Branch on plugin type: bash (.sh) vs polyglot (everything else)
+          _pext="${plugin##*.plugin}"
+          case "$_pext" in
+            .sh)
+              # Run bash plugin in subshell to isolate crashes
+              plugin_result=$(
+                # Scrub all env vars except safe list to prevent credential leakage
+                while IFS='=' read -r _var _; do
+                  case "$_var" in
+                    HOME|PATH|SHELL|TERM|TMPDIR|LANG|LC_ALL) ;;
+                    LANEKEEP_DIR|LANEKEEP_PLUGIN_EVALS|TOOL_NAME|TOOL_INPUT) ;;
+                    _*) ;; # skip bash internals
+                    *) unset "$_var" 2>/dev/null ;;
+                  esac
+                done < <(env)
+                set +e
+                source "$plugin" 2>/dev/null || { echo "CRASHED"; exit 0; }
+                # Find registered eval function
+                for func in $LANEKEEP_PLUGIN_EVALS; do
+                  "$func" "$TOOL_NAME" "$TOOL_INPUT" 2>/dev/null
+                  rc=$?
+                  prefix="${func%_eval}"
+                  prefix_upper=$(printf '%s' "$prefix" | tr '[:lower:]' '[:upper:]')
+                  declare -n _p_ref="${prefix_upper}_PASSED" 2>/dev/null || true
+                  declare -n _r_ref="${prefix_upper}_REASON" 2>/dev/null || true
+                  declare -n _d_ref="${prefix_upper}_DECISION" 2>/dev/null || true
+                  p="${_p_ref:-true}"
+                  r="${_r_ref:-}"
+                  d="${_d_ref:-deny}"
+                  unset -n _p_ref _r_ref _d_ref
+                  printf '%s\n%s\n%s\n%s\n' "$func" "$p" "$r" "$d"
+                done
+              ) 2>/dev/null || plugin_result="CRASHED"
+              ;;
+            *)
+              # Polyglot: pipe JSON on stdin, read JSON on stdout
+              if [ ! -x "$plugin" ]; then
+                RESULTS+=("$(printf '{"name":"Plugin:%s","tier":6,"score":0,"passed":true,"detail":"Plugin not executable, skipped"}' \
+                  "$(_json_escape "$(basename "$plugin")")")")
+                continue
+              fi
+              _poly_input=$(printf '{"tool_name":"%s","tool_input":%s}' \
+                "$(_json_escape "$TOOL_NAME")" "$TOOL_INPUT")
+              plugin_result=$(printf '%s' "$_poly_input" | \
+                env -i HOME="$HOME" PATH="$PATH" TMPDIR="${TMPDIR:-/tmp}" \
+                timeout 5 "$plugin" 2>/dev/null) \
+                || plugin_result="CRASHED"
+              # Convert JSON response to 4-line format for existing parser
+              if [ "$plugin_result" != "CRASHED" ] && [ -n "$plugin_result" ]; then
+                plugin_result=$(printf '%s' "$plugin_result" | jq -r '
+                  (.name // "polyglot"), (if .passed == false then "false" else "true" end),
+                  ((.reason // "") | gsub("\n"; " ")), (.decision // "deny")' 2>/dev/null) || plugin_result="CRASHED"
+              fi
+              ;;
+          esac
+
+          if [ "$plugin_result" = "CRASHED" ] || [ -z "$plugin_result" ]; then
+            RESULTS+=("$(printf '{"name":"Plugin:%s","tier":6,"score":0,"passed":true,"detail":"Plugin crashed, skipped"}' \
+              "$(_json_escape "$(basename "$plugin")")")")
+            continue
+          fi
+
+          # Parse results (each plugin func outputs 4 lines: name, passed, reason, decision)
+          while IFS= read -r func_name && IFS= read -r p_passed && IFS= read -r p_reason && IFS= read -r p_decision; do
+            [ -n "$func_name" ] || continue
+            if [ "$p_passed" = "false" ]; then
+              case "${p_decision:-deny}" in
+                deny)
+                  BLOCKED=true
+                  BLOCK_REASON="$p_reason"
+                  BLOCK_DECISION="deny"
+                  ;;
+                ask)
+                  if [ "$BLOCKED" != true ]; then
+                    if [ "$BLOCK_DECISION" = "ask" ]; then
+                      # Aggregate "ask" reasons from multiple tiers
+                      BLOCK_REASON="${BLOCK_REASON}; ${p_reason}"
+                    else
+                      BLOCK_DECISION="ask"
+                      BLOCK_REASON="$p_reason"
+                    fi
+                  fi
+                  ;;
+                warn)
+                  if [ -n "$WARN_REASON" ]; then
+                    WARN_REASON="${WARN_REASON}; ${p_reason}"
+                  else
+                    WARN_REASON="$p_reason"
+                  fi
+                  ;;
+              esac
+            fi
+            _p_score=0.9; [ "$p_passed" = "true" ] && _p_score=0
+            RESULTS+=("$(printf '{"name":"Plugin:%s","tier":6,"score":%s,"passed":%s,"detail":"%s"}' \
+              "$(_json_escape "$func_name")" "$_p_score" "$p_passed" "$(_json_escape "$p_reason")")")
+          done <<< "$plugin_result"
+        done
+      fi
+    fi
+
+    # --- Tier 7: Semantic (LLM-based) ---
+    if [ "$BLOCKED" = false ] && [ "$_CFG_SEMANTIC_ENABLED" != "false" ]; then
+      if ! semantic_eval "$TOOL_NAME" "$TOOL_INPUT"; then
+        BLOCKED=true
+        BLOCK_REASON="$SEMANTIC_REASON"
+        BLOCK_DECISION="deny"
+      fi
+      _sem_score=0.8; [ "$SEMANTIC_PASSED" = "true" ] && _sem_score=0
+      RESULTS+=("$(printf '{"name":"SemanticEvaluator","tier":7,"score":%s,"passed":%s,"detail":"%s"}' \
+        "$_sem_score" "$SEMANTIC_PASSED" "$(_json_escape "$SEMANTIC_REASON")")")
+    fi
+
+    # --- Dispatch decision ---
+    END_NS=$(date +%s%N)
+    LATENCY_MS=$(( (END_NS - START_NS) / 1000000 ))
+
+    if [ "$BLOCKED" = true ]; then
+      DECISION="$BLOCK_DECISION"
+      REASON=$(format_denial "$BLOCK_REASON" "${RESULTS[@]}")
+    elif [ "$BLOCK_DECISION" = "ask" ]; then
+      # Rules said "ask" but no plugin/semantic escalated to deny
+      DECISION="ask"
+      REASON=$(format_denial "$BLOCK_REASON" "${RESULTS[@]}")
+    elif [ -n "$WARN_REASON" ]; then
+      DECISION="warn"
+      REASON="$WARN_REASON"
+    else
+      DECISION="allow"
+      REASON=""
+    fi
+
+    # --- Return decision (before bookkeeping to avoid broken pipe under concurrency) ---
+    case "$DECISION" in
+      deny|ask)
+        printf '{"decision":"%s","reason":"%s"}\n' "$DECISION" "$(_json_escape "$REASON")"
+        ;;
+      warn)
+        printf '{"decision":"warn","warn":"%s"}\n' "$(_json_escape "$WARN_REASON")"
+        ;;
+      *)
+        echo '{"decision":"allow"}'
+        ;;
+    esac
+
+    # Close stdout so socat delivers response immediately
+    exec 1>&-
+
+    # --- Write trace entry (pass cached timestamp) ---
+    write_trace "$_NOW_ISO" "$TOOL_NAME" "$TOOL_INPUT" "$DECISION" "$REASON" "$LATENCY_MS" "PreToolUse" "$TOOL_USE_ID" "${RESULTS[@]}" || true
+
+    # cumulative_record removed from hot path — qualitative metrics now derived from traces
+    ;;
+
+  PostToolUse)
+    # === TIER 9: ResultTransform ===
+
+    # Extract tool result text from various shapes
+    TOOL_RESULT_TEXT=$(printf '%s' "$REQUEST" | jq -r '
+      (.tool_response // .tool_result) |
+      if type == "string" then .
+      elif type == "array" then map(if type == "object" then (.text // .content // "") elif type == "string" then . else "" end) | join("\n")
+      elif type == "object" then (.stdout // .content // .text // tostring)
+      else tostring end' 2>/dev/null)
+
+    # Detect user-denied ask: tool_response/tool_result is null/missing/empty
+    _USER_DENIED="false"
+    _tool_resp_type=$(printf '%s' "$REQUEST" | jq -r '
+      (.tool_response // .tool_result) |
+      if . == null then "null"
+      elif . == "" then "empty"
+      elif . == {} then "empty"
+      elif type == "array" and length == 0 then "empty"
+      else "present" end' 2>/dev/null)
+    if [ "$_tool_resp_type" = "null" ] || [ "$_tool_resp_type" = "empty" ]; then
+      _USER_DENIED="true"
+    fi
+
+    # Track output tokens in budget (tracking only, no denial — tool already ran)
+    budget_eval "$TOOL_RESULT_TEXT" "$_NOW_EPOCH" "true" "output" "$SESSION_ID"
+
+    # Run Tier 9 evaluator (skip if result_transform disabled)
+    if [ "$_CFG_RESULT_TRANSFORM_ENABLED" != "false" ]; then
+      result_transform_eval "$TOOL_NAME" "$TOOL_RESULT_TEXT" || true
+    else
+      RESULT_TRANSFORM_PASSED=true
+      RESULT_TRANSFORM_REASON="Skipped (disabled)"
+      RESULT_TRANSFORM_ACTION="allow"
+      RESULT_TRANSFORM_COMPLIANCE="[]"
+      RESULT_TRANSFORM_DETECTIONS="[]"
+      RESULT_TRANSFORM_CONTENT=""
+    fi
+
+    RESULTS=()
+    _rt_score=1; [ "$RESULT_TRANSFORM_PASSED" = "true" ] && _rt_score=0
+    RESULTS+=("$(printf '{"name":"ResultTransform","tier":9,"score":%d,"passed":%s,"action":"%s","detail":"%s","compliance":%s,"detections":%s}' \
+      "$_rt_score" "$RESULT_TRANSFORM_PASSED" "$(_json_escape "$RESULT_TRANSFORM_ACTION")" "$(_json_escape "$RESULT_TRANSFORM_REASON")" "$RESULT_TRANSFORM_COMPLIANCE" "$RESULT_TRANSFORM_DETECTIONS")")
+
+    END_NS=$(date +%s%N)
+    LATENCY_MS=$(( (END_NS - START_NS) / 1000000 ))
+
+    if [ "$RESULT_TRANSFORM_PASSED" = true ]; then
+      DECISION="allow"
+    else
+      DECISION="deny"
+    fi
+
+    # --- Return response (before bookkeeping to avoid broken pipe under concurrency) ---
+    if [ "$RESULT_TRANSFORM_ACTION" = "block" ]; then
+      printf '{"decision":"deny","reason":"%s"}\n' "$(_json_escape "$RESULT_TRANSFORM_REASON")"
+    elif [ "$RESULT_TRANSFORM_ACTION" = "warn" ]; then
+      printf '{"decision":"allow","warn":"%s"}\n' "$(_json_escape "$RESULT_TRANSFORM_REASON")"
+    elif [ "$RESULT_TRANSFORM_ACTION" = "redact" ] && [ -n "$RESULT_TRANSFORM_CONTENT" ]; then
+      printf '{"decision":"allow","warn":"%s","transformed_content":"%s"}\n' \
+        "$(_json_escape "$RESULT_TRANSFORM_REASON")" "$(_json_escape "$RESULT_TRANSFORM_CONTENT")"
+    else
+      echo '{"decision":"allow"}'
+    fi
+
+    # Close stdout so socat delivers response immediately
+    exec 1>&-
+
+    # --- Write trace entry (pass cached timestamp) ---
+    _TRACE_USER_DENIED="$_USER_DENIED"
+    write_trace "$_NOW_ISO" "$TOOL_NAME" "$TOOL_INPUT" "$DECISION" "$RESULT_TRANSFORM_REASON" "$LATENCY_MS" "PostToolUse" "$TOOL_USE_ID" "${RESULTS[@]}" || true
+    ;;
+
+  *)
+    # Security: unknown hook events must NOT bypass the pipeline
+    echo '{"decision":"deny","reason":"[LaneKeep] Unknown hook event type: '"$HOOK_EVENT"'"}'
+    ;;
+esac

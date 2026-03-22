@@ -1,0 +1,11 @@
+{
+  "budget": {
+    "max_actions": 500,
+    "timeout_seconds": 3600,
+    "max_total_actions": 100
+  },
+  "evaluators": {
+    "codediff": { "enabled": false },
+    "budget": { "enabled": true }
+  }
+}

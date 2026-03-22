@@ -1,0 +1,191 @@
+#!/usr/bin/env bats
+# Tests for bin/lanekeep-handler — full evaluation pipeline
+
+setup() {
+  LANEKEEP_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export LANEKEEP_DIR
+
+  # Create temp dir for test state/config
+  TEST_TMP="$(mktemp -d)"
+  export LANEKEEP_CONFIG_FILE="$TEST_TMP/lanekeep.json"
+  export LANEKEEP_STATE_FILE="$TEST_TMP/state.json"
+  export LANEKEEP_TASKSPEC_FILE="$TEST_TMP/taskspec.json"
+  export LANEKEEP_TRACE_FILE="$TEST_TMP/.lanekeep/traces/test.jsonl"
+  export LANEKEEP_SESSION_ID="test-handler"
+  mkdir -p "$TEST_TMP/.lanekeep/traces"
+
+  # Copy default config
+  cp "$LANEKEEP_DIR/defaults/lanekeep.json" "$LANEKEEP_CONFIG_FILE"
+
+  # Initialize state with low action count
+  printf '{"action_count":0,"start_epoch":%s}\n' "$(date +%s)" > "$LANEKEEP_STATE_FILE"
+}
+
+teardown() {
+  rm -rf "$TEST_TMP" ; return 0
+}
+
+@test "Read tool is allowed with default config" {
+  output=$(echo '{"tool_name":"Read","tool_input":{"file_path":"x"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "allow" ]
+}
+
+@test "Bash rm -rf is blocked" {
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /home/user/project"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "deny" ]
+}
+
+@test "Tool not in allowlist denied by SchemaEvaluator" {
+  # Restrictive taskspec: only Read, Grep, Glob allowed
+  cp "$LANEKEEP_DIR/tests/fixtures/taskspec-restrictive.json" "$LANEKEEP_TASKSPEC_FILE"
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"ls"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [ "$decision" = "deny" ]
+  [[ "$reason" == *"SchemaEvaluator"* ]]
+}
+
+@test "Write with secret denied by RuleEngine" {
+  output=$(jq -c '.' "$LANEKEEP_DIR/tests/fixtures/hook-request-write-secret.json" | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [ "$decision" = "deny" ]
+  [[ "$reason" == *"RuleEngine"* ]]
+}
+
+@test "Budget exceeded denied by BudgetEvaluator" {
+  # Set state with count=10, config with max=10
+  cp "$LANEKEEP_DIR/tests/fixtures/taskspec-budget.json" "$LANEKEEP_TASKSPEC_FILE"
+  printf '{"action_count":10,"start_epoch":%s}\n' "$(date +%s)" > "$LANEKEEP_STATE_FILE"
+  output=$(echo '{"tool_name":"Read","tool_input":{"file_path":"x"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [ "$decision" = "deny" ]
+  [[ "$reason" == *"BudgetEvaluator"* ]]
+}
+
+@test "Malformed JSON input denied" {
+  output=$(echo 'not json at all' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [ "$decision" = "deny" ]
+  [[ "$reason" == *"Malformed"* ]]
+}
+
+@test "Empty stdin denied" {
+  output=$(echo '' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [ "$decision" = "deny" ]
+  [[ "$reason" == *"Empty"* ]]
+}
+
+@test "Bash terraform apply is denied" {
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"terraform apply -auto-approve"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "deny" ]
+}
+
+@test "Bash terraform destroy is denied" {
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"terraform destroy -auto-approve"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "deny" ]
+}
+
+@test "Bash pulumi up is denied" {
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"pulumi up --yes"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "deny" ]
+}
+
+@test "Bash cdk deploy is denied" {
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"cdk deploy MyStack"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "deny" ]
+}
+
+@test "Bash tofu apply is denied" {
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"tofu apply -auto-approve"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "deny" ]
+}
+
+@test "Bash aws s3 rm is denied" {
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"aws s3 rm s3://my-bucket --recursive"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "deny" ]
+}
+
+@test "Bash aws s3 ls is still ask" {
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"aws s3 ls s3://my-bucket"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "ask" ]
+}
+
+@test "Bash helm uninstall is denied" {
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"helm uninstall my-release"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "deny" ]
+}
+
+@test "Bash dropdb is denied" {
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"dropdb production_db"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "deny" ]
+}
+
+@test "Bash terraform state rm is denied" {
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"terraform state rm aws_instance.web"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "deny" ]
+}
+
+# --- InputPII integration tests ---
+
+@test "Write with SSN triggers InputPII ask decision" {
+  output=$(echo '{"tool_name":"Write","tool_input":{"file_path":"data.txt","content":"Employee SSN: 123-45-6789"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [ "$decision" = "ask" ]
+  [[ "$reason" == *"InputPII"* ]]
+}
+
+@test "Read with SSN in path does NOT trigger InputPII" {
+  output=$(echo '{"tool_name":"Read","tool_input":{"file_path":"ssn-123-45-6789.txt"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "allow" ]
+}
+
+@test "Write with clean content passes InputPII" {
+  output=$(echo '{"tool_name":"Write","tool_input":{"file_path":"hello.txt","content":"Hello, world!"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "allow" ]
+}
+
+@test "Rules ask + Schema deny = deny (not ask)" {
+  # Restrictive taskspec: Bash not allowed → Schema will deny
+  # aws s3 ls triggers rules "ask", but Schema denial must override to "deny"
+  cp "$LANEKEEP_DIR/tests/fixtures/taskspec-restrictive.json" "$LANEKEEP_TASKSPEC_FILE"
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"aws s3 ls s3://my-bucket"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "deny" ]
+}
+
+@test "Rules ask + Budget deny = deny (not ask)" {
+  # Budget exceeded: action_count=10, max=10 → Budget will deny
+  # aws s3 ls triggers rules "ask", but Budget denial must override to "deny"
+  cp "$LANEKEEP_DIR/tests/fixtures/taskspec-budget.json" "$LANEKEEP_TASKSPEC_FILE"
+  printf '{"action_count":10,"start_epoch":%s}\n' "$(date +%s)" > "$LANEKEEP_STATE_FILE"
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"aws s3 ls s3://my-bucket"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "deny" ]
+}
+
+@test "Multi-line pretty-printed JSON compacted and parsed" {
+  # Send raw multi-line JSON — handler must normalize it internally
+  output=$(printf '{\n  "tool_name": "Read",\n  "tool_input": {\n    "file_path": "test.txt"\n  }\n}\n' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "allow" ]
+}

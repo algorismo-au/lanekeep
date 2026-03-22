@@ -1,0 +1,167 @@
+{
+  "rules": [
+    {
+      "match": {
+        "command": "ls"
+      },
+      "decision": "allow",
+      "reason": "ls allowed",
+      "category": "safe",
+      "type": "free"
+    }
+  ],
+  "policies": {
+    "extensions": {
+      "default": "deny",
+      "allowed": [
+        ".py",
+        ".sh",
+        ".md",
+        ".json",
+        ".txt"
+      ],
+      "denied": [],
+      "type": "free"
+    },
+    "repos": {
+      "default": "allow",
+      "allowed": [],
+      "denied": [
+        "evilorg"
+      ],
+      "type": "free"
+    },
+    "domains": {
+      "default": "allow",
+      "allowed": [],
+      "denied": [
+        "evil\\.com",
+        "malware\\.net"
+      ],
+      "type": "free"
+    },
+    "ips": {
+      "default": "allow",
+      "allowed": [],
+      "denied": [
+        "10\\.",
+        "192\\.168\\."
+      ],
+      "type": "free"
+    },
+    "paths": {
+      "default": "allow",
+      "allowed": [],
+      "denied": [
+        "/etc/",
+        "\\.github/workflows"
+      ],
+      "type": "free"
+    },
+    "commands": {
+      "default": "allow",
+      "allowed": [],
+      "denied": [
+        "^telnet\\b",
+        "^wget\\b"
+      ],
+      "type": "free"
+    },
+    "branches": {
+      "default": "allow",
+      "allowed": [],
+      "denied": [
+        "\\bmain\\b"
+      ],
+      "type": "free"
+    },
+    "ports": {
+      "default": "allow",
+      "allowed": [],
+      "denied": [
+        ":22\\b"
+      ],
+      "type": "free"
+    },
+    "protocols": {
+      "default": "allow",
+      "allowed": [],
+      "denied": [
+        "ftp://"
+      ],
+      "type": "free"
+    },
+    "registries": {
+      "default": "allow",
+      "allowed": [],
+      "denied": [
+        "--registry\\s"
+      ],
+      "type": "free"
+    },
+    "arguments": {
+      "default": "allow",
+      "allowed": [],
+      "denied": [
+        "--force\\b",
+        "--no-verify\\b",
+        "--insecure\\b"
+      ],
+      "type": "free"
+    },
+    "packages": {
+      "default": "allow",
+      "allowed": [],
+      "denied": [
+        "malicious-pkg",
+        "evil-module"
+      ],
+      "type": "free"
+    },
+    "docker": {
+      "default": "allow",
+      "allowed": [],
+      "denied": [
+        "--privileged",
+        "evil-image"
+      ],
+      "type": "free"
+    },
+    "env_vars": {
+      "default": "allow",
+      "allowed": [],
+      "denied": [
+        "AWS_SECRET_ACCESS_KEY",
+        "DATABASE_URL"
+      ],
+      "type": "free"
+    },
+    "governance_paths": {
+      "enabled": true,
+      "default": "allow",
+      "denied": ["claude\\.md$", "\\.claude/"],
+      "allowed": [],
+      "type": "free"
+    },
+    "shell_configs": {
+      "enabled": true,
+      "default": "allow",
+      "denied": ["\\.bashrc$", "\\.zshrc$", "\\.bash_profile$", "\\.zprofile$", "\\.profile$", "\\.zshenv$"],
+      "allowed": [],
+      "type": "free"
+    },
+    "registry_configs": {
+      "enabled": true,
+      "default": "allow",
+      "denied": ["\\.npmrc$", "\\.yarnrc", "pip\\.conf$", "\\.gemrc$"],
+      "allowed": [],
+      "type": "free"
+    }
+  },
+  "hard_blocks": [],
+  "budget": {
+    "max_actions": 500,
+    "max_tokens": null,
+    "timeout_seconds": 3600
+  }
+}

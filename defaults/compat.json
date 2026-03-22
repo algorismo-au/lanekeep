@@ -1,0 +1,19 @@
+{
+  "platforms": {
+    "claude-code": {
+      "min": "2.0.0",
+      "tested": "2.1.70",
+      "adapter": "evaluate.sh",
+      "hook_format": "json_stdout",
+      "notes": "Uses hookSpecificOutput JSON on stdout for decisions"
+    },
+    "cursor": {
+      "min": "0.45.0",
+      "tested": "0.48.0",
+      "adapter": "cursor-eval.sh",
+      "post_adapter": "cursor-post-eval.sh",
+      "hook_format": "exit_code",
+      "notes": "Exit code 0 = allow, 2 = deny. Reasons go to stderr."
+    }
+  }
+}

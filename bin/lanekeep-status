@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# lanekeep-status — Output governance state as JSON to stdout
+set -euo pipefail
+
+LANEKEEP_DIR="${LANEKEEP_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+PROJECT_DIR="${LANEKEEP_PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
+
+# --- Config Stack ---
+DEFAULTS_PATH="$LANEKEEP_DIR/defaults/lanekeep.json"
+USER_PATH="$PROJECT_DIR/lanekeep.json"
+STATE_PATH="$PROJECT_DIR/.lanekeep/state.json"
+TRACE_DIR="$PROJECT_DIR/.lanekeep/traces"
+
+defaults_rules=0
+defaults_version="?"
+if [ -f "$DEFAULTS_PATH" ]; then
+  defaults_rules=$(jq '.rules | length' "$DEFAULTS_PATH" 2>/dev/null || echo 0)
+  defaults_version=$(jq -r '.version // "?"' "$DEFAULTS_PATH" 2>/dev/null || echo "?")
+fi
+
+user_overrides=0
+user_profile="default"
+if [ -f "$USER_PATH" ]; then
+  user_overrides=$(jq '.rules | length' "$USER_PATH" 2>/dev/null || echo 0)
+  user_profile=$(jq -r '.profile // "default"' "$USER_PATH" 2>/dev/null || echo "default")
+fi
+
+# Env overrides
+env_json="{}"
+for var in LANEKEEP_MAX_ACTIONS LANEKEEP_MAX_TOKENS LANEKEEP_TIMEOUT_SECONDS LANEKEEP_PROFILE LANEKEEP_ENV LANEKEEP_SEMANTIC_ENABLED; do
+  val="${!var:-}"
+  if [ -n "$val" ]; then
+    env_json=$(echo "$env_json" | jq --arg k "$var" --arg v "$val" '. + {($k): $v}')
+  fi
+done
+
+# --- Budget ---
+actions=0
+elapsed_seconds=0
+if [ -f "$STATE_PATH" ]; then
+  actions=$(jq '.action_count // 0' "$STATE_PATH" 2>/dev/null || echo 0)
+  elapsed_seconds=$(jq '.elapsed_seconds // 0' "$STATE_PATH" 2>/dev/null || echo 0)
+fi
+max_actions="${LANEKEEP_MAX_ACTIONS:-200}"
+timeout_seconds="${LANEKEEP_TIMEOUT_SECONDS:-86400}"
+max_minutes=$(( timeout_seconds / 60 ))
+elapsed_min=$(echo "scale=1; $elapsed_seconds / 60" | bc 2>/dev/null || echo 0)
+
+# --- Session ---
+trace_file="none"
+trace_entries=0
+trace_denies=0
+trace_asks=0
+if [ -d "$TRACE_DIR" ]; then
+  latest=$(find "$TRACE_DIR" -maxdepth 1 -name '*.jsonl' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+  if [ -n "$latest" ]; then
+    trace_file=$(basename "$latest")
+    trace_entries=$(wc -l < "$latest" 2>/dev/null | tr -d ' ')
+    trace_denies=$(grep -c '"decision":"deny"' "$latest" 2>/dev/null || echo 0)
+    trace_asks=$(grep -c '"decision":"ask"' "$latest" 2>/dev/null || echo 0)
+  fi
+fi
+tier="${LANEKEEP_LICENSE_TIER:-community}"
+
+# --- File Map ---
+file_exists() {
+  if [[ "$1" == *"*"* ]]; then
+    # shellcheck disable=SC2086
+    [ -n "$(ls $1 2>/dev/null | head -1)" ] && echo true || echo false
+  else
+    [ -e "$1" ] && echo true || echo false
+  fi
+}
+
+claude_settings="$HOME/.claude/settings.json"
+
+# --- Output ---
+jq -n \
+  --arg dp "$DEFAULTS_PATH" --argjson dr "$defaults_rules" --arg dv "$defaults_version" \
+  --arg up "$USER_PATH" --argjson uo "$user_overrides" --arg prof "$user_profile" \
+  --argjson env "$env_json" \
+  --argjson act "$actions" --argjson ma "$max_actions" --arg em "$elapsed_min" --argjson mm "$max_minutes" \
+  --arg tf "$trace_file" --argjson te "$trace_entries" --argjson td "$trace_denies" --argjson ta "$trace_asks" \
+  --arg tier "$tier" \
+  --arg sp "$STATE_PATH" --arg trd "$TRACE_DIR/*.jsonl" \
+  --arg hook "$LANEKEEP_DIR/hooks/evaluate.sh" --arg handler "$LANEKEEP_DIR/bin/lanekeep-handler" \
+  --arg plugdir "$LANEKEEP_DIR/plugins.d" --arg evalglob "$LANEKEEP_DIR/lib/eval-*.sh" \
+  --arg cs "$claude_settings" \
+  --argjson dp_ex "$(file_exists "$DEFAULTS_PATH")" \
+  --argjson up_ex "$(file_exists "$USER_PATH")" \
+  --argjson sp_ex "$(file_exists "$STATE_PATH")" \
+  --argjson tr_ex "$(file_exists "$TRACE_DIR/*.jsonl")" \
+  --argjson hk_ex "$(file_exists "$LANEKEEP_DIR/hooks/evaluate.sh")" \
+  --argjson hd_ex "$(file_exists "$LANEKEEP_DIR/bin/lanekeep-handler")" \
+  --argjson pd_ex "$(file_exists "$LANEKEEP_DIR/plugins.d")" \
+  --argjson eg_ex "$(file_exists "$LANEKEEP_DIR/lib/eval-*.sh")" \
+  --argjson cs_ex "$(file_exists "$claude_settings")" \
+  '{
+    config: {
+      defaults: { path: $dp, rules: $dr, version: $dv },
+      user: { path: $up, overrides: $uo, profile: $prof },
+      env: $env
+    },
+    budget: { actions: $act, max_actions: $ma, elapsed_min: ($em | tonumber), max_minutes: $mm },
+    session: { trace_file: $tf, entries: $te, denies: $td, asks: $ta, tier: $tier, platform: "claude-code" },
+    file_map: [
+      { path: $dp, note: "Base ruleset -- default rules and limits", exists: $dp_ex },
+      { path: $up, note: "Project overrides -- your custom rules and profile", exists: $up_ex },
+      { path: $sp, note: "Live budget counters -- actions, tokens, wall-clock", exists: $sp_ex },
+      { path: $trd, note: "Audit trail -- append-only decision log", exists: $tr_ex },
+      { path: $hook, note: "Hook entry point -- called by Claude Code on each tool use", exists: $hk_ex },
+      { path: $handler, note: "Evaluator pipeline -- routes tool calls through tiers", exists: $hd_ex },
+      { path: $plugdir, note: "Plugin directory -- custom evaluator modules", exists: $pd_ex },
+      { path: $evalglob, note: "Evaluator modules -- hardblock, schema, codediff, budget, semantic", exists: $eg_ex },
+      { path: $cs, note: "Claude Code config -- where LaneKeep hook is registered", exists: $cs_ex }
+    ]
+  }'

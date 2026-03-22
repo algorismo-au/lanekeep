@@ -1,0 +1,8 @@
+{
+  "tool_name": "terminal",
+  "tool_input": {
+    "command": "echo hello"
+  },
+  "hook_event_name": "PreToolUse",
+  "platform": "cursor"
+}

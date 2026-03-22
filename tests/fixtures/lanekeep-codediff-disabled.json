@@ -1,0 +1,10 @@
+{
+  "evaluators": {
+    "codediff": {
+      "enabled": false,
+      "secret_patterns": ["sk-"],
+      "destructive_patterns": ["rm -rf"],
+      "dangerous_git_patterns": ["push --force"]
+    }
+  }
+}

@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LANEKEEP_DIR="${LANEKEEP_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+PROJECT_DIR="${PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
+TRACE_DIR="$PROJECT_DIR/.lanekeep/traces"
+
+# --- clear subcommand ---
+if [ "${1:-}" = "clear" ]; then
+  source "$LANEKEEP_DIR/lib/trace.sh"
+  shift
+
+  retention_days=0
+  max_sessions=0
+  keep_current=true
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --older-than)
+        shift
+        # Parse duration: strip trailing 'd', require integer
+        val="${1:-}"
+        val="${val%d}"
+        if ! [[ "$val" =~ ^[0-9]+$ ]]; then
+          echo "Invalid duration: ${1:-}. Use e.g. 7d or 30d." >&2
+          exit 1
+        fi
+        retention_days="$val"
+        keep_current=true
+        shift
+        ;;
+      --all)
+        retention_days=0
+        max_sessions=0
+        keep_current=false
+        shift
+        ;;
+      *)
+        echo "Unknown option: $1" >&2
+        exit 1
+        ;;
+    esac
+  done
+
+  if [ ! -d "$TRACE_DIR" ]; then
+    echo "No trace files found."
+    exit 0
+  fi
+
+  # Log the clear event (best-effort)
+  if [ -n "${LANEKEEP_TRACE_FILE:-}" ]; then
+    write_policy_event "trace_clear" "" "maintenance" "${USER:-unknown}" \
+      "retention_days=$retention_days max_sessions=$max_sessions keep_current=$keep_current" || true
+  fi
+
+  prune_traces "$TRACE_DIR" "$retention_days" "$max_sessions" "$keep_current" "${LANEKEEP_SESSION_ID:-}"
+
+  if [ "$PRUNE_DELETED" -eq 0 ]; then
+    echo "No trace files to clear."
+  else
+    # Human-readable size
+    if [ "$PRUNE_FREED_BYTES" -ge 1048576 ]; then
+      freed="$((PRUNE_FREED_BYTES / 1048576)) MB"
+    elif [ "$PRUNE_FREED_BYTES" -ge 1024 ]; then
+      freed="$((PRUNE_FREED_BYTES / 1024)) KB"
+    else
+      freed="$PRUNE_FREED_BYTES bytes"
+    fi
+    echo "Cleared $PRUNE_DELETED file(s), freed $freed."
+  fi
+  exit 0
+fi
+
+# --- view subcommand (existing behavior) ---
+
+# Find latest trace file
+if [ ! -d "$TRACE_DIR" ]; then
+  echo "No trace files found in $TRACE_DIR" >&2
+  exit 1
+fi
+
+# Safe file discovery: avoid parsing ls output (M3)
+LATEST=""
+while IFS= read -r -d '' f; do
+  if [ -z "$LATEST" ] || [ "$f" -nt "$LATEST" ]; then
+    LATEST="$f"
+  fi
+done < <(find "$TRACE_DIR" -maxdepth 1 -name '*.jsonl' -print0 2>/dev/null)
+
+if [ -z "$LATEST" ]; then
+  echo "No trace files found in $TRACE_DIR" >&2
+  exit 1
+fi
+
+case "${1:-}" in
+  --follow)
+    tail -f "$LATEST" | jq --unbuffered -c '.'
+    ;;
+  --all)
+    jq '.' "$LATEST"
+    ;;
+  --filter)
+    jq --arg dec "${2:-deny}" 'select(.decision == $dec)' "$LATEST"
+    ;;
+  *)
+    tail -n 50 "$LATEST" | jq '.'
+    ;;
+esac

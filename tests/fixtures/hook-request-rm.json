@@ -1,0 +1,10 @@
+{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "rm -rf /home/user/project"
+  },
+  "tool_use_id": "toolu_04JKL",
+  "session_id": "sess_test_001",
+  "cwd": "/home/user/project"
+}

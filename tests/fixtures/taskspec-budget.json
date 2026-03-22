@@ -1,0 +1,9 @@
+{
+  "goal": "Budget-constrained task",
+  "allowed_tools": [],
+  "denied_tools": [],
+  "budget": {
+    "max_actions": 10,
+    "timeout_seconds": 60
+  }
+}

@@ -1,0 +1,2422 @@
+{
+  "profile": "guided",
+  "autoformat": {
+    "enabled": true,
+    "exclude_patterns": [
+      ".*\\.min\\.js$",
+      "vendor/.*"
+    ]
+  },
+  "budget": {
+    "max_actions": 500,
+    "max_input_tokens": 250000,
+    "max_output_tokens": 250000,
+    "max_tokens": 500000,
+    "max_total_actions": 10000,
+    "max_total_input_tokens": 5000000,
+    "max_total_output_tokens": 5000000,
+    "max_total_time_seconds": 1728000,
+    "max_total_tokens": 10000000,
+    "timeout_seconds": 86400
+  },
+  "evaluators": {
+    "codediff": {
+      "enabled": true,
+      "secret_patterns": [
+        "AKIA",
+        "sk-",
+        "password",
+        "secret",
+        "ghp_",
+        "gho_",
+        "xoxb-",
+        "xoxp-",
+        "glpat-"
+      ],
+      "destructive_patterns": [
+        "rm -rf",
+        "DROP ",
+        "TRUNCATE ",
+        "DELETE FROM",
+        "> /dev/"
+      ],
+      "dangerous_git_patterns": [
+        "push --force",
+        "push -f",
+        "reset --hard",
+        "clean -fd",
+        "branch -D",
+        "--no-verify",
+        "reflog expire"
+      ],
+      "destructive_regex": [
+        "\\brm\\b(?=.*(\\s-[a-z]*r[a-z]*[\\s\"]|\\s--recursive[\\s\"]))(?=.*(\\s-[a-z]*f[a-z]*[\\s\"]|\\s--force[\\s\"]))"
+      ],
+      "dangerous_git_regex": [
+        "\\bgit\\s+push\\b(?=.*\\s(--force[\\s\"]|-[a-z]*f[\\s\"]))",
+        "\\bgit\\s+reset\\b(?=.*\\s--hard[\\s\"])",
+        "\\bgit\\s+clean\\b(?=.*\\s-[a-z]*f[a-z]*[\\s\"])(?=.*\\s-[a-z]*d[a-z]*[\\s\"])"
+      ],
+      "deny_patterns": [
+        "sudo ",
+        "chmod 777",
+        "chmod 666",
+        "chmod +s",
+        "--no-preserve-root",
+        "dd if=",
+        "--privileged",
+        "--disable-content-trust",
+        "--no-sandbox",
+        "--trusted-host",
+        "npm publish",
+        "npm unpublish",
+        "npm token create",
+        "npm owner add",
+        "npm owner rm",
+        "cargo publish",
+        "gem push",
+        "kubectl delete",
+        "| bash",
+        "| sh",
+        "eval \"$(curl",
+        "source <(curl",
+        "find -delete",
+        "find -exec rm",
+        "find -execdir rm",
+        "truncate -s 0",
+        "fdisk",
+        "parted",
+        "gdisk",
+        "insmod ",
+        "rmmod ",
+        "modprobe -r",
+        "sysctl -w",
+        "visudo",
+        "chattr",
+        "usermod ",
+        "useradd ",
+        "userdel ",
+        "nc -e",
+        "ncat -e",
+        "> /etc/passwd",
+        "> /etc/shadow",
+        "fallocate -l",
+        "xargs rm",
+        "setcap ",
+        "docker system prune",
+        "filter-branch",
+        "NOPASSWD",
+        "GRANT ALL",
+        "badblocks -w",
+        "hdparm --security-erase"
+      ],
+      "sensitive_paths": [
+        "/.ssh/",
+        "/.env",
+        "/credentials.",
+        "/.aws/",
+        "/.gnupg/",
+        "/.kube/config",
+        "/etc/shadow",
+        "/etc/passwd",
+        "/etc/sudoers",
+        "/proc/sysrq",
+        "/boot/",
+        "/dev/mem",
+        "/proc/sys/"
+      ],
+      "ask_patterns": [
+        "git commit -a",
+        "commit --amend",
+        "checkout -- .",
+        "git stash drop",
+        "git stash clear",
+        "git rebase",
+        "curl ",
+        "wget ",
+        "ssh ",
+        "scp ",
+        "nc ",
+        "ncat ",
+        "netcat ",
+        "socat ",
+        "docker run",
+        "docker exec",
+        "aws ",
+        "gcloud ",
+        "az ",
+        "origin/main",
+        "origin/master",
+        "npm install",
+        "npm add",
+        "yarn add",
+        "pnpm add",
+        "pip install",
+        "pip3 install",
+        "cargo add",
+        "go get ",
+        "gem install",
+        "curl -k",
+        "--insecure",
+        "--no-check-certificate",
+        "--allow-unrelated-histories",
+        "npm set registry",
+        "composer require",
+        "brew install",
+        "rsync ",
+        "chown ",
+        "passwd",
+        "su -",
+        "npm link",
+        "npm deprecate"
+      ],
+      "protected_dirs": [
+        ".github/",
+        ".gitlab-ci",
+        ".circleci/",
+        "infra/",
+        "terraform/",
+        "cloudformation/",
+        "arm-templates/",
+        "cdk.out/",
+        "pulumi/",
+        ".helm/",
+        "k8s/",
+        "Dockerfile",
+        "docker-compose",
+        ".git/config",
+        ".git/hooks",
+        ".vscode/",
+        ".cursor/",
+        ".code-workspace",
+        ".cursorignore",
+        ".cursorrules",
+        ".idea/",
+        ".devcontainer/",
+        ".gitmodules",
+        ".gitattributes",
+        "CLAUDE.md",
+        ".claude/",
+        ".bashrc",
+        ".zshrc",
+        ".bash_profile",
+        ".zprofile",
+        ".profile",
+        ".zshenv",
+        ".npmrc",
+        ".yarnrc",
+        "pip.conf",
+        ".gemrc",
+        "lanekeep/bin/",
+        "lanekeep/lib/",
+        "lanekeep/hooks/",
+        "lanekeep/defaults/",
+        ".lanekeep/"
+      ],
+      "safe_exceptions": [
+        {
+          "command_contains": "rm",
+          "target_contains": "node_modules",
+          "reason": "Safe cleanup"
+        },
+        {
+          "command_contains": "rm",
+          "target_contains": "/tmp/",
+          "reason": "Temp file cleanup"
+        }
+      ],
+      "hidden_chars": {
+        "enabled": true,
+        "patterns": [
+          "[\\x{200B}\\x{200C}\\x{200D}\\x{200E}\\x{200F}]",
+          "[\\x{202A}\\x{202B}\\x{202C}\\x{202D}\\x{202E}]",
+          "[\\x{2066}\\x{2067}\\x{2068}\\x{2069}]",
+          "[\\x{2060}\\x{2061}\\x{2062}\\x{2063}\\x{2064}]",
+          "[\\x{00AD}]",
+          "[\\x{FEFF}]",
+          "[\\x{FFF9}\\x{FFFA}\\x{FFFB}]"
+        ]
+      },
+      "homoglyphs": {
+        "enabled": true,
+        "patterns": [
+          "[\\x{0400}-\\x{04FF}]",
+          "[\\x{0370}-\\x{03FF}]"
+        ]
+      }
+    },
+    "budget": {
+      "enabled": true
+    },
+    "semantic": {
+      "enabled": false,
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "api_key_env": "ANTHROPIC_API_KEY",
+      "timeout": 5,
+      "on_error": "deny",
+      "tools": [
+        "Bash",
+        "Write",
+        "Edit"
+      ],
+      "sample_rate": 1.0
+    },
+    "input_pii": {
+      "enabled": true,
+      "on_detect": "ask",
+      "tools": [
+        "Write",
+        "Edit",
+        "Bash"
+      ],
+      "pii_patterns": [
+        "[0-9]{3}-[0-9]{2}-[0-9]{4}",
+        "[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}",
+        "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}",
+        "[(]?[0-9]{3}[)]?[- .][0-9]{3}[- .][0-9]{4}"
+      ],
+      "compliance_by_category": {
+        "pii": [
+          "HIPAA §164.502",
+          "GDPR Art.5(1)(f)",
+          "GDPR Art.32(1)(a)",
+          "AU Privacy Act APP 6",
+          "AU Privacy Act APP 11.1"
+        ]
+      }
+    },
+    "result_transform": {
+      "enabled": true,
+      "on_detect": "redact",
+      "injection_patterns": [
+        "ignore previous instructions",
+        "you are now",
+        "system prompt:",
+        "<system>",
+        "</system>",
+        "forget everything",
+        "new instructions:",
+        "DAN mode",
+        "act as if",
+        "override your instructions",
+        "disregard all previous",
+        "you must now",
+        "pretend to be",
+        "from now on you",
+        "assume the role",
+        "bypass your restrictions",
+        "jailbreak",
+        "developer mode",
+        "do anything now",
+        "ignore your safety",
+        "act without restrictions",
+        "forget your training",
+        "new system prompt:",
+        "you are evil",
+        "no ethical restrictions"
+      ],
+      "secret_patterns": [
+        "AKIA[0-9A-Z]{16}",
+        "sk-[a-zA-Z0-9]{20,}",
+        "ghp_[a-zA-Z0-9]{36}",
+        "-----BEGIN.*PRIVATE KEY",
+        "eyJ[a-zA-Z0-9]{20,}",
+        "(password|passwd|pwd)[[:space:]]*[=:][[:space:]]*[^[:space:]]+",
+        "(secret|api_key|apikey|api_secret)[[:space:]]*[=:][[:space:]]*[^[:space:]]+",
+        "(access_token|auth_token|bearer)[[:space:]]*[=:][[:space:]]*[^[:space:]]+"
+      ],
+      "hidden_char_patterns": [
+        "[\\x{200B}\\x{200C}\\x{200D}\\x{200E}\\x{200F}]",
+        "[\\x{202A}\\x{202B}\\x{202C}\\x{202D}\\x{202E}]",
+        "[\\x{2066}\\x{2067}\\x{2068}\\x{2069}]",
+        "[\\x{2060}\\x{2061}\\x{2062}\\x{2063}\\x{2064}]",
+        "[\\x{00AD}]",
+        "[\\x{FEFF}]",
+        "[\\x{FFF9}\\x{FFFA}\\x{FFFB}]",
+        "\\x1b\\["
+      ],
+      "css_hiding_patterns": [
+        "display\\s*:\\s*none",
+        "visibility\\s*:\\s*hidden",
+        "opacity\\s*:\\s*0(?:[;\\s}]|$)",
+        "font-size\\s*:\\s*0(?:px|em|rem|%)?(?![0-9.])",
+        "color\\s*:\\s*(?:white|#fff(?:fff)?|rgba?\\s*\\([^)]*,\\s*0\\s*\\))\\s*[;}]",
+        "position\\s*:\\s*(?:absolute|fixed)[^}]*left\\s*:\\s*-[0-9]{4,}",
+        "position\\s*:\\s*(?:absolute|fixed)[^}]*top\\s*:\\s*-[0-9]{4,}",
+        "clip\\s*:\\s*rect\\s*\\(\\s*0",
+        "text-indent\\s*:\\s*-[0-9]{4,}",
+        "transform\\s*:\\s*translate[XY]?\\s*\\(\\s*-[0-9]{4,}",
+        "clip-path\\s*:\\s*(?:polygon\\s*\\(\\s*(?:0[\\s,]+){3,}|inset\\s*\\(\\s*100%)",
+        "(?:width|height)\\s*:\\s*0(?:px)?\\s*;[^}]*overflow\\s*:\\s*hidden",
+        "letter-spacing\\s*:\\s*-[0-9]{4,}",
+        "line-height\\s*:\\s*0(?:px|em|rem|%)?(?:[;}\\s]|$)",
+        "position\\s*:\\s*(?:absolute|fixed)[^}]*bottom\\s*:\\s*-[0-9]{4,}",
+        "position\\s*:\\s*(?:absolute|fixed)[^}]*right\\s*:\\s*-[0-9]{4,}",
+        "text-shadow\\s*:\\s*-?[0-9]{4,}(?:px)?\\s"
+      ],
+      "html_comment_injection_patterns": [
+        "<!--[^>]*(?:ignore|disregard|forget|instead|new instructions|system prompt|you are now|DAN mode)[^>]*-->"
+      ],
+      "compliance_by_category": {
+        "injection": [
+          "PCI-DSS 6.2.4",
+          "GDPR Art.32(1)(a)"
+        ],
+        "secret": [
+          "PCI-DSS 6.2.4",
+          "GDPR Art.32(1)(a)",
+          "AU Privacy Act APP 11.1"
+        ],
+        "hidden_char": [
+          "CWE-1007",
+          "OWASP A05:2025"
+        ],
+        "css_hiding": [
+          "CWE-1007",
+          "OWASP A05:2025"
+        ],
+        "html_injection": [
+          "CWE-1007",
+          "CWE-79",
+          "OWASP A05:2025"
+        ]
+      },
+      "max_result_bytes": 1048576,
+      "truncate_at": 524288,
+      "tools": [],
+      "policy_scan": {
+        "enabled": true,
+        "categories": [
+          "domains",
+          "ips"
+        ]
+      }
+    },
+    "hidden_text": {
+      "enabled": true,
+      "ansi": {
+        "enabled": true,
+        "decision": "deny",
+        "patterns": [
+          "\\\\x1b\\[",
+          "\\\\033\\[",
+          "\\\\e\\["
+        ]
+      },
+      "css_hiding": {
+        "enabled": true,
+        "decision": "ask",
+        "patterns": [
+          "display\\s*:\\s*none",
+          "visibility\\s*:\\s*hidden",
+          "opacity\\s*:\\s*0(?:[;\\s}]|$)",
+          "font-size\\s*:\\s*0(?:px|em|rem|%)?(?![0-9.])",
+          "color\\s*:\\s*(?:white|#fff(?:fff)?|rgba?\\s*\\([^)]*,\\s*0\\s*\\))\\s*[;}]",
+          "position\\s*:\\s*(?:absolute|fixed)[^}]*left\\s*:\\s*-[0-9]{4,}",
+          "position\\s*:\\s*(?:absolute|fixed)[^}]*top\\s*:\\s*-[0-9]{4,}",
+          "clip\\s*:\\s*rect\\s*\\(\\s*0",
+          "text-indent\\s*:\\s*-[0-9]{4,}",
+          "transform\\s*:\\s*translate[XY]?\\s*\\(\\s*-[0-9]{4,}",
+          "clip-path\\s*:\\s*(?:polygon\\s*\\(\\s*(?:0[\\s,]+){3,}|inset\\s*\\(\\s*100%)",
+          "(?:width|height)\\s*:\\s*0(?:px)?\\s*;[^}]*overflow\\s*:\\s*hidden",
+          "letter-spacing\\s*:\\s*-[0-9]{4,}",
+          "line-height\\s*:\\s*0(?:px|em|rem|%)?(?:[;}\\s]|$)",
+          "position\\s*:\\s*(?:absolute|fixed)[^}]*bottom\\s*:\\s*-[0-9]{4,}",
+          "position\\s*:\\s*(?:absolute|fixed)[^}]*right\\s*:\\s*-[0-9]{4,}",
+          "text-shadow\\s*:\\s*-?[0-9]{4,}(?:px)?\\s"
+        ]
+      },
+      "html_injection": {
+        "enabled": true,
+        "decision": "ask",
+        "patterns": [
+          "<!--[^>]*(?:ignore|disregard|forget|instead|new instructions|system prompt|you are now|DAN mode|jailbreak|bypass|override)[^>]*-->",
+          "<meta[^>]*(?:ignore|disregard|system|prompt|instruction|override|bypass)[^>]*>",
+          "<div[^>]*(?:display:\\s*none|visibility:\\s*hidden|opacity:\\s*0)[^>]*>[^<]*(?:ignore|forget|disregard|instruction|system prompt|override|bypass)",
+          "<span[^>]*(?:display:\\s*none|visibility:\\s*hidden|opacity:\\s*0|font-size:\\s*0)[^>]*>[^<]*(?:ignore|forget|disregard|instruction|override|bypass)",
+          "(?://|#|/\\*)\\s*(?:SYSTEM OVERRIDE|NEW INSTRUCTIONS|IGNORE ABOVE|ADMIN MODE|ENTERING SYSTEM)(?:\\s|\\*/|$)",
+          "\\[\\w+\\]:\\s*#\\s*\\([^)]*(?:ignore|disregard|forget|instruction|override|bypass|system prompt)[^)]*\\)"
+        ]
+      }
+    }
+  },
+  "hard_blocks": [
+    "rm -rf /",
+    "rm -rf ~",
+    "DROP TABLE",
+    "DROP DATABASE",
+    "TRUNCATE",
+    "git push --force",
+    "git push -f",
+    "git reset --hard",
+    "git clean -fd",
+    "| bash",
+    "| sh",
+    "eval \"$(curl",
+    "shutdown",
+    "reboot",
+    "mkfs",
+    "> /dev/sd",
+    "dd if=",
+    ":(){ :|:&};:",
+    "killall -9",
+    "export LD_PRELOAD=",
+    "export HISTFILE=/dev/null",
+    "iptables -F",
+    "iptables --flush",
+    "crontab -r",
+    "kill -9 1",
+    "dd of=/dev/sd",
+    "dd of=/dev/nvme",
+    "find -delete",
+    "find . -delete",
+    "find / -delete",
+    "shred ",
+    "wipefs",
+    "bash -i >& /dev/tcp/",
+    "/proc/sysrq",
+    "rm -rf .",
+    "rm -rf *",
+    "badblocks -w",
+    "hdparm --security-erase",
+    "/dev/mem"
+  ],
+  "hard_blocks_regex": [
+    "\\brm\\b(?=.*(\\s-[a-z]*r[a-z]*[\\s\"]|\\s--recursive[\\s\"]))(?=.*(\\s-[a-z]*f[a-z]*[\\s\"]|\\s--force[\\s\"])).*\\s/",
+    "\\brm\\b(?=.*(\\s-[a-z]*r[a-z]*[\\s\"]|\\s--recursive[\\s\"]))(?=.*(\\s-[a-z]*f[a-z]*[\\s\"]|\\s--force[\\s\"])).*\\s~",
+    "\\bgit\\s+push\\b(?=.*\\s(--force[\\s\"]|-[a-z]*f[\\s\"]))",
+    "\\w+\\(\\)\\s*\\{\\s*\\w+\\s*\\|\\s*\\w+\\s*&"
+  ],
+  "notifications": {
+    "enabled": true,
+    "on_stop": true,
+    "min_session_seconds": 30,
+    "platforms": {
+      "linux": true,
+      "macos": true,
+      "windows": true
+    }
+  },
+  "policies": {
+    "tools": {
+      "enabled": true,
+      "default": "allow",
+      "allowed": [],
+      "denied": [],
+      "type": "free"
+    },
+    "governance_paths": {
+      "enabled": true,
+      "default": "allow",
+      "denied": [
+        "claude\\.md$",
+        "\\.claude/",
+        "lanekeep\\.json$",
+        "lanekeep/bin/",
+        "lanekeep/lib/",
+        "lanekeep/hooks/",
+        "lanekeep/defaults/",
+        "\\.lanekeep/",
+        "lanekeep/plugins\\.d/"
+      ],
+      "allowed": []
+    },
+    "shell_configs": {
+      "enabled": true,
+      "default": "allow",
+      "denied": [
+        "\\.bashrc$",
+        "\\.zshrc$",
+        "\\.bash_profile$",
+        "\\.zprofile$",
+        "\\.profile$",
+        "\\.zshenv$"
+      ],
+      "allowed": []
+    },
+    "registry_configs": {
+      "enabled": true,
+      "default": "allow",
+      "denied": [
+        "\\.npmrc$",
+        "\\.yarnrc",
+        "pip\\.conf$",
+        "\\.gemrc$"
+      ],
+      "allowed": []
+    },
+    "mcp_servers": {
+      "enabled": true,
+      "default": "allow",
+      "allowed": [],
+      "denied": [],
+      "type": "free"
+    },
+    "hidden_chars": {
+      "enabled": true,
+      "default": "deny",
+      "denied": [
+        "[\\x{200B}\\x{200C}\\x{200E}\\x{200F}]",
+        "[\\x{202A}-\\x{202E}]",
+        "[\\x{2066}-\\x{2069}]",
+        "[\\x{2060}-\\x{2064}]",
+        "[\\x{00AD}]",
+        "[\\x{FEFF}]",
+        "[\\x{FFF9}-\\x{FFFB}]"
+      ],
+      "allowed": []
+    },
+    "packages": {
+      "enabled": true,
+      "default": "allow",
+      "allowed": [],
+      "denied": [],
+      "type": "free"
+    },
+    "registries": {
+      "enabled": true,
+      "default": "allow",
+      "allowed": [],
+      "denied": [],
+      "type": "free"
+    },
+    "ips": {
+      "enabled": true,
+      "default": "allow",
+      "allowed": [],
+      "denied": [
+        "^169\\.254\\.",
+        "^127\\."
+      ],
+      "type": "free"
+    },
+    "domains": {
+      "enabled": true,
+      "default": "allow",
+      "allowed": [],
+      "denied": [
+        "evilcorp\\.com",
+        "idontwanttousethiswebsite\\.com"
+      ],
+      "type": "free"
+    }
+  },
+  "rules": [
+    {
+      "id": "sys-001",
+      "match": {
+        "command": "rm",
+        "target": "node_modules"
+      },
+      "decision": "allow",
+      "reason": "Safe cleanup",
+      "category": "system",
+      "type": "free",
+      "intent": "Allow removing node_modules as a safe project cleanup operation"
+    },
+    {
+      "id": "sys-002",
+      "match": {
+        "command": "rm",
+        "target": "/tmp/"
+      },
+      "decision": "allow",
+      "reason": "Temp file cleanup",
+      "category": "system",
+      "type": "free",
+      "intent": "Allow removing temporary files under /tmp/ as routine cleanup"
+    },
+    {
+      "id": "warn-001",
+      "match": {
+        "command": "rm",
+        "target": "dist|build"
+      },
+      "decision": "warn",
+      "reason": "Build output cleanup — verify no uncommitted artifacts",
+      "category": "system",
+      "intent": "Removing dist/ or build/ is routine but worth flagging since it deletes compiled output that may take time to regenerate",
+      "type": "free"
+    },
+    {
+      "id": "sys-003",
+      "match": {
+        "pattern": "\\brm\\b(?=.*(\\s-[a-z]*r[a-z]*[\\s\"]|\\s--recursive[\\s\"]))(?=.*(\\s-[a-z]*f[a-z]*[\\s\"]|\\s--force[\\s\"]))"
+      },
+      "decision": "deny",
+      "reason": "Recursive force delete blocked",
+      "category": "system",
+      "intent": "Recursive force-delete bypasses confirmation and can destroy entire directory trees in one shot",
+      "type": "free"
+    },
+    {
+      "id": "sys-006",
+      "match": {
+        "pattern": "\\b(shutdown|reboot)\\b"
+      },
+      "decision": "deny",
+      "reason": "System power control blocked",
+      "category": "system",
+      "intent": "AI agents must not control host power state — this disrupts all running work",
+      "type": "free"
+    },
+    {
+      "id": "sys-008",
+      "match": {
+        "pattern": "\\b(mkfs)\\b|>\\s*/dev/sd|\\bdd\\b.*\\b(if=|of=/dev/(sd|nvme|vd|hd|xvd))"
+      },
+      "decision": "deny",
+      "reason": "Disk format or raw device write blocked",
+      "category": "system",
+      "intent": "Formatting disks or writing directly to block devices destroys all data — never appropriate in a dev context",
+      "type": "free"
+    },
+    {
+      "id": "sys-011",
+      "match": {
+        "pattern": "\\bchmod\\b\\s+(777|666)"
+      },
+      "decision": "deny",
+      "reason": "Insecure permissions blocked",
+      "category": "system",
+      "intent": "World-writable files let any user or process modify them, breaking access control boundaries",
+      "compliance": [
+        "PCI-DSS 7.1",
+        "HIPAA §164.312(a)(1)",
+        "AU Privacy Act APP 11.1"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "sys-013",
+      "match": {
+        "pattern": "(--no-preserve-root|\\bchmod\\b\\s+\\+s|--privileged|--disable-content-trust|--no-sandbox)"
+      },
+      "decision": "deny",
+      "reason": "Dangerous security override blocked",
+      "category": "system",
+      "intent": "Flags that disable safety mechanisms (preserve-root, setuid, container isolation, sandbox, content trust) must never be used by AI agents",
+      "type": "free",
+      "compliance": [
+        "PCI-DSS 7.1",
+        "NIST SP800-53 AC-6",
+        "NIST SP800-53 SC-39",
+        "NIST SP800-53 SR-3"
+      ]
+    },
+    {
+      "id": "sys-032",
+      "match": {
+        "pattern": "\\b(bash|sh|zsh|chmod\\s+\\+x|source|\\./|python[23]?|node|ruby|perl)\\b\\s+.*((/tmp/|/var/tmp/|\\$tmpdir))"
+      },
+      "decision": "deny",
+      "reason": "Executing from temp directory blocked — bypasses content evaluators",
+      "category": "system",
+      "intent": "Writing a script to /tmp bypasses Write/Edit content scanning, then executing it runs unscanned code",
+      "type": "free"
+    },
+    {
+      "id": "sys-042",
+      "match": {
+        "pattern": "\\biptables\\b.*\\s(-F|--flush)\\b|\\bcrontab\\b.*\\s-r\\b|\\bkill\\b.*\\s-9\\s+1\\b"
+      },
+      "decision": "deny",
+      "reason": "Critical system control operation blocked",
+      "category": "system",
+      "intent": "Flushing firewall rules, removing all cron jobs, or killing init/systemd destabilizes the host",
+      "type": "free"
+    },
+    {
+      "id": "sys-046",
+      "match": {
+        "pattern": "\\bfind\\b.*((-delete|-exec(dir)?\\s+(rm|shred|truncate)\\b)|\\|.*xargs\\s.*(\\brm\\b|\\bshred\\b|\\btruncate\\b))"
+      },
+      "decision": "deny",
+      "reason": "Mass file destruction via find pipeline blocked",
+      "category": "system",
+      "intent": "Using find with -delete, -exec rm/shred/truncate, or piping to xargs achieves uncontrolled mass file destruction",
+      "type": "free"
+    },
+    {
+      "id": "sys-053",
+      "match": {
+        "command": "shred",
+        "pattern": "\\bshred\\b"
+      },
+      "decision": "deny",
+      "reason": "shred blocked — irrecoverable file destruction",
+      "category": "system",
+      "intent": "shred overwrites file contents with random data before unlinking — data cannot be recovered even with forensic tools",
+      "type": "free"
+    },
+    {
+      "id": "sys-054",
+      "match": {
+        "pattern": "\\btruncate\\b.*-s\\s*0"
+      },
+      "decision": "deny",
+      "reason": "truncate -s 0 blocked — zeroes out file contents",
+      "category": "system",
+      "intent": "truncate -s 0 empties files in place while preserving the inode — damage is silent and hard to detect",
+      "type": "free"
+    },
+    {
+      "id": "sys-055",
+      "match": {
+        "pattern": "\\b(fdisk|parted|gdisk)\\b"
+      },
+      "decision": "deny",
+      "reason": "Partition table manipulation blocked",
+      "category": "system",
+      "intent": "Partition tools modify disk layout — can destroy filesystem structure and cause total data loss",
+      "type": "free"
+    },
+    {
+      "id": "sys-058",
+      "match": {
+        "command": "wipefs",
+        "pattern": "\\bwipefs\\b"
+      },
+      "decision": "deny",
+      "reason": "wipefs blocked — filesystem signature wipe",
+      "category": "system",
+      "intent": "wipefs erases filesystem signatures from block devices — makes partitions unrecognizable",
+      "type": "free"
+    },
+    {
+      "id": "sys-059",
+      "match": {
+        "pattern": "\\bbash\\s+-i\\s*>.*/dev/(tcp|udp)|\\b(nc|ncat|netcat)\\b.*-[a-z]*e\\s+/bin/(sh|bash)"
+      },
+      "decision": "deny",
+      "reason": "Reverse shell blocked",
+      "category": "system",
+      "intent": "Redirecting interactive bash to /dev/tcp or using netcat -e to spawn shells are classic reverse shell techniques",
+      "compliance": [
+        "CWE-78"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "sys-061",
+      "match": {
+        "pattern": "/proc/sysrq"
+      },
+      "decision": "deny",
+      "reason": "Kernel sysrq trigger access blocked",
+      "category": "system",
+      "intent": "/proc/sysrq-trigger can force reboot, crash dump, OOM kill, or remount filesystems — kernel-level destructive control",
+      "type": "free"
+    },
+    {
+      "id": "sys-062",
+      "match": {
+        "pattern": "\\b(insmod|rmmod)\\b|\\bmodprobe\\b.*(-r|--remove)"
+      },
+      "decision": "deny",
+      "reason": "Kernel module manipulation blocked",
+      "category": "system",
+      "intent": "Loading or removing kernel modules can introduce rootkits, crash the kernel, or disable security features",
+      "type": "free"
+    },
+    {
+      "id": "sys-065",
+      "match": {
+        "pattern": "\\bsysctl\\b.*(-w|--write)|\\bchattr\\b|\\bvisudo\\b"
+      },
+      "decision": "deny",
+      "reason": "System configuration modification blocked",
+      "category": "system",
+      "intent": "Modifying kernel parameters, file attributes, or sudoers can destabilize the system or grant unauthorized access",
+      "type": "free",
+      "compliance": [
+        "CWE-269"
+      ]
+    },
+    {
+      "id": "sys-068",
+      "match": {
+        "pattern": "\\b(usermod|useradd|userdel)\\b|\\bchown\\b.*-R\\s.*\\s/"
+      },
+      "decision": "deny",
+      "reason": "User account or mass ownership change blocked",
+      "category": "system",
+      "intent": "User account manipulation can create backdoors; recursive chown on system paths breaks filesystem permissions",
+      "compliance": [
+        "CWE-269"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "sys-070",
+      "match": {
+        "pattern": "\\bln\\b.*-[a-z]*s.*\\s/dev/null|\\bmv\\b.*\\s/dev/null"
+      },
+      "decision": "deny",
+      "reason": "Redirect to /dev/null blocked — silent data destruction",
+      "category": "system",
+      "intent": "Symlinking or moving files to /dev/null silently discards all data — used to disable logging or destroy config",
+      "type": "free"
+    },
+    {
+      "id": "sys-071",
+      "match": {
+        "pattern": "(>\\s*|tee\\s+)/etc/(passwd|shadow|sudoers|fstab|resolv\\.conf)|>\\s*/proc/sys/"
+      },
+      "decision": "deny",
+      "reason": "System file or kernel parameter overwrite blocked",
+      "category": "system",
+      "intent": "Overwriting critical system files or /proc/sys/ can lock out users, break name resolution, or alter kernel behavior",
+      "type": "free",
+      "compliance": [
+        "CWE-269"
+      ]
+    },
+    {
+      "id": "sys-072",
+      "match": {
+        "pattern": "\\w+\\(\\)\\s*\\{\\s*\\w+\\s*\\|\\s*\\w+\\s*&"
+      },
+      "decision": "deny",
+      "reason": "Fork bomb pattern blocked — recursive process spawning",
+      "category": "system",
+      "intent": "Functions that pipe to themselves with background execution create exponential process growth — exhausts system resources in seconds",
+      "type": "free"
+    },
+    {
+      "id": "sys-078",
+      "match": {
+        "pattern": "\\bmv\\b\\s+(/\\s|~\\s)"
+      },
+      "decision": "deny",
+      "reason": "Moving root or home directory blocked",
+      "category": "system",
+      "intent": "Moving / or ~ relocates the entire filesystem or home directory — catastrophic data loss",
+      "type": "free"
+    },
+    {
+      "id": "sys-079",
+      "match": {
+        "pattern": "\\bxargs\\b.*(\\brm\\b|\\b(sh|bash|zsh)\\b\\s+-c)"
+      },
+      "decision": "deny",
+      "reason": "Dangerous xargs pipeline blocked",
+      "category": "system",
+      "intent": "Piping into xargs rm enables mass deletion; xargs sh -c enables arbitrary command execution on each input line",
+      "type": "free"
+    },
+    {
+      "id": "sys-081",
+      "match": {
+        "pattern": "\\bbadblocks\\b.*-w|\\bhdparm\\b.*--security-erase"
+      },
+      "decision": "deny",
+      "reason": "Destructive disk operation blocked",
+      "category": "system",
+      "intent": "badblocks -w performs destructive write testing; hdparm --security-erase triggers firmware-level disk wipe — both destroy all data",
+      "type": "free"
+    },
+    {
+      "id": "sys-083",
+      "match": {
+        "pattern": "/dev/mem"
+      },
+      "decision": "deny",
+      "reason": "Physical memory access blocked",
+      "category": "system",
+      "intent": "Direct access to /dev/mem allows reading or writing physical RAM — can extract secrets or corrupt the kernel",
+      "type": "free"
+    },
+    {
+      "id": "sys-084",
+      "match": {
+        "pattern": "\\bperl\\b.*\\bfork\\b.*\\bwhile\\b.*\\bfork\\b|\\bpython[23]?\\b.*\\bos\\.fork\\b"
+      },
+      "decision": "deny",
+      "reason": "Fork bomb pattern blocked",
+      "category": "system",
+      "intent": "Recursive fork patterns in Perl or Python exhaust the process table and crash the system",
+      "type": "free"
+    },
+    {
+      "id": "sys-010",
+      "match": {
+        "command": "sudo "
+      },
+      "decision": "deny",
+      "reason": "Sudo not permitted",
+      "category": "system",
+      "intent": "AI agents should operate with least privilege — escalation expands blast radius of any mistake",
+      "type": "free"
+    },
+    {
+      "id": "sys-026",
+      "match": {
+        "pattern": "(\\bcurl\\b.*\\s-[a-z]*k[a-z]*[\\s\"]|--insecure|--no-check-certificate)"
+      },
+      "decision": "ask",
+      "reason": "TLS verification bypass — confirm this is intentional",
+      "category": "system",
+      "intent": "Flags that skip certificate verification enable man-in-the-middle attacks on network traffic",
+      "type": "free"
+    },
+    {
+      "id": "sys-029",
+      "match": {
+        "command": "base64"
+      },
+      "decision": "ask",
+      "reason": "Base64 encoding/decoding — confirm this is intentional",
+      "category": "system",
+      "intent": "Base64 can be used to obfuscate data exfiltration or bypass content filters",
+      "type": "free"
+    },
+    {
+      "id": "sys-034",
+      "match": {
+        "tool": "Bash",
+        "pattern": "\\b(printenv)\\b|\\b(export\\s+-p|declare\\s+-p|declare\\s+-x|compgen\\s+-v)\\b|\\benv\\b(?!\\s+\\w+=)"
+      },
+      "decision": "ask",
+      "reason": "Environment variable dump detected — may expose API keys and secrets",
+      "category": "system",
+      "intent": "Commands that dump environment variables expose API keys, DB credentials, and tokens into agent context",
+      "type": "free"
+    },
+    {
+      "id": "sys-037",
+      "match": {
+        "tool": "Bash",
+        "pattern": "\\b(xxd|uuencode|uudecode)\\b|openssl\\s+(enc|s_client|pkeyutl)"
+      },
+      "decision": "ask",
+      "reason": "Binary encoding or crypto operation — may obfuscate content past scanners",
+      "category": "system",
+      "intent": "Hex/UU encoding and openssl operations can transform data into forms that bypass content-based security scanning",
+      "type": "free"
+    },
+    {
+      "id": "sys-039",
+      "match": {
+        "tool": "^Bash$",
+        "pattern": "\\$'\\\\+x[0-9a-fA-F]{2}|%[0-9a-fA-F]{2}.*%[0-9a-fA-F]{2}|\\$'\\\\+[0-7]{3}"
+      },
+      "decision": "ask",
+      "reason": "Encoded escape sequence detected — confirm intent",
+      "category": "system",
+      "intent": "Hex, URL-encoded, and octal escape sequences can obfuscate dangerous operations to evade pattern matching",
+      "type": "free"
+    },
+    {
+      "id": "sys-073",
+      "match": {
+        "command": "passwd",
+        "pattern": "\\bpasswd\\b"
+      },
+      "decision": "ask",
+      "reason": "Password change requires approval",
+      "category": "system",
+      "intent": "passwd modifies user authentication credentials — verify the target account and purpose",
+      "type": "free"
+    },
+    {
+      "id": "sys-074",
+      "match": {
+        "pattern": "\\bsu\\s+(-|--login|root)"
+      },
+      "decision": "ask",
+      "reason": "Switch user requires approval",
+      "category": "system",
+      "intent": "su - opens a root login shell — grants full system access that persists after the command",
+      "type": "free"
+    },
+    {
+      "id": "sys-075",
+      "match": {
+        "command": "chown",
+        "pattern": "\\bchown\\b"
+      },
+      "decision": "ask",
+      "reason": "Ownership change requires approval",
+      "category": "system",
+      "intent": "chown changes file ownership — can affect access control and security boundaries",
+      "type": "free"
+    },
+    {
+      "id": "sys-076",
+      "match": {
+        "command": "fallocate",
+        "pattern": "\\bfallocate\\b.*-l"
+      },
+      "decision": "ask",
+      "reason": "Large file allocation requires approval",
+      "category": "system",
+      "intent": "fallocate preallocates disk space — large allocations can exhaust disk and cause denial of service",
+      "type": "free"
+    },
+    {
+      "id": "sys-086",
+      "match": {
+        "pattern": "\\b(kill|pkill|killall)\\b.*lanekeep"
+      },
+      "decision": "deny",
+      "reason": "Terminating LaneKeep processes is not permitted",
+      "category": "system",
+      "intent": "Killing lanekeep-serve disables governance enforcement — agents must not terminate the sidecar",
+      "type": "free"
+    },
+    {
+      "id": "sys-087",
+      "match": {
+        "pattern": "lanekeep.*\\b(kill|pkill|killall)\\b|\\bkill\\b.*\\$\\("
+      },
+      "decision": "deny",
+      "reason": "Terminating LaneKeep processes is not permitted",
+      "category": "system",
+      "intent": "Catches patterns like `kill $(pgrep lanekeep)` or piped kill commands",
+      "type": "free"
+    },
+    {
+      "id": "sys-088",
+      "match": {
+        "pattern": "\\b(export|env)\\b.*LANEKEEP_(FAIL_POLICY|CONFIG_FILE|DIR|SOCKET)\\b|\\bunset\\b.*LANEKEEP_"
+      },
+      "decision": "deny",
+      "reason": "LaneKeep environment variables must not be modified by agents",
+      "category": "system",
+      "intent": "Env vars control fail policy, config path, and socket location — modification could disable enforcement",
+      "type": "free"
+    },
+    {
+      "id": "warn-005",
+      "match": {
+        "pattern": "\\bchmod\\b.*\\b755\\b"
+      },
+      "decision": "warn",
+      "reason": "Setting executable permissions — verify target file",
+      "category": "system",
+      "intent": "chmod 755 grants world-execute permissions; safe for scripts but worth verifying the target file is intended to be executable",
+      "type": "free"
+    },
+    {
+      "id": "sec-001",
+      "match": {
+        "pattern": "\\b(AKIA[0-9A-Z]{16}|sk-[a-zA-Z0-9]{20,})\\b"
+      },
+      "decision": "deny",
+      "reason": "API key or secret key pattern detected",
+      "category": "secrets",
+      "intent": "Hardcoded AWS keys and API keys in code get committed to repos and leaked — use IAM roles, env vars, or secrets management",
+      "compliance": [
+        "PCI-DSS 3.5.1",
+        "PCI-DSS 6.2.4",
+        "HIPAA §164.312(a)(2)(iv)",
+        "GDPR Art.32(1)(a)",
+        "AU Privacy Act APP 11.1"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "sec-003",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "\\b(password|secret)\\b"
+      },
+      "decision": "deny",
+      "reason": "Password or secret in code detected",
+      "category": "secrets",
+      "intent": "Passwords and secrets in source code persist in git history even after removal — use env vars or vault",
+      "compliance": [
+        "PCI-DSS 6.2.4",
+        "GDPR Art.32(1)(a)",
+        "AU Privacy Act APP 11.1"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "sec-005",
+      "match": {
+        "target": "/(\\.(ssh|env|aws|gnupg)/|credentials|\\.kube/config)"
+      },
+      "decision": "deny",
+      "reason": "Sensitive directory or credential file access blocked",
+      "category": "secrets",
+      "intent": "SSH keys, .env files, AWS config, GPG keyrings, credentials, and kubeconfig contain authentication material — access risks leaking them into conversation context",
+      "compliance": [
+        "PCI-DSS 6.2.4",
+        "GDPR Art.32(1)(a)",
+        "AU Privacy Act APP 11.1"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "sec-011",
+      "match": {
+        "pattern": "\\b(cp|mv|rsync|ln)\\b.+(/tmp/|/var/tmp/|\\$TMPDIR)"
+      },
+      "decision": "deny",
+      "reason": "Copy/move from temp directory blocked — bypasses content-based scanning",
+      "category": "security",
+      "intent": "Staging content in /tmp then copying into the project bypasses file-content evaluators that scan Write/Edit payloads",
+      "compliance": [
+        "OWASP CI/CD-SEC-4"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "sec-012",
+      "match": {
+        "pattern": "(cat|less|head|tail|strings)\\s+.*\\.(env|pem|key|secret|credentials|pgpass|netrc).*\\||\\|\\s*(curl|wget|nc|ncat|netcat|socat)\\s|\\$\\{?[a-z_]+\\}?.*\\|\\s*(curl|wget|nc)|\\b(env|printenv|set)\\b.*\\|\\s*(curl|wget|nc|ncat)"
+      },
+      "decision": "deny",
+      "reason": "Data exfiltration pattern blocked",
+      "category": "security",
+      "intent": "Piping secret files or env vars to network commands, or piping data into network tools, is textbook exfiltration",
+      "type": "free",
+      "compliance": [
+        "CWE-200"
+      ]
+    },
+    {
+      "id": "sec-019",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "<\\|im_start\\|>|<\\|im_end\\|>|\\[INST\\]|\\[/INST\\]|<<SYS>>|<</SYS>>|<(access_granted|root_access|admin_mode|legitimate_proven|user_validated|permission_override)[^>]*=\\s*(yes|true|granted)|\\[comment\\]:\\s*#\\s*\\([^)]*(?:ignore|disregard|forget|instruction|override|pretend|bypass|system prompt|you are now)[^)]*\\)"
+      },
+      "decision": "deny",
+      "reason": "Prompt injection content blocked — LLM delimiter tokens, fake auth tags, or hidden comment smuggling",
+      "category": "security",
+      "intent": "ChatML/Llama delimiters, fake XML authorization tags, and markdown hidden comments with injection keywords are memory poisoning and privilege escalation vectors",
+      "compliance": [
+        "CWE-94",
+        "CWE-284",
+        "CWE-1007"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "sec-020",
+      "match": {
+        "pattern": "(?:ignore|disregard|forget|override)\\s+(?:previous|all|your|prior|above)\\s+(?:instructions|rules|guidelines|prompts|context)|(?:you\\s+are\\s+now|pretend\\s+(?:to\\s+be|you\\s+are)|assume\\s+the\\s+role|act\\s+as\\s+if)|(?:new\\s+(?:system\\s)?(?:prompt|instructions)|bypass\\s+your\\s+(?:restrictions|safety|rules))|(?:DAN\\s+mode|developer\\s+mode|do\\s+anything\\s+now|jailbreak|no\\s+ethical\\s+restrictions)|(?:forget\\s+(?:everything|your\\s+training)|act\\s+without\\s+restrictions|ignore\\s+your\\s+safety)"
+      },
+      "decision": "deny",
+      "reason": "Prompt injection detected in tool input",
+      "category": "security",
+      "intent": "Phrases like 'ignore previous instructions' or 'you are now' attempt to override the agent's system prompt — block across all tool types to prevent instruction hijacking",
+      "compliance": [
+        "CWE-94",
+        "CWE-1007"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "sec-028",
+      "match": {
+        "target": "/etc/(shadow|passwd|sudoers)|/boot/",
+        "tool": "^(Bash|Read)$"
+      },
+      "decision": "deny",
+      "reason": "System security file access blocked",
+      "category": "security",
+      "intent": "/etc/shadow, passwd, sudoers contain authentication and privilege data; /boot/ contains kernel images — access risks credential theft or rootkit installation",
+      "type": "free",
+      "compliance": [
+        "CWE-200"
+      ]
+    },
+    {
+      "id": "sec-032",
+      "match": {
+        "pattern": "\\bchmod\\b.*\\s4[0-7]{3}\\b|NOPASSWD|\\bsetcap\\b.*cap_"
+      },
+      "decision": "deny",
+      "reason": "Privilege escalation mechanism blocked",
+      "category": "security",
+      "intent": "Setuid permissions, NOPASSWD in sudoers, and Linux capabilities grant elevated privileges — creates privilege escalation vectors",
+      "type": "free"
+    },
+    {
+      "id": "sec-014",
+      "match": {
+        "pattern": "(gsutil\\s+cp|azcopy\\s+copy|rclone\\s+(copy|sync|move))\\s"
+      },
+      "decision": "ask",
+      "reason": "Cloud upload CLI detected — confirm upload destination and intent",
+      "category": "security",
+      "intent": "Cloud upload CLIs (gsutil, azcopy, rclone) can exfiltrate data to external storage — aws already gated by inf-014",
+      "type": "free"
+    },
+    {
+      "id": "sec-016",
+      "match": {
+        "pattern": "(?i)(roadmap|strateg(y|ic)|competitive|business[_-]?plan|product[_-]?spec|design[_-]?spec|internal[_-]?memo|board[_-]?deck|payroll|salar(y|ies)|financials?[_-]?report|revenue[_-]?report|comp[_-]?band|hr[_-]?data|personnel[_-]?file|customer[_-]?data|client[_-]?list|user[_-]?export|pii[_-]?dump|gdpr[_-]?export|data[_-]?extract)"
+      },
+      "decision": "ask",
+      "reason": "Sensitive business, financial, or customer data detected — confirm sharing with AI",
+      "category": "security",
+      "intent": "Strategic documents, financial/HR data, and customer data files contain non-public information that must not be processed by 3rd-party AI services",
+      "type": "free",
+      "compliance": [
+        "GDPR Art.5(1)(f)",
+        "HIPAA §164.502(a)"
+      ]
+    },
+    {
+      "id": "sec-020a",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(?i)\\[(END|NEW)\\s*SESSION\\]|ENTERING[_\\s]ADMIN|#\\s*NEW\\s*SESSION|#{5,}\\s*$|\\b(ignore|disregard|forget|override|bypass)\\b.{0,30}\\b(previous|prior|above|all|your|my|the|system|safety)\\b.{0,30}\\b(instructions?|prompts?|rules?|guidelines?|restrictions?|directions?|programming|training)\\b"
+      },
+      "decision": "ask",
+      "reason": "Prompt injection pattern in file content — flag for human review",
+      "category": "security",
+      "intent": "Session reset boundaries and instruction override phrases in files can hijack LLM sessions",
+      "compliance": [
+        "CWE-94"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "sec-020b",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(?i)\\byou are now\\b|\\bfrom now on you\\b|\\bassume the role\\b|\\bimagine you are\\b|\\bpretend you (are|have)\\b|\\bact as if you\\b|\\bjailbreak\\b|\\bdo anything now\\b|\\bignore your safety\\b|\\bact without restrictions\\b|\\bno (ethical |moral )?restrictions\\b"
+      },
+      "decision": "ask",
+      "reason": "Prompt injection pattern in file content — flag for human review",
+      "category": "security",
+      "intent": "Persona injection and jailbreak phrases in files can hijack LLM sessions",
+      "compliance": [
+        "CWE-94"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "sec-020c",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(?i)===\\s*END\\s+(?:SYSTEM )?PROMPT\\s*===|\\brole\\b\\s*[:=]\\s*\\b(system|admin|root|superuser)\\b|(1gn0r3|d1sr3gard|f0rg3t|0v3rr1d3|pr3v10us|1nstruct10ns?|syst3m|pr0mpt|by ?p[a4]ss|j[a4]1lbr[e3][a4]k)"
+      },
+      "decision": "ask",
+      "reason": "Prompt injection pattern in file content — flag for human review",
+      "category": "security",
+      "intent": "Fake role structures and leetspeak-encoded injection phrases in files can hijack LLM sessions",
+      "compliance": [
+        "CWE-94"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "git-009",
+      "match": {
+        "pattern": "\\bgit\\s+(push\\b(?=.*\\s(--force[\\s\"]|-[a-z]*f[\\s\"]))|reset\\b(?=.*\\s--hard[\\s\"])|clean\\b(?=.*\\s-[a-z]*f[a-z]*[\\s\"])(?=.*\\s-[a-z]*d[a-z]*[\\s\"])|branch\\s+-D)"
+      },
+      "decision": "deny",
+      "reason": "Destructive git operation blocked",
+      "category": "git",
+      "intent": "Force push, hard reset, clean -fd, and branch -D destroy history or untracked work with no recovery path",
+      "type": "free"
+    },
+    {
+      "id": "git-014",
+      "match": {
+        "command": "--no-verify"
+      },
+      "decision": "deny",
+      "reason": "Bypassing git hooks skips safety checks (Rule 10: review before commit)",
+      "category": "git",
+      "intent": "Git hooks enforce team conventions (linting, tests, secrets scan) — bypassing them defeats shared quality gates",
+      "type": "free"
+    },
+    {
+      "id": "git-015",
+      "match": {
+        "target": ".git/(config|hooks)|.gitmodules|.gitattributes",
+        "tool": "Write|Edit"
+      },
+      "decision": "deny",
+      "reason": "Git internals and metadata files protected",
+      "category": "git",
+      "intent": "Git config, hooks, submodules, and attributes control repository behavior — unauthorized changes enable code injection and supply chain attacks",
+      "type": "free"
+    },
+    {
+      "id": "git-019",
+      "match": {
+        "pattern": "\\b(reflog\\s+expire|filter-branch)\\b"
+      },
+      "decision": "deny",
+      "reason": "Git history destruction blocked",
+      "category": "git",
+      "intent": "Expiring reflogs removes the last-resort recovery mechanism; filter-branch rewrites history and corrupts shared repos",
+      "type": "free"
+    },
+    {
+      "id": "git-022",
+      "match": {
+        "tool": "Bash",
+        "pattern": "gh\\s+pr\\s+(review.*--approve|merge.*--auto|--auto.*merge)"
+      },
+      "decision": "deny",
+      "reason": "AI auto-approval or auto-merge of PRs blocked — human review required",
+      "category": "git",
+      "intent": "AI should never auto-approve or auto-merge pull requests — human review is required for code quality gates",
+      "type": "free"
+    },
+    {
+      "id": "git-024",
+      "match": {
+        "pattern": "\\bgit\\s+push\\b.*\\s:[a-zA-Z]"
+      },
+      "decision": "deny",
+      "reason": "Remote branch deletion via :branch blocked",
+      "category": "git",
+      "intent": "git push :branch deletes the remote branch — can destroy shared work and CI pipelines",
+      "type": "free"
+    },
+    {
+      "id": "git-001",
+      "match": {
+        "pattern": "\\bgit\\s+commit\\b(?=.*\\s(-[a-z]*a[a-z]*[\\s\"]|--all[\\s\"]|--amend[\\s\"]))"
+      },
+      "decision": "ask",
+      "reason": "Commit -a or --amend requires review",
+      "category": "git",
+      "intent": "Committing all changes bypasses selective staging; amending rewrites published history — both need human review",
+      "type": "free"
+    },
+    {
+      "id": "git-003",
+      "match": {
+        "command": "checkout -- ."
+      },
+      "decision": "ask",
+      "reason": "Discards ALL unstaged changes — consider git stash instead (Rule 5)",
+      "category": "git",
+      "intent": "This silently discards every unstaged change in the working tree — there is no undo",
+      "type": "free"
+    },
+    {
+      "id": "git-004",
+      "match": {
+        "pattern": "\\bgit\\s+stash\\s+(drop|clear)\\b"
+      },
+      "decision": "ask",
+      "reason": "Stash destruction is irreversible — confirm you don't need the stashed work",
+      "category": "git",
+      "intent": "Dropping or clearing stashes permanently destroys stashed work — ensure it is no longer needed",
+      "type": "free"
+    },
+    {
+      "id": "git-006",
+      "match": {
+        "command": "git rebase"
+      },
+      "decision": "ask",
+      "reason": "Rebase rewrites history — confirm branch is not shared (Rule 3)",
+      "category": "git",
+      "intent": "Rebase rewrites commit hashes — if the branch is shared, other developers' work will conflict",
+      "type": "free"
+    },
+    {
+      "id": "git-007",
+      "match": {
+        "command": "origin/(main|master)"
+      },
+      "decision": "ask",
+      "reason": "Main/master branch push requires approval",
+      "category": "git",
+      "intent": "Pushing to main/master affects all developers and may trigger production deployments",
+      "type": "free"
+    },
+    {
+      "id": "git-020",
+      "match": {
+        "command": "--allow-unrelated-histories"
+      },
+      "decision": "ask",
+      "reason": "Merging unrelated histories — confirm this is intentional",
+      "category": "git",
+      "intent": "Merging unrelated histories grafts two disconnected repos together — usually a mistake",
+      "type": "free"
+    },
+    {
+      "id": "git-021",
+      "match": {
+        "command": "gh pr merge",
+        "tool": "Bash"
+      },
+      "decision": "ask",
+      "reason": "PR merge via CLI — confirm the PR has been reviewed and approved by a human",
+      "category": "git",
+      "intent": "Merging PRs should require human review — AI-initiated merges bypass the collaborative review process",
+      "type": "free"
+    },
+    {
+      "id": "db-003",
+      "match": {
+        "pattern": "\\b(DROP|TRUNCATE|DELETE FROM)\\b"
+      },
+      "decision": "deny",
+      "reason": "Destructive database operation blocked",
+      "category": "database",
+      "intent": "DROP, TRUNCATE, and DELETE FROM destroy data — schema changes must go through migrations with human review",
+      "compliance": [
+        "PCI-DSS 6.2.4",
+        "GDPR Art.32(1)(b)"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "db-007",
+      "match": {
+        "pattern": "(gcloud sql connect|az sql db connect|aws rds connect)",
+        "tool": "Bash"
+      },
+      "decision": "deny",
+      "reason": "Cloud database connection blocked — use local development databases",
+      "category": "database",
+      "intent": "Cloud CLI database connections target production infrastructure — AI agents must not have direct access to production databases",
+      "type": "free"
+    },
+    {
+      "id": "db-009",
+      "match": {
+        "pattern": "\\bUPDATE\\b\\s+\\w+\\s+SET\\b(?!.*\\bWHERE\\b)"
+      },
+      "decision": "deny",
+      "reason": "UPDATE without WHERE clause blocked",
+      "category": "database",
+      "intent": "UPDATE without WHERE modifies every row in the table — almost always unintended and destructive",
+      "type": "free"
+    },
+    {
+      "id": "db-011",
+      "match": {
+        "pattern": "\\bGRANT\\s+ALL\\b"
+      },
+      "decision": "deny",
+      "reason": "Overprivileged grants blocked",
+      "category": "database",
+      "intent": "GRANT ALL gives maximum database privileges — violates least-privilege principle and creates security risk",
+      "type": "free"
+    },
+    {
+      "id": "db-001",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(\\.raw\\(|cursor\\.execute)"
+      },
+      "decision": "ask",
+      "reason": "Raw SQL or direct cursor execution — ensure parameterized queries are used",
+      "category": "database",
+      "intent": "Raw SQL and direct cursor execution bypass ORM parameterization — verify bind parameters are used to prevent injection",
+      "compliance": [
+        "PCI-DSS 6.2.4"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "db-006",
+      "match": {
+        "tool": "Bash",
+        "pattern": "\\b(psql|mysql|mariadb|mongosh|redis-cli|cqlsh|pg_dump|pg_restore|mysqldump|mongodump|mongorestore)\\b"
+      },
+      "decision": "ask",
+      "reason": "Database client or dump/restore command — confirm target is not production",
+      "category": "database",
+      "intent": "Database clients and dump/restore tools can access or overwrite production data — verify the target environment",
+      "type": "free"
+    },
+    {
+      "id": "db-010",
+      "match": {
+        "pattern": "\\bALTER\\s+TABLE\\b.*\\bDROP\\s+(COLUMN|INDEX|CONSTRAINT)\\b"
+      },
+      "decision": "ask",
+      "reason": "Schema destruction requires approval",
+      "category": "database",
+      "intent": "ALTER TABLE DROP removes schema elements — data loss if column dropped, performance impact if index dropped",
+      "type": "free"
+    },
+    {
+      "id": "net-010",
+      "match": {
+        "command": "socat",
+        "pattern": "\\bsocat\\b.*\\bexec:"
+      },
+      "decision": "deny",
+      "reason": "Socat reverse shell via exec: blocked",
+      "category": "network",
+      "intent": "Socat with exec: spawns a shell process connected to a network socket — classic reverse shell technique",
+      "type": "free"
+    },
+    {
+      "id": "csec-028",
+      "match": {
+        "pattern": "\\b(bash|sh|zsh)\\b\\s+<\\(|\\b(python[23]?|php|ruby|perl|node)\\b.*(\\$\\(curl|`curl)"
+      },
+      "decision": "deny",
+      "reason": "Remote code execution via process substitution or embedded curl blocked",
+      "category": "code-security",
+      "intent": "Shell process substitution and embedding curl subshells/backticks in language invocations enable remote code execution",
+      "type": "free"
+    },
+    {
+      "id": "net-001",
+      "match": {
+        "pattern": "\\b(curl|wget|ssh|scp|socat|rsync)\\b\\s"
+      },
+      "decision": "ask",
+      "reason": "Network request requires approval",
+      "category": "network",
+      "intent": "Outbound network tools can exfiltrate data or fetch untrusted content — verify the target and purpose",
+      "type": "free"
+    },
+    {
+      "id": "net-005",
+      "match": {
+        "pattern": "\\b(nc|ncat|netcat)\\b\\s"
+      },
+      "decision": "ask",
+      "reason": "Netcat requires approval",
+      "category": "network",
+      "intent": "Netcat opens raw network connections — can be used for data exfiltration or reverse shells",
+      "type": "free"
+    },
+    {
+      "id": "dep-000",
+      "match": {
+        "pattern": "(npm|yarn|pnpm) (list|ls|outdated|info|view|show)|(pip|pip3) (list|show|freeze)|(gem list|gem info)|(cargo tree)|brew list"
+      },
+      "decision": "allow",
+      "reason": "Read-only package listing",
+      "category": "dependencies",
+      "intent": "Listing installed packages is safe — no side effects",
+      "enabled": true,
+      "type": "free"
+    },
+    {
+      "id": "dep-014",
+      "match": {
+        "pattern": "(npm|yarn|pnpm)\\s+run\\s+(test|build|start|dev|lint|format|typecheck|check|clean|watch|serve|preview)\\b"
+      },
+      "decision": "allow",
+      "reason": "Standard build/test script",
+      "category": "dependencies",
+      "type": "free",
+      "intent": "Allow standard package manager scripts (test, build, lint, etc.) to run without restriction"
+    },
+    {
+      "id": "dep-012",
+      "match": {
+        "pattern": "(--trusted-host|npm\\s+set\\s+registry)"
+      },
+      "decision": "deny",
+      "reason": "Package registry bypass blocked",
+      "category": "dependencies",
+      "intent": "Bypassing TLS for pip or changing the npm registry can redirect all package installs to a malicious source",
+      "compliance": [
+        "NIST SP800-53 SR-3",
+        "SOC2 CC6.1"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "dep-018",
+      "match": {
+        "target": "package.json",
+        "tool": "Write|Edit",
+        "pattern": "\\b(preinstall|install|postinstall|preuninstall|prepare|prepublish|prepack|postpack)\\b"
+      },
+      "decision": "deny",
+      "reason": "Lifecycle script injection in package.json blocked — auto-executes on npm install",
+      "category": "dependencies",
+      "intent": "npm lifecycle scripts (preinstall, postinstall, prepare) auto-execute on install — a persistence and supply-chain attack vector",
+      "type": "free"
+    },
+    {
+      "id": "dep-020",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(package-lock\\.json|yarn\\.lock|pnpm-lock\\.yaml|gemfile\\.lock|cargo\\.lock|composer\\.lock|poetry\\.lock|go\\.sum|shrinkwrap\\.json)"
+      },
+      "decision": "deny",
+      "reason": "Manual lockfile editing blocked — regenerate via package manager instead",
+      "category": "dependencies",
+      "intent": "AI agents should never manually edit lockfiles — integrity hashes would be invalid and supply chain attacks can inject malicious resolutions",
+      "type": "free"
+    },
+    {
+      "id": "dep-024",
+      "match": {
+        "pattern": "npm\\s+(unpublish|token\\s+(create|revoke)|owner\\s+(add|rm))"
+      },
+      "decision": "deny",
+      "reason": "npm registry operation blocked",
+      "category": "dependencies",
+      "intent": "Unpublishing, token management, and ownership changes are sensitive registry operations that should not be automated by AI agents",
+      "type": "free"
+    },
+    {
+      "id": "dep-027",
+      "match": {
+        "pattern": "npm\\s+(config\\s+set|set)\\s+ignore-scripts[= ]+false"
+      },
+      "decision": "deny",
+      "reason": "Disabling ignore-scripts safety blocked",
+      "category": "dependencies",
+      "intent": "Setting ignore-scripts to false re-enables automatic lifecycle script execution — bypasses a critical supply chain security control",
+      "type": "free"
+    },
+    {
+      "id": "dep-001",
+      "match": {
+        "pattern": "\\b(npm\\s+(install|add)|yarn\\s+add|pnpm\\s+add|pip3?\\s+install|cargo\\s+add|go\\s+get|gem\\s+install|composer\\s+require|brew\\s+install)\\b"
+      },
+      "decision": "ask",
+      "reason": "Dependency install requires approval",
+      "category": "dependencies",
+      "intent": "New dependencies expand the attack surface and can run install scripts with full shell access — verify the package is legitimate",
+      "compliance": [
+        "SOC2 CC6.1",
+        "NIST SP800-53 SR-3"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "dep-015",
+      "match": {
+        "pattern": "(npm|yarn|pnpm)\\s+run\\s|\\bnpx\\s|(npm|yarn|pnpm)\\s+(exec|dlx)\\s"
+      },
+      "decision": "ask",
+      "reason": "Non-standard script or remote package execution — confirm it is safe",
+      "category": "dependencies",
+      "intent": "Non-standard package scripts and npx/exec/dlx download and run code from registries — supply chain risk",
+      "type": "free"
+    },
+    {
+      "id": "dep-019",
+      "match": {
+        "target": "package.json",
+        "tool": "Write|Edit",
+        "pattern": "\\bscripts\\b"
+      },
+      "decision": "ask",
+      "reason": "Modifying package.json scripts section — confirm changes are intentional",
+      "category": "dependencies",
+      "intent": "General scripts modifications are less dangerous than lifecycle hooks but worth reviewing",
+      "type": "free"
+    },
+    {
+      "id": "dep-021",
+      "match": {
+        "pattern": "(rm|mv)\\s+.*(package-lock\\.json|yarn\\.lock|pnpm-lock\\.yaml|gemfile\\.lock|cargo\\.lock|composer\\.lock|poetry\\.lock|go\\.sum)"
+      },
+      "decision": "ask",
+      "reason": "Deleting or moving lockfile — confirm this is intentional cleanup",
+      "category": "dependencies",
+      "intent": "Removing lockfiles may be intentional cleanup but can also break reproducible builds",
+      "type": "free"
+    },
+    {
+      "id": "dep-022",
+      "match": {
+        "command": "--ignore-scripts",
+        "tool": "Bash"
+      },
+      "decision": "ask",
+      "reason": "--ignore-scripts flag detected — security-positive but may break installs",
+      "category": "dependencies",
+      "intent": "The --ignore-scripts flag prevents lifecycle script execution which improves security but can break packages that require post-install steps",
+      "type": "free"
+    },
+    {
+      "id": "dep-023",
+      "match": {
+        "pattern": "npm\\s+link"
+      },
+      "decision": "ask",
+      "reason": "npm link symlinks a global package locally — requires approval",
+      "category": "dependencies",
+      "intent": "npm link creates symlinks between global and local packages — can redirect imports to attacker-controlled code if the global package is compromised",
+      "type": "free"
+    },
+    {
+      "id": "dep-028",
+      "match": {
+        "pattern": "npm\\s+deprecate"
+      },
+      "decision": "ask",
+      "reason": "npm deprecate requires approval — affects downstream consumers",
+      "category": "dependencies",
+      "intent": "Deprecating packages sends warnings to all consumers — should be a deliberate human decision",
+      "type": "free"
+    },
+    {
+      "id": "inf-004",
+      "match": {
+        "pattern": "\\b(aws\\s+(s3\\s+(rm|rb)|cloudformation\\s+delete-stack|rds\\s+delete-db|ec2\\s+(terminate-instances|delete-))|gcloud\\s+(compute\\s+instances\\s+delete|sql\\s+instances\\s+delete|container\\s+clusters\\s+delete|projects\\s+delete)|az\\s+(group\\s+delete|vm\\s+delete|sql\\s+server\\s+delete))\\b"
+      },
+      "decision": "deny",
+      "reason": "Cloud resource destruction blocked",
+      "category": "infrastructure",
+      "intent": "Deleting cloud resources (S3 buckets, databases, VMs, clusters, projects) causes immediate data loss and service disruption",
+      "type": "free"
+    },
+    {
+      "id": "inf-017",
+      "match": {
+        "target": "\\.(github|gitlab-ci|circleci)/",
+        "tool": "Write|Edit"
+      },
+      "decision": "deny",
+      "reason": "CI/CD config protected",
+      "category": "infrastructure",
+      "intent": "CI/CD workflows run with elevated privileges — unauthorized changes can execute arbitrary code in pipelines",
+      "type": "free"
+    },
+    {
+      "id": "inf-020",
+      "match": {
+        "target": "(infra|terraform|cloudformation|arm-templates|pulumi|cdk\\.out)/",
+        "tool": "Write|Edit"
+      },
+      "decision": "deny",
+      "reason": "Infrastructure code protected",
+      "category": "infrastructure",
+      "intent": "Infrastructure-as-code changes provision real cloud resources — mistakes cost money and create security exposure",
+      "type": "free"
+    },
+    {
+      "id": "inf-026",
+      "match": {
+        "target": "(Dockerfile|docker-compose)",
+        "tool": "Write|Edit"
+      },
+      "decision": "deny",
+      "reason": "Docker config protected",
+      "category": "infrastructure",
+      "intent": "Dockerfile and compose file changes alter build environments and service topology — can introduce vulnerabilities or expose ports",
+      "type": "free"
+    },
+    {
+      "id": "inf-028",
+      "match": {
+        "target": "\\.(vscode|cursor|idea)/|\\.code-workspace|\\.cursor(ignore|rules)",
+        "tool": "Write|Edit"
+      },
+      "decision": "deny",
+      "reason": "IDE config protected",
+      "category": "infrastructure",
+      "intent": "IDE settings control terminal commands, AI behavior, extensions, and workspace trust — modifying them is a meta-attack on governance",
+      "type": "free"
+    },
+    {
+      "id": "inf-034",
+      "match": {
+        "pattern": "\\b(npm\\s+publish|cargo\\s+publish|gem\\s+push|twine\\s+upload|python\\s+setup\\.py\\s+upload)\\b"
+      },
+      "decision": "deny",
+      "reason": "Package publishing blocked",
+      "category": "infrastructure",
+      "intent": "Publishing pushes code to a public registry — once published, versions cannot be fully retracted",
+      "type": "free"
+    },
+    {
+      "id": "inf-037",
+      "match": {
+        "command": "kubectl delete"
+      },
+      "decision": "deny",
+      "reason": "K8s deletion blocked",
+      "category": "infrastructure",
+      "intent": "Deleting Kubernetes resources can cause immediate production outages with cascading effects",
+      "type": "free"
+    },
+    {
+      "id": "inf-038",
+      "match": {
+        "pattern": "\\b(terraform|tofu|pulumi|cdk)\\s+(apply|destroy|import|up|deploy)\\b|terraform\\s+(state\\s+rm|force-unlock)"
+      },
+      "decision": "deny",
+      "reason": "Infrastructure provisioning/destruction blocked",
+      "category": "infrastructure",
+      "intent": "IaC apply/destroy commands provision or tear down real cloud resources — must be human-initiated with plan review",
+      "type": "free"
+    },
+    {
+      "id": "inf-049",
+      "match": {
+        "pattern": "\\bhelm\\s+(delete|uninstall)\\b"
+      },
+      "decision": "deny",
+      "reason": "Helm release removal blocked",
+      "category": "infrastructure",
+      "intent": "Helm delete/uninstall removes K8s releases and all managed resources — causes service disruption",
+      "type": "free"
+    },
+    {
+      "id": "inf-051",
+      "match": {
+        "pattern": "\\b(dropdb|mysqladmin\\s+drop)\\b|redis-cli\\s+flush(all|db)|mongosh.*dropDatabase"
+      },
+      "decision": "deny",
+      "reason": "Database destruction via CLI blocked",
+      "category": "infrastructure",
+      "intent": "CLI commands that drop or flush entire databases cause permanent, unrecoverable data loss",
+      "type": "free"
+    },
+    {
+      "id": "inf-059",
+      "match": {
+        "command": "gh release create",
+        "tool": "Bash"
+      },
+      "decision": "deny",
+      "reason": "Release creation blocked — releases are deployment actions requiring human initiation",
+      "category": "infrastructure",
+      "intent": "Creating releases can trigger deployment pipelines and publish artifacts — AI agents must not participate in release processes",
+      "type": "free"
+    },
+    {
+      "id": "inf-062",
+      "match": {
+        "pattern": "\\bdocker\\s+system\\s+prune\\b"
+      },
+      "decision": "deny",
+      "reason": "Docker system prune blocked",
+      "category": "infrastructure",
+      "intent": "docker system prune destroys all unused containers, images, networks, and optionally volumes",
+      "type": "free"
+    },
+    {
+      "id": "inf-001",
+      "match": {
+        "target": ".devcontainer/",
+        "tool": "Write|Edit"
+      },
+      "decision": "ask",
+      "reason": "Devcontainer config requires approval",
+      "category": "infrastructure",
+      "intent": "devcontainer.json initializeCommand runs ON THE HOST — verify no code injection",
+      "type": "free"
+    },
+    {
+      "id": "inf-002",
+      "match": {
+        "pattern": "\\bdocker\\s+(run|exec)\\b"
+      },
+      "decision": "ask",
+      "reason": "Container execution requires approval",
+      "category": "infrastructure",
+      "intent": "Containers can mount host filesystems and expose network ports — verify the image, flags, and target container",
+      "type": "free"
+    },
+    {
+      "id": "inf-014",
+      "match": {
+        "pattern": "\\b(aws|gcloud|az)\\s"
+      },
+      "decision": "ask",
+      "reason": "Cloud CLI requires approval",
+      "category": "infrastructure",
+      "intent": "Cloud CLI commands can provision, modify, or destroy resources that cost money and affect production",
+      "type": "free"
+    },
+    {
+      "id": "inf-058",
+      "match": {
+        "pattern": "gh (workflow run|run rerun)",
+        "tool": "Bash"
+      },
+      "decision": "ask",
+      "reason": "CI/CD workflow trigger detected — confirm this is intentional",
+      "category": "infrastructure",
+      "intent": "AI agents should not autonomously trigger CI/CD pipelines — workflow execution can deploy code, run integration tests against production, or consume CI credits",
+      "type": "free"
+    },
+    {
+      "id": "inf-063",
+      "match": {
+        "pattern": "\\bdocker\\s+(rm|rmi)\\b"
+      },
+      "decision": "ask",
+      "reason": "Docker container/image removal requires approval",
+      "category": "infrastructure",
+      "intent": "docker rm/rmi removes containers and images — verify no important data, state, or build artifacts will be lost",
+      "type": "free"
+    },
+    {
+      "id": "csec-020",
+      "match": {
+        "pattern": "\\|\\s*(bash|sh)\\b|eval\\s+\"\\$\\(curl|source\\s+<\\(curl"
+      },
+      "decision": "deny",
+      "reason": "Remote code execution via pipe or eval blocked",
+      "category": "code-security",
+      "intent": "Piping to shell, eval of curl output, or sourcing remote content executes arbitrary code without review — primary supply-chain attack vector",
+      "type": "free"
+    },
+    {
+      "id": "csec-024",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "f['\"]select|db\\.(query|exec)\\(fmt\\.sprintf"
+      },
+      "decision": "deny",
+      "reason": "SQL string interpolation — use parameterized queries",
+      "category": "code-security",
+      "intent": "String interpolation and fmt.Sprintf in SQL enable injection attacks — user input becomes executable SQL",
+      "compliance": [
+        "PCI-DSS 6.2.4",
+        "GDPR Art.32(1)(a)"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "csec-031",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "os\\.system\\(f\\\\?['\"]|os\\.system\\(.*\\.format\\("
+      },
+      "decision": "deny",
+      "reason": "Shell injection via os.system blocked",
+      "category": "code-security",
+      "intent": "os.system with f-strings or .format() enables shell injection — use subprocess with argument lists instead",
+      "type": "free"
+    },
+    {
+      "id": "csec-037",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "process\\.binding\\(['\"]spawn"
+      },
+      "decision": "deny",
+      "reason": "Low-level process.binding spawn blocked — use child_process APIs",
+      "category": "code-security",
+      "intent": "process.binding('spawn_sync') bypasses child_process module checks — indicates deliberate evasion of security controls",
+      "type": "free"
+    },
+    {
+      "id": "csec-049",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "__builtins__\\s*[\\[.=]"
+      },
+      "decision": "deny",
+      "reason": "__builtins__ manipulation blocked",
+      "category": "code-security",
+      "intent": "Modifying __builtins__ can override built-in functions globally — used to backdoor eval, import, open, etc.",
+      "type": "free"
+    },
+    {
+      "id": "csec-001",
+      "match": {
+        "command": "debug=true",
+        "tool": "Write|Edit"
+      },
+      "decision": "ask",
+      "reason": "Debug mode may leak internal state in production",
+      "category": "code-security",
+      "intent": "Debug mode exposes stack traces, variable dumps, and internal paths — information attackers use for reconnaissance",
+      "compliance": [
+        "PCI-DSS 6.2.4"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "csec-002",
+      "match": {
+        "command": "${",
+        "target": ".sql",
+        "tool": "Write|Edit"
+      },
+      "decision": "ask",
+      "reason": "Variable interpolation in SQL file — verify parameterized",
+      "category": "code-security",
+      "intent": "Variable interpolation in .sql files may indicate unsafe query construction — verify bind parameters are used",
+      "compliance": [
+        "PCI-DSS 6.2.4"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "csec-003",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "\\b(innerhtml|dangerouslysetinnerhtml|document\\.write)\\b\\s*[=(]"
+      },
+      "decision": "ask",
+      "reason": "XSS-prone DOM API — use textContent or sanitize input",
+      "category": "code-security",
+      "intent": "innerHTML, dangerouslySetInnerHTML, and document.write parse raw HTML — attacker-controlled input becomes executable code",
+      "compliance": [
+        "PCI-DSS 6.2.4",
+        "GDPR Art.32(1)(a)"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "csec-006",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "\\b(stacktrace|stack_trace|e\\.printstacktrace)\\b"
+      },
+      "decision": "ask",
+      "reason": "Stack trace exposure — log server-side only",
+      "category": "code-security",
+      "intent": "Stack traces reveal file paths, framework versions, and internal logic — use structured logging with proper output control",
+      "compliance": [
+        "PCI-DSS 6.2.4"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "csec-008",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "\\b(md5|sha1)\\("
+      },
+      "decision": "ask",
+      "reason": "Weak hash algorithm — use SHA-256+ or bcrypt for passwords",
+      "category": "code-security",
+      "intent": "MD5 and SHA-1 have known collision attacks — they provide no meaningful security for hashing",
+      "compliance": [
+        "GDPR Art.32(1)(a)"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "csec-011",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "\\b(pickle\\.(loads?|load)|marshal\\.(loads?|load)|shelve\\.open)\\("
+      },
+      "decision": "ask",
+      "reason": "Unsafe deserialization — use JSON or safe alternatives",
+      "category": "code-security",
+      "intent": "pickle, marshal, and shelve deserialize arbitrary code objects — equivalent to eval() on untrusted input",
+      "compliance": [
+        "PCI-DSS 6.2.4"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "csec-013",
+      "match": {
+        "command": "yaml.load(",
+        "tool": "Write|Edit"
+      },
+      "decision": "ask",
+      "reason": "yaml.load is unsafe — use yaml.safe_load to prevent deserialization attacks",
+      "category": "code-security",
+      "intent": "PyYAML's load() can instantiate arbitrary Python objects from YAML tags — use safe_load to restrict to basic types",
+      "compliance": [
+        "PCI-DSS 6.2.4"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "csec-014",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "\\b(eval|exec)\\("
+      },
+      "decision": "ask",
+      "reason": "Dynamic code execution — avoid with untrusted input",
+      "category": "code-security",
+      "intent": "eval() and exec() turn strings into executable code — if any part is user-controlled, it enables code injection",
+      "compliance": [
+        "PCI-DSS 6.2.4"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "csec-016",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "\\b(system\\.out\\.println|system\\.err\\.println|fmt\\.println)\\b"
+      },
+      "decision": "ask",
+      "reason": "Use structured logging instead of stdout/stderr printing",
+      "category": "code-security",
+      "intent": "stdout/stderr logging lacks levels, formatting, and rotation — use structured logging for operational visibility",
+      "type": "free"
+    },
+    {
+      "id": "csec-032",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "subprocess\\.(call|run|Popen)\\(.*shell\\s*=\\s*True|child_process\\.exec\\(|Runtime\\..*exec\\(|ProcessBuilder\\(|os\\.popen\\("
+      },
+      "decision": "ask",
+      "reason": "Shell command execution in code requires approval",
+      "category": "code-security",
+      "intent": "Shell-based command execution APIs are vulnerable to injection if inputs are untrusted — use safe alternatives",
+      "type": "free"
+    },
+    {
+      "id": "csec-035",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "new\\s+Function\\s*\\(|[^a-zA-Z.]Function\\s*\\(|vm\\.(runInNewContext|runInThisContext|compileFunction|createContext|Script)\\(|require\\(['\"]vm['\"]\\)"
+      },
+      "decision": "ask",
+      "reason": "Dynamic code compilation — Function constructor and vm module require approval",
+      "category": "code-security",
+      "intent": "Function() and the vm module compile strings into executable code — equivalent to eval() and enable code injection",
+      "type": "free"
+    },
+    {
+      "id": "csec-038",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "fs\\.(unlinkSync|rmdirSync|rmSync|rm)\\(|os\\.(remove|unlink)\\(|shutil\\.(rmtree|move)\\("
+      },
+      "decision": "ask",
+      "reason": "Programmatic file deletion/move requires approval",
+      "category": "code-security",
+      "intent": "Programmatic file deletion and moves should be verified — ensure targets are safe and not user-controlled paths",
+      "type": "free"
+    },
+    {
+      "id": "csec-039",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "dns\\.(lookup|resolve[46]?|resolveMx|resolveTxt|resolveSrv)\\(|net\\.(connect|createConnection|createServer)\\(|new\\s+net\\.Socket\\(|socket\\.(connect|create_connection)\\("
+      },
+      "decision": "ask",
+      "reason": "DNS lookup or raw socket connection in code requires approval",
+      "category": "code-security",
+      "intent": "DNS queries and raw socket connections bypass HTTP-layer security controls and can be used for exfiltration or tunneling",
+      "type": "free"
+    },
+    {
+      "id": "csec-041",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "os\\.(userInfo|networkInterfaces)\\("
+      },
+      "decision": "ask",
+      "reason": "System reconnaissance API requires approval",
+      "category": "code-security",
+      "intent": "os.userInfo and os.networkInterfaces expose system identity and network topology — often used in reconnaissance",
+      "type": "free"
+    },
+    {
+      "id": "csec-045",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "__import__\\(|importlib\\.import_module\\(|ctypes\\.(CDLL|cdll|WinDLL|windll|OleDLL|oledll)\\(|ctypes\\..*LoadLibrary\\("
+      },
+      "decision": "ask",
+      "reason": "Dynamic import or native code loading requires approval",
+      "category": "code-security",
+      "intent": "Dynamic imports and ctypes can load arbitrary modules and native libraries — can bypass Python security controls entirely",
+      "type": "free"
+    },
+    {
+      "id": "csec-047",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "code\\.interact\\(|pty\\.spawn\\("
+      },
+      "decision": "deny",
+      "reason": "Interactive shell spawning blocked",
+      "category": "code-security",
+      "intent": "code.interact and pty.spawn create interactive shells — used for persistence and reverse shell attacks",
+      "type": "free"
+    },
+    {
+      "id": "csec-048",
+      "match": {
+        "tool": "Write|Edit",
+        "target": "setup.py",
+        "pattern": "cmdclass"
+      },
+      "decision": "ask",
+      "reason": "setup.py cmdclass override requires approval — supply chain hook",
+      "category": "code-security",
+      "intent": "cmdclass overrides in setup.py execute custom code during pip install — a supply chain attack vector for Python packages",
+      "type": "free"
+    },
+    {
+      "id": "csec-052",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "String\\.fromCharCode\\(|Buffer\\.from\\([^)]*['\"]base64['\"]|\\b(atob|btoa)\\s*\\(|(\\\\x[0-9a-fA-F]{2}){4,}|(\\\\u00[0-9a-fA-F]{2}){4,}"
+      },
+      "decision": "ask",
+      "reason": "Code obfuscation technique detected — verify usage is legitimate",
+      "category": "code-security",
+      "intent": "Character encoding, base64, hex-encoded, and Unicode-escaped strings are commonly used to obfuscate malicious payloads",
+      "type": "free"
+    },
+    {
+      "id": "auth-002",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(x-frame-options:\\s*allow|content-security-policy:\\s*none|helmet\\.frameguard\\(false\\))"
+      },
+      "decision": "deny",
+      "reason": "Disabling browser security headers enables clickjacking and XSS",
+      "category": "auth",
+      "intent": "Removing X-Frame-Options, CSP, or frameguard allows clickjacking and cross-site script injection",
+      "compliance": [
+        "PCI-DSS 6.2.4"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "auth-005",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "cors\\(\\{origin:\\s*['\"]\\*['\"]\\}\\)|cors\\(true\\)|allowed_hosts\\s*=\\s*\\[\\s*['\"]\\*['\"]\\s*\\]"
+      },
+      "decision": "deny",
+      "reason": "Wildcard CORS or ALLOWED_HOSTS enables cross-origin attacks",
+      "category": "auth",
+      "intent": "Wildcard origins let any website make authenticated requests; wildcard hosts enable host-header injection for cache poisoning",
+      "compliance": [
+        "PCI-DSS 6.2.4"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "auth-007",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(verify\\s*=\\s*false|rejectunauthorized:\\s*false|insecureskiptlsverify)"
+      },
+      "decision": "deny",
+      "reason": "Disabling TLS verification enables MITM attacks",
+      "category": "auth",
+      "intent": "Without certificate verification, any network intermediary can intercept and modify encrypted traffic",
+      "compliance": [
+        "PCI-DSS 4.2.1",
+        "HIPAA §164.312(e)(1)",
+        "GDPR Art.32(1)(a)",
+        "AU Privacy Act APP 11.1"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "auth-012",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(session_cookie_secure\\s*=\\s*false|csrf_cookie_secure\\s*=\\s*false|secure_ssl_redirect\\s*=\\s*false|management\\.endpoints\\.web\\.exposure\\.include=\\*)"
+      },
+      "decision": "deny",
+      "reason": "Insecure framework security settings blocked",
+      "category": "auth",
+      "intent": "Disabling secure cookies, SSL redirect, or exposing all actuator endpoints weakens authentication and leaks secrets",
+      "compliance": [
+        "PCI-DSS 6.2.4",
+        "PCI-DSS 4.2.1"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "auth-001",
+      "match": {
+        "command": "@csrf_exempt",
+        "tool": "Write|Edit"
+      },
+      "decision": "ask",
+      "reason": "Disabling CSRF protection — ensure endpoint is truly stateless/public",
+      "category": "auth",
+      "intent": "Without CSRF protection, malicious sites can submit forms as the logged-in user — only safe for truly stateless APIs",
+      "compliance": [
+        "PCI-DSS 6.2.4",
+        "GDPR Art.32(1)(a)"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "ssrf-004",
+      "match": {
+        "pattern": "(169\\.254\\.169\\.254|metadata\\.google\\.internal|metadata\\.azure\\.com)"
+      },
+      "decision": "deny",
+      "reason": "Cloud metadata endpoint blocked — SSRF vector for credential theft",
+      "category": "ssrf",
+      "intent": "Instance metadata services return IAM credentials, tokens, and secrets — SSRF to these endpoints is the #1 cloud exploit vector",
+      "compliance": [
+        "PCI-DSS 6.2.4"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "ssrf-007",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(file://|gopher://)"
+      },
+      "decision": "deny",
+      "reason": "Dangerous URL scheme blocked — SSRF exploitation primitive",
+      "category": "ssrf",
+      "intent": "file:// reads local files; gopher:// sends raw bytes to arbitrary ports — both are classic SSRF exploitation techniques",
+      "compliance": [
+        "PCI-DSS 6.2.4"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "ssrf-012",
+      "match": {
+        "pattern": "/var/run/(docker\\.sock|secrets/kubernetes\\.io)"
+      },
+      "decision": "deny",
+      "reason": "Docker socket or K8s service account access blocked",
+      "category": "ssrf",
+      "intent": "Docker socket provides root-equivalent host access; K8s service account tokens enable cluster-wide lateral movement",
+      "type": "free"
+    },
+    {
+      "id": "ssrf-001",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(\\b0\\.0\\.0\\.0\\b|followredirects|allow_redirects\\s*=\\s*true)"
+      },
+      "decision": "ask",
+      "reason": "SSRF-related pattern — verify binding and redirect targets",
+      "category": "ssrf",
+      "intent": "Binding to 0.0.0.0 exposes services on all interfaces; unrestricted redirects can route to internal metadata endpoints",
+      "compliance": [
+        "PCI-DSS 6.2.4"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "ssrf-009",
+      "match": {
+        "pattern": "\\b(10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|172\\.(1[6-9]|2[0-9]|3[01])\\.\\d{1,3}\\.\\d{1,3}|192\\.168\\.\\d{1,3}\\.\\d{1,3})\\b"
+      },
+      "decision": "ask",
+      "reason": "RFC1918 private IP detected — confirm this is intentional",
+      "category": "ssrf",
+      "intent": "Private IP addresses could indicate SSRF probing of internal infrastructure or container/pod networks",
+      "type": "free"
+    }
+  ],
+  "signing": {
+    "pubkey_path": "",
+    "require_signed_updates": false,
+    "require_signed_config": false
+  },
+  "trace": {
+    "retention_days": 365,
+    "max_sessions": 100
+  },
+  "version": "1.0.0",
+  "sandbox": {
+    "enabled": false,
+    "base_image": "ubuntu:22.04",
+    "workdir": "/workspace",
+    "read_only": true,
+    "cap_drop": "ALL",
+    "network": "none"
+  }
+}

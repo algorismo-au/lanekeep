@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# lanekeep migrate — convert monolithic lanekeep.json to layered config with "extends": "defaults"
+
+LANEKEEP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+PROJECT_DIR="${1:-$(pwd 2>/dev/null || echo "$PWD")}"
+CONFIG="$PROJECT_DIR/lanekeep.json"
+DEFAULTS="$LANEKEEP_DIR/defaults/lanekeep.json"
+
+if [ ! -f "$CONFIG" ]; then
+  echo "No lanekeep.json found in $PROJECT_DIR" >&2
+  exit 1
+fi
+
+# Check if already layered
+extends=$(jq -r '.extends // empty' "$CONFIG" 2>/dev/null) || true
+if [ "$extends" = "defaults" ]; then
+  echo "Already using layered config (extends: defaults)" >&2
+  exit 0
+fi
+
+# Generate minimal override: diff user config against defaults
+override=$(jq -s '
+  .[0] as $defaults | .[1] as $user |
+
+  # Find user rules that differ from defaults (by content, not position)
+  ($user.rules // []) as $user_rules |
+  ($defaults.rules // []) as $default_rules |
+
+  # Rules that exist in defaults but user changed
+  [($default_rules | to_entries[] |
+    select(.value | has("id")) |
+    .value as $dr |
+    ($user_rules | map(select(.id == $dr.id and . != $dr)) | first // null) as $changed |
+    if $changed != null then $changed else empty end
+  )] as $overrides |
+
+  # Rules in user that are NOT in defaults (by id or content)
+  [$user_rules[] |
+    . as $ur |
+    if has("id") then
+      if ($default_rules | map(select(.id == $ur.id)) | length) == 0 then $ur else empty end
+    else
+      if ($default_rules | map(select(. == $ur)) | length) == 0 then $ur else empty end
+    end
+  ] as $extras |
+
+  # Non-rules fields that differ from defaults
+  (($user | del(.rules)) as $u | ($defaults | del(.rules)) as $d |
+    [$u | to_entries[] | select(
+      .key as $k | .value as $v |
+      if ($d | has($k)) then ($d[$k] != $v) else true end
+    )] | from_entries
+  ) as $field_overrides |
+
+  # Build minimal config
+  {"extends": "defaults"} +
+  $field_overrides +
+  (if ($overrides | length) > 0 then {"rule_overrides": $overrides} else {} end) +
+  (if ($extras | length) > 0 then {"extra_rules": $extras} else {} end)
+' "$DEFAULTS" "$CONFIG" 2>/dev/null)
+
+if [ -z "$override" ]; then
+  echo "Error: failed to compute diff" >&2
+  exit 1
+fi
+
+OUTPUT="$CONFIG.new"
+printf '%s\n' "$override" | jq '.' > "$OUTPUT"
+
+# Count what was found
+n_overrides=$(printf '%s' "$override" | jq '.rule_overrides // [] | length')
+n_extras=$(printf '%s' "$override" | jq '.extra_rules // [] | length')
+n_fields=$(printf '%s' "$override" | jq 'del(.extends, .rule_overrides, .extra_rules) | length')
+
+echo "Generated layered config: $OUTPUT"
+echo "  extends: defaults"
+echo "  $n_fields field overrides"
+echo "  $n_overrides rule overrides"
+echo "  $n_extras extra rules"
+echo ""
+echo "Review $OUTPUT, then:"
+echo "  mv $OUTPUT $CONFIG"

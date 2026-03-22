@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# lanekeep demo — show LaneKeep blocking dangerous tool calls in real time.
+# No sidecar, no socket — pipes directly through lanekeep-handler.
+
+LANEKEEP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+# --- Colors ---
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BOLD='\033[1m'
+DIM='\033[2m'
+RESET='\033[0m'
+
+# Disable colors if not a terminal or NO_COLOR is set
+if [ ! -t 1 ] || [ -n "${NO_COLOR:-}" ]; then
+  RED="" GREEN="" YELLOW="" BOLD="" DIM="" RESET=""
+fi
+
+# --- Set up temp environment ---
+DEMO_DIR=$(mktemp -d)
+trap 'rm -rf "$DEMO_DIR"' EXIT
+
+export LANEKEEP_DIR
+export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
+export LANEKEEP_STATE_FILE="$DEMO_DIR/state.json"
+export LANEKEEP_TRACE_FILE="$DEMO_DIR/.lanekeep/traces/demo.jsonl"
+export LANEKEEP_SESSION_ID="demo-$$"
+export LANEKEEP_TASKSPEC_FILE=""
+export PROJECT_DIR="$DEMO_DIR"
+
+mkdir -p "$DEMO_DIR/.lanekeep/traces"
+printf '{"action_count":0,"token_count":0,"start_epoch":%s}\n' "$(date +%s)" > "$LANEKEEP_STATE_FILE"
+
+# --- Demo scenarios ---
+declare -a SCENARIOS=(
+  'rm -rf /|Bash|{"command":"rm -rf /"}|Recursive force delete'
+  'DROP TABLE users|Bash|{"command":"psql -c \"DROP TABLE users\""}|SQL destruction'
+  'git push --force|Bash|{"command":"git push --force origin main"}|Dangerous git operation'
+  'export AKIA...|Bash|{"command":"export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE"}|AWS secret in code'
+  'ls -la|Bash|{"command":"ls -la"}|Safe directory listing'
+  'cat README.md|Read|{"file_path":"README.md"}|Safe file read'
+)
+
+# --- Header ---
+printf "\n${BOLD}  LaneKeep Demo — Governance in Action${RESET}\n"
+printf "  ${DIM}Piping tool calls through the evaluation pipeline${RESET}\n\n"
+
+denied=0
+allowed=0
+
+for scenario in "${SCENARIOS[@]}"; do
+  IFS='|' read -r label tool_name tool_input description <<< "$scenario"
+
+  # Build hook JSON
+  request=$(jq -nc --arg tn "$tool_name" --arg ti "$tool_input" \
+    '{tool_name: $tn, tool_input: ($ti | fromjson)}')
+
+  # Pipe through handler
+  response=$(printf '%s' "$request" | "$LANEKEEP_DIR/bin/lanekeep-handler" 2>/dev/null) || response=""
+
+  decision=$(printf '%s' "$response" | jq -r '.decision // "allow"' 2>/dev/null) || decision="allow"
+
+  case "$decision" in
+    deny|ask)
+      printf "  ${RED}DENIED${RESET}  %-35s ${DIM}%s${RESET}\n" "$label" "$description"
+      denied=$((denied + 1))
+      ;;
+    *)
+      printf "  ${GREEN}ALLOWED${RESET} %-35s ${DIM}%s${RESET}\n" "$label" "$description"
+      allowed=$((allowed + 1))
+      ;;
+  esac
+
+  # Re-initialize state to avoid budget exhaustion during demo
+  printf '{"action_count":0,"token_count":0,"start_epoch":%s}\n' "$(date +%s)" > "$LANEKEEP_STATE_FILE"
+done
+
+# --- Summary ---
+printf "\n  ${BOLD}Results:${RESET} ${RED}%d denied${RESET}, ${GREEN}%d allowed${RESET}\n" "$denied" "$allowed"
+
+if [ -f "$LANEKEEP_TRACE_FILE" ]; then
+  trace_count=$(wc -l < "$LANEKEEP_TRACE_FILE")
+  printf "  ${DIM}Trace: %d entries written to %s${RESET}\n" "$trace_count" "$LANEKEEP_TRACE_FILE"
+fi
+
+printf "\n  ${YELLOW}Get started:${RESET}\n"
+printf "    ${DIM}lanekeep init .${RESET}          Install LaneKeep in your project\n"
+printf "    ${DIM}lanekeep start${RESET}           Start sidecar + UI\n"
+printf "    ${DIM}lanekeep trace${RESET}           View the audit trail\n\n"
+
+exit 0

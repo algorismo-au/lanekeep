@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# Launch LaneKeep Rules UI in the browser
+set -euo pipefail
+
+LANEKEEP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+PORT="${LANEKEEP_UI_PORT:-8111}"
+
+# If port is busy and not explicitly set, try next few ports
+if [ -z "${LANEKEEP_UI_PORT:-}" ]; then
+  for p in $(seq "$PORT" $((PORT + 9))); do
+    if ! python3 -c "import socket,sys;s=socket.socket();s.settimeout(0.1);s.connect(('127.0.0.1',int(sys.argv[1])));s.close()" "$p" 2>/dev/null; then
+      PORT="$p"
+      break
+    fi
+  done
+fi
+
+TLS="${LANEKEEP_UI_TLS:-}"
+TLS_CERT="${LANEKEEP_UI_CERT:-}"
+TLS_KEY="${LANEKEEP_UI_KEY:-}"
+
+# Parse flags
+FOREGROUND=false
+args=()
+for arg in "$@"; do
+  case "$arg" in
+    --foreground) FOREGROUND=true ;;
+    *) args+=("$arg") ;;
+  esac
+done
+set -- "${args[@]+"${args[@]}"}"
+
+# Resolve config: argument > project lanekeep.json > defaults
+CONFIG="${1:-}"
+if [ -z "$CONFIG" ]; then
+  _cwd="${PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
+  if [ -f "$_cwd/lanekeep.json" ]; then
+    CONFIG="$_cwd/lanekeep.json"
+  else
+    CONFIG="$LANEKEEP_DIR/defaults/lanekeep.json"
+  fi
+elif [ -d "$CONFIG" ]; then
+  # If given a directory, look for lanekeep.json inside it
+  if [ -f "$CONFIG/lanekeep.json" ]; then
+    CONFIG="$CONFIG/lanekeep.json"
+  elif [ -f "$CONFIG/defaults/lanekeep.json" ]; then
+    CONFIG="$CONFIG/defaults/lanekeep.json"
+  fi
+fi
+
+if [ ! -f "$CONFIG" ]; then
+  echo "Error: config not found: $CONFIG" >&2
+  echo "Usage: lanekeep-ui [path/to/lanekeep.json or directory containing lanekeep.json]" >&2
+  exit 1
+fi
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "Error: python3 is required for the UI server" >&2
+  exit 1
+fi
+
+# Fallback: read TLS settings from config
+if [ -z "$TLS" ] && [ -f "$CONFIG" ]; then
+  if jq -e '.ui.tls == true' "$CONFIG" >/dev/null 2>&1; then
+    TLS="1"
+  fi
+fi
+if [ -z "$TLS_CERT" ] && [ -f "$CONFIG" ]; then
+  _cfg_cert=$(jq -r '.ui.cert // empty' "$CONFIG" 2>/dev/null)
+  [ -n "$_cfg_cert" ] && TLS_CERT="$_cfg_cert"
+fi
+if [ -z "$TLS_KEY" ] && [ -f "$CONFIG" ]; then
+  _cfg_key=$(jq -r '.ui.key // empty' "$CONFIG" 2>/dev/null)
+  [ -n "$_cfg_key" ] && TLS_KEY="$_cfg_key"
+fi
+
+TLS_ARGS=()
+if [ -n "$TLS" ]; then
+  SCHEME="https"
+  TLS_ARGS=(--tls)
+  if [ -n "$TLS_CERT" ] && [ -n "$TLS_KEY" ]; then
+    TLS_ARGS+=(--cert "$TLS_CERT" --key "$TLS_KEY")
+  fi
+else
+  SCHEME="http"
+fi
+
+PROJECT_DIR="$(dirname "$(realpath "$CONFIG")")"
+
+# Ensure .lanekeep dir exists (server.py writes ui-port after successful bind)
+mkdir -p "$PROJECT_DIR/.lanekeep"
+
+# If --foreground, run in place (used by `lanekeep start`)
+if [ "$FOREGROUND" = true ]; then
+  exec python3 "$LANEKEEP_DIR/ui/server.py" --port "$PORT" --config "$CONFIG" \
+    --project-dir "$PROJECT_DIR" "${TLS_ARGS[@]}"
+fi
+
+# Default: daemon mode — background server, return shell
+LOG="$PROJECT_DIR/.lanekeep/ui.log"
+nohup python3 "$LANEKEEP_DIR/ui/server.py" --port "$PORT" --config "$CONFIG" \
+  --project-dir "$PROJECT_DIR" "${TLS_ARGS[@]}" >"$LOG" 2>&1 &
+UI_PID=$!
+echo "$UI_PID" > "$PROJECT_DIR/.lanekeep/ui.pid"
+
+# Wait for server to write ui-port (authoritative port after bind) and accept connections (up to 3s)
+_ready=false
+_port_file="$PROJECT_DIR/.lanekeep/ui-port"
+for _i in $(seq 1 30); do
+  if ! kill -0 "$UI_PID" 2>/dev/null; then
+    echo "Error: UI server failed to start. Check $LOG" >&2
+    exit 1
+  fi
+  # Read actual port from server (may differ from $PORT if auto-incremented)
+  if [ -f "$_port_file" ]; then
+    PORT=$(cat "$_port_file")
+    if python3 -c "import socket,sys;s=socket.socket();s.settimeout(0.05);s.connect(('127.0.0.1',int(sys.argv[1])));s.close()" "$PORT" 2>/dev/null; then
+      _ready=true
+      break
+    fi
+  fi
+  sleep 0.1
+done
+if [ "$_ready" != true ]; then
+  echo "Error: UI server not responding on port $PORT after 3s. Check $LOG" >&2
+  exit 1
+fi
+
+URL="$SCHEME://localhost:$PORT"
+echo "[LaneKeep] UI: $URL (pid $UI_PID, log $LOG)"
+
+# Open browser — best-effort, don't fail if unavailable
+_open_browser() {
+  if command -v xdg-open >/dev/null 2>&1; then
+    setsid xdg-open "$URL" >/dev/null 2>&1 &
+  elif command -v open >/dev/null 2>&1; then
+    open "$1" >/dev/null 2>&1
+  else
+    python3 -c "import webbrowser,sys;webbrowser.open(sys.argv[1])" "$1" >/dev/null 2>&1
+  fi
+  # Best-effort window activation on X11
+  if [ "${XDG_SESSION_TYPE:-}" != "wayland" ] && command -v xdotool >/dev/null 2>&1; then
+    sleep 0.8
+    xdotool search --onlyvisible --name "LaneKeep" windowactivate 2>/dev/null || true
+  fi
+}
+_open_browser "$URL" &
+disown 2>/dev/null || true

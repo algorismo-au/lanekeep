@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LANEKEEP_DIR="${LANEKEEP_DIR:?LANEKEEP_DIR must be set}"
+PROJECT_DIR="${PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
+
+export LANEKEEP_CONFIG_FILE="${LANEKEEP_CONFIG_FILE:-$PROJECT_DIR/.lanekeep/lanekeep.json}"
+export LANEKEEP_TRACE_FILE="${LANEKEEP_TRACE_FILE:-$PROJECT_DIR/.lanekeep/traces/$(date +%Y%m%d).jsonl}"
+export LANEKEEP_SESSION_ID="${LANEKEEP_SESSION_ID:-policy-cli}"
+
+source "$LANEKEEP_DIR/lib/trace.sh"
+source "$LANEKEEP_DIR/lib/policy-manage.sh"
+
+usage() {
+  cat <<'EOF'
+lanekeep policy — manage policy and rule state
+
+Usage:
+  lanekeep policy status                          List all policies with enabled/disabled state
+  lanekeep policy disable <category> [--reason R] Disable a policy category
+  lanekeep policy enable  <category> [--reason R] Re-enable a policy category
+  lanekeep policy rule-disable <index> [--reason R] Disable a rule by index
+  lanekeep policy rule-enable  <index> [--reason R] Re-enable a rule by index
+
+All state changes are logged to the JSONL audit trace.
+EOF
+}
+
+parse_reason() {
+  local reason=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --reason) reason="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  echo "${reason:-No reason provided}"
+}
+
+case "${1:-help}" in
+  status)
+    policy_status
+    ;;
+  disable)
+    [ -n "${2:-}" ] || { echo "Usage: lanekeep policy disable <category> [--reason R]" >&2; exit 1; }
+    category="$2"; shift 2
+    reason=$(parse_reason "$@")
+    policy_disable "$category" "$reason"
+    echo "Policy '$category' disabled."
+    ;;
+  enable)
+    [ -n "${2:-}" ] || { echo "Usage: lanekeep policy enable <category> [--reason R]" >&2; exit 1; }
+    category="$2"; shift 2
+    reason=$(parse_reason "$@")
+    policy_enable "$category" "$reason"
+    echo "Policy '$category' enabled."
+    ;;
+  rule-disable)
+    [ -n "${2:-}" ] || { echo "Usage: lanekeep policy rule-disable <index> [--reason R]" >&2; exit 1; }
+    index="$2"; shift 2
+    reason=$(parse_reason "$@")
+    rule_disable "$index" "$reason"
+    echo "Rule #$index disabled."
+    ;;
+  rule-enable)
+    [ -n "${2:-}" ] || { echo "Usage: lanekeep policy rule-enable <index> [--reason R]" >&2; exit 1; }
+    index="$2"; shift 2
+    reason=$(parse_reason "$@")
+    rule_enable "$index" "$reason"
+    echo "Rule #$index enabled."
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    echo "Unknown subcommand: $1" >&2
+    usage >&2
+    exit 1
+    ;;
+esac

@@ -1,0 +1,11 @@
+{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "src/utils.py",
+    "content": "def add(a, b):\n    return a + b\n\ndef subtract(a, b):\n    return a - b\n"
+  },
+  "tool_use_id": "toolu_07WRT",
+  "session_id": "sess_test_001",
+  "cwd": "/home/user/project"
+}

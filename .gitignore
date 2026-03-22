@@ -1,0 +1,10 @@
+.lanekeep/
+.venv/
+__pycache__/
+*.bak
+*.swp
+*.log
+*.pyc
+.env
+*.pem
+*.key

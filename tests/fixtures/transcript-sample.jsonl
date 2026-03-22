@@ -1,0 +1,4 @@
+{"type":"user","message":{"role":"user","content":"Hello"},"sessionId":"test-session","uuid":"u1","timestamp":"2026-03-20T00:00:00.000Z"}
+{"type":"assistant","message":{"model":"claude-opus-4-6","role":"assistant","content":[{"type":"text","text":"Hi"}],"usage":{"input_tokens":10,"cache_creation_input_tokens":500,"cache_read_input_tokens":1000,"output_tokens":50}},"type":"assistant","sessionId":"test-session","uuid":"a1","timestamp":"2026-03-20T00:00:01.000Z"}
+{"type":"user","message":{"role":"user","content":"Do something"},"sessionId":"test-session","uuid":"u2","timestamp":"2026-03-20T00:00:02.000Z"}
+{"type":"assistant","message":{"model":"claude-opus-4-6","role":"assistant","content":[{"type":"text","text":"Done"}],"usage":{"input_tokens":15,"cache_creation_input_tokens":800,"cache_read_input_tokens":2000,"output_tokens":120}},"type":"assistant","sessionId":"test-session","uuid":"a2","timestamp":"2026-03-20T00:00:03.000Z"}

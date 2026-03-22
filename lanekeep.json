@@ -1,0 +1,79 @@
+{
+  "hard_blocks": [
+    "rm -rf /",
+    "rm -rf ~",
+    "DROP TABLE",
+    "DROP DATABASE",
+    "TRUNCATE",
+    "git push --force",
+    "git push -f",
+    "git reset --hard",
+    "git clean -fd",
+    "shutdown",
+    "reboot",
+    "mkfs",
+    "> /dev/sd"
+  ],
+  "budget": {
+    "max_actions": 500,
+    "max_tokens": null,
+    "timeout_seconds": 3600
+  },
+  "evaluators": {
+    "codediff": {
+      "enabled": true,
+      "secret_patterns": [
+        "AKIA",
+        "sk-",
+        "password",
+        "secret",
+        "token"
+      ],
+      "destructive_patterns": [
+        "rm -rf",
+        "DROP ",
+        "TRUNCATE ",
+        "DELETE FROM",
+        "> /dev/"
+      ],
+      "dangerous_git_patterns": [
+        "push --force",
+        "push -f",
+        "reset --hard",
+        "clean -fd"
+      ]
+    },
+    "budget": {
+      "enabled": true
+    },
+    "semantic": {
+      "enabled": false,
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "api_key_env": "ANTHROPIC_API_KEY",
+      "timeout": 5,
+      "on_error": "allow",
+      "tools": [
+        "Bash",
+        "Write",
+        "Edit"
+      ],
+      "sample_rate": 1.0
+    }
+  },
+  "ralph": {
+    "enabled": true,
+    "events_dir": ".ralph"
+  },
+  "rules": [
+    {
+      "match": {
+        "command": "rm -rf"
+      },
+      "decision": "deny",
+      "reason": "hell no",
+      "category": "",
+      "enabled": true
+    }
+  ]
+}

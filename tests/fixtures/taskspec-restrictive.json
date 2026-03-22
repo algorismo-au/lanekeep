@@ -1,0 +1,9 @@
+{
+  "goal": "Read-only analysis of codebase",
+  "allowed_tools": ["Read", "Grep", "Glob"],
+  "denied_tools": ["Agent"],
+  "budget": {
+    "max_actions": 100,
+    "timeout_seconds": 600
+  }
+}

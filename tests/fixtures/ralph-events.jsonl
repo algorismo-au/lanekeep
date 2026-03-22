@@ -1,0 +1,4 @@
+{"ts":"2026-03-05T10:00:00Z","iteration":1,"hat":"inquisitor","topic":"requirements.start","triggered":"objective.set","payload":{"objective":"Build LaneKeep sidecar"}}
+{"ts":"2026-03-05T10:15:00Z","iteration":2,"hat":"architect","topic":"requirements.complete","triggered":"design.start","payload":{"status":"requirements confirmed"}}
+{"ts":"2026-03-05T10:30:00Z","iteration":3,"hat":"builder","topic":"design.approved","triggered":"context.ready","payload":{"components":16}}
+{"ts":"2026-03-05T10:45:00Z","iteration":4,"hat":"builder","topic":"tasks.ready","triggered":"build.start","payload":{"tasks":15}}

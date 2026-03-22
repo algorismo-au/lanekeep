@@ -1,0 +1,13 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "npm test"
+  },
+  "tool_response": {
+    "stdout": "PASS src/utils.test.js\n  Math utils\n    ✓ adds two numbers (3ms)\n    ✓ subtracts two numbers (1ms)\n\nTest Suites: 1 passed, 1 total\nTests:       2 passed, 2 total"
+  },
+  "tool_use_id": "toolu_07POST",
+  "session_id": "sess_test_001",
+  "cwd": "/home/user/project"
+}

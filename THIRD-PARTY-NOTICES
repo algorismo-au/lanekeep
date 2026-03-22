@@ -1,0 +1,43 @@
+Third-Party Notices
+===================
+
+LaneKeep bundles the following third-party software and fonts.
+Each is listed with its license and upstream source.
+
+
+Mermaid.js 11.13.0
+-------------------
+License:   MIT
+Copyright: Copyright (c) 2014-present Knut Sveidqvist
+Source:    https://github.com/mermaid-js/mermaid
+License:   https://github.com/mermaid-js/mermaid/blob/develop/LICENSE
+Bundled:   ui/js/mermaid.min.js
+
+
+DOMPurify 3.3.3
+----------------
+License:   Apache License 2.0 OR Mozilla Public License 2.0
+Copyright: Copyright (c) 2015 Dr.-Ing. Mario Heiderich, Cure53
+Source:    https://github.com/cure53/DOMPurify
+License:   https://github.com/cure53/DOMPurify/blob/main/LICENSE
+Bundled:   ui/js/purify.min.js
+
+
+Martian Mono
+------------
+License:   SIL Open Font License 1.1
+Copyright: Copyright (c) 2022 Evil Martians
+Source:    https://github.com/evilmartians/mono
+License:   https://github.com/evilmartians/mono/blob/master/LICENSE
+Bundled:   ui/fonts/martian-mono-latin.woff2
+
+
+Zen Kaku Gothic New
+--------------------
+License:   SIL Open Font License 1.1
+Copyright: Copyright (c) 2021 Yoshimichi Ohira
+Source:    https://github.com/googlefonts/zen-kakugothic
+License:   https://github.com/googlefonts/zen-kakugothic/blob/main/OFL.txt
+Bundled:   ui/fonts/zen-kaku-gothic-new-v400-latin.woff2
+           ui/fonts/zen-kaku-gothic-new-v500-latin.woff2
+           ui/fonts/zen-kaku-gothic-new-v700-latin.woff2

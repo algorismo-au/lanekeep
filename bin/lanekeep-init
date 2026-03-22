@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Initialize LaneKeep in a project: copy config, create directories, install hook.
+
+LANEKEEP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+# --- Parse arguments ---
+ENABLE_TLS=false
+PROJECT_DIR=""
+for arg in "$@"; do
+  case "$arg" in
+    --tls) ENABLE_TLS=true ;;
+    *)     PROJECT_DIR="$arg" ;;
+  esac
+done
+PROJECT_DIR="${PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
+
+# --- Dependency checks ---
+for cmd in jq bash; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "Error: '$cmd' is required but not found." >&2
+    echo "Install it with your package manager (e.g., sudo apt install $cmd)" >&2
+    exit 1
+  fi
+done
+if [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
+  echo "Error: bash >= 4 required (found ${BASH_VERSION})" >&2
+  exit 1
+fi
+command -v socat >/dev/null 2>&1 || echo "Note: 'socat' not found — sidecar mode unavailable (hook-only mode still works)"
+
+# --- Copy default config (skip if exists) ---
+if [ ! -f "$PROJECT_DIR/lanekeep.json" ]; then
+  cp "$LANEKEEP_DIR/defaults/lanekeep.json" "$PROJECT_DIR/lanekeep.json"
+  echo "Created $PROJECT_DIR/lanekeep.json"
+else
+  echo "Config exists: $PROJECT_DIR/lanekeep.json (skipped)"
+fi
+
+# --- Create directories ---
+mkdir -p "$PROJECT_DIR/.lanekeep/traces"
+echo "Created $PROJECT_DIR/.lanekeep/"
+
+# --- Install PreToolUse hook ---
+HOOK_PATH="$(cd "$LANEKEEP_DIR/hooks" && pwd)/evaluate.sh"
+SETTINGS_DIR="$PROJECT_DIR/.claude"
+SETTINGS_FILE="$SETTINGS_DIR/settings.local.json"
+
+mkdir -p "$SETTINGS_DIR"
+
+if [ -f "$SETTINGS_FILE" ]; then
+  # Check if hook is already installed
+  existing=$(jq -r '.hooks.PreToolUse // empty' "$SETTINGS_FILE" 2>/dev/null)
+  if printf '%s' "$existing" | grep -q "evaluate.sh" 2>/dev/null; then
+    echo "Hook already installed in $SETTINGS_FILE (skipped)"
+  else
+    # Merge hook into existing settings
+    jq --arg cmd "$HOOK_PATH" \
+      '.hooks.PreToolUse = [{"matcher": "", "hooks": [{"type": "command", "command": $cmd, "timeout": 10000}]}]' \
+      "$SETTINGS_FILE" > "${SETTINGS_FILE}.tmp" \
+      && mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
+    echo "Installed hook in $SETTINGS_FILE"
+  fi
+else
+  # Create new settings file with hook
+  jq -n --arg cmd "$HOOK_PATH" \
+    '{hooks: {PreToolUse: [{"matcher": "", "hooks": [{"type": "command", "command": $cmd, "timeout": 10000}]}]}}' \
+    > "$SETTINGS_FILE"
+  echo "Created $SETTINGS_FILE with hook"
+fi
+
+# --- Install PostToolUse hook ---
+POST_HOOK_PATH="$(cd "$LANEKEEP_DIR/hooks" && pwd)/post-evaluate.sh"
+
+if [ -f "$SETTINGS_FILE" ]; then
+  existing_post=$(jq -r '.hooks.PostToolUse // empty' "$SETTINGS_FILE" 2>/dev/null)
+  if printf '%s' "$existing_post" | grep -q "post-evaluate.sh" 2>/dev/null; then
+    echo "PostToolUse hook already installed in $SETTINGS_FILE (skipped)"
+  else
+    jq --arg cmd "$POST_HOOK_PATH" \
+      '.hooks.PostToolUse = [{"matcher": "", "hooks": [{"type": "command", "command": $cmd, "timeout": 10000}]}]' \
+      "$SETTINGS_FILE" > "${SETTINGS_FILE}.tmp" \
+      && mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
+    echo "Installed PostToolUse hook in $SETTINGS_FILE"
+  fi
+fi
+
+# --- Install auto-format hook (PostToolUse, alongside post-evaluate.sh) ---
+AUTOFORMAT_HOOK_PATH="$(cd "$LANEKEEP_DIR/hooks" && pwd)/auto-format.sh"
+
+if [ -f "$SETTINGS_FILE" ]; then
+  existing_af=$(jq -r '.hooks.PostToolUse // empty' "$SETTINGS_FILE" 2>/dev/null)
+  if printf '%s' "$existing_af" | grep -q "auto-format.sh" 2>/dev/null; then
+    echo "Auto-format hook already installed in $SETTINGS_FILE (skipped)"
+  else
+    jq --arg cmd "$AUTOFORMAT_HOOK_PATH" \
+      '.hooks.PostToolUse += [{"matcher": "", "hooks": [{"type": "command", "command": $cmd, "timeout": 10000}]}]' \
+      "$SETTINGS_FILE" > "${SETTINGS_FILE}.tmp" \
+      && mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
+    echo "Installed auto-format hook in $SETTINGS_FILE"
+  fi
+fi
+
+# --- Install Stop hook ---
+STOP_HOOK_PATH="$(cd "$LANEKEEP_DIR/hooks" && pwd)/stop.sh"
+
+if [ -f "$SETTINGS_FILE" ]; then
+  existing_stop=$(jq -r '.hooks.Stop // empty' "$SETTINGS_FILE" 2>/dev/null)
+  if printf '%s' "$existing_stop" | grep -q "stop.sh" 2>/dev/null; then
+    echo "Stop hook already installed in $SETTINGS_FILE (skipped)"
+  else
+    jq --arg cmd "$STOP_HOOK_PATH" \
+      '.hooks.Stop = [{"matcher": "", "hooks": [{"type": "command", "command": $cmd, "timeout": 10000}]}]' \
+      "$SETTINGS_FILE" > "${SETTINGS_FILE}.tmp" \
+      && mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
+    echo "Installed Stop hook in $SETTINGS_FILE"
+  fi
+fi
+
+# --- Normalize hook format (flat → nested safety net) ---
+source "$LANEKEEP_DIR/lib/hooks.sh"
+if normalize_hook_format "$SETTINGS_FILE"; then
+  echo "Repaired hook format in $SETTINGS_FILE (flat → nested)"
+fi
+
+# --- TLS setup (if --tls) ---
+if [ "$ENABLE_TLS" = true ]; then
+  if ! command -v openssl >/dev/null 2>&1; then
+    echo "Error: 'openssl' is required for TLS but not found." >&2
+    exit 1
+  fi
+
+  TLS_DIR="$HOME/.lanekeep/tls"
+  TLS_CERT="$TLS_DIR/cert.pem"
+  TLS_KEY="$TLS_DIR/key.pem"
+
+  if [ -f "$TLS_CERT" ] && [ -f "$TLS_KEY" ]; then
+    echo "TLS cert exists: $TLS_CERT (reusing)"
+  else
+    mkdir -p "$TLS_DIR"
+    openssl req -x509 -newkey rsa:2048 -keyout "$TLS_KEY" -out "$TLS_CERT" \
+      -days 365 -nodes -subj "/CN=localhost" 2>/dev/null
+    chmod 600 "$TLS_KEY"
+    echo "Generated self-signed TLS cert at $TLS_DIR/"
+  fi
+
+  # Inject ui.tls into project lanekeep.json
+  jq '.ui = {"tls": true}' "$PROJECT_DIR/lanekeep.json" > "$PROJECT_DIR/lanekeep.json.tmp" \
+    && mv "$PROJECT_DIR/lanekeep.json.tmp" "$PROJECT_DIR/lanekeep.json"
+  echo "Enabled TLS in $PROJECT_DIR/lanekeep.json"
+fi
+
+echo ""
+echo "LaneKeep initialized. Next steps:"
+echo "  1. Start LaneKeep:      $LANEKEEP_DIR/bin/lanekeep start"
+echo "  2. Use Claude Code normally — LaneKeep governs tool calls"
+echo "  3. View traces:    $LANEKEEP_DIR/bin/lanekeep trace"
+if [ "$ENABLE_TLS" = true ]; then
+  echo "  TLS is enabled — UI will use HTTPS"
+fi

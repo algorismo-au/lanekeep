@@ -1,0 +1,11 @@
+{
+  "rules": [],
+  "policies": {
+    "tools": {
+      "enabled": true,
+      "default": "allow",
+      "allowed": [],
+      "denied": ["^WebFetch$", "^WebSearch$"]
+    }
+  }
+}

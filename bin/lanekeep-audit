@@ -1,0 +1,611 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# lanekeep audit — unified config validation + security posture
+
+LANEKEEP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+PROJECT_DIR="${PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
+
+ERRORS=0
+WARNINGS=0
+INFOS=0
+
+# Known policy names (from policies_check() in eval-rules.sh)
+KNOWN_POLICIES="tools extensions paths commands arguments repos branches registries packages docker domains ips ports protocols env_vars governance_paths shell_configs registry_configs mcp_servers hidden_chars"
+
+# Known evaluator names (from defaults/lanekeep.json)
+KNOWN_EVALUATORS="codediff budget semantic input_pii result_transform hidden_text"
+
+# Security-sensitive policies
+SECURITY_POLICIES="governance_paths shell_configs hidden_chars"
+
+err()  { echo "  ERROR: $1"; ERRORS=$((ERRORS+1)); }
+warn() { echo "  WARN:  $1"; WARNINGS=$((WARNINGS+1)); }
+info() { echo "  INFO:  $1"; INFOS=$((INFOS+1)); }
+
+# --- Resolve raw configs (before merge) ---
+_defaults_file() { echo "$LANEKEEP_DIR/defaults/lanekeep.json"; }
+
+_project_file() {
+  if [ -f "$PROJECT_DIR/lanekeep.json" ]; then
+    echo "$PROJECT_DIR/lanekeep.json"
+  fi
+}
+
+_resolve_config() {
+  if [ -f "$PROJECT_DIR/lanekeep.json" ]; then
+    echo "$PROJECT_DIR/lanekeep.json"
+  else
+    echo "$LANEKEEP_DIR/defaults/lanekeep.json"
+  fi
+}
+
+# "did you mean?" — pick closest known policy name using deletion matching
+_did_you_mean() {
+  local typo="$1"
+  local best="" best_score=999
+  for name in $KNOWN_POLICIES; do
+    # Try removing each char from the longer string to match the shorter
+    # This handles single-char insertion/deletion typos well
+    local score=999
+
+    # Direct character comparison (handles substitutions)
+    local s=0 i=0 len=${#typo}
+    [ ${#name} -lt "$len" ] && len=${#name}
+    while [ "$i" -lt "$len" ]; do
+      if [ "${typo:$i:1}" != "${name:$i:1}" ]; then
+        s=$((s+1))
+      fi
+      i=$((i+1))
+    done
+    local diff=$(( ${#typo} - ${#name} ))
+    [ "$diff" -lt 0 ] && diff=$((-diff))
+    s=$((s+diff))
+    [ "$s" -lt "$score" ] && score=$s
+
+    # Try single-char deletion from typo (handles insertion typos)
+    if [ ${#typo} -eq $((${#name}+1)) ]; then
+      local j=0
+      while [ "$j" -lt ${#typo} ]; do
+        local reduced="${typo:0:$j}${typo:$((j+1))}"
+        if [ "$reduced" = "$name" ]; then
+          score=1
+          break
+        fi
+        j=$((j+1))
+      done
+    fi
+
+    # Try single-char deletion from name (handles deletion typos)
+    if [ ${#name} -eq $((${#typo}+1)) ]; then
+      local j=0
+      while [ "$j" -lt ${#name} ]; do
+        local reduced="${name:0:$j}${name:$((j+1))}"
+        if [ "$reduced" = "$typo" ]; then
+          score=1
+          break
+        fi
+        j=$((j+1))
+      done
+    fi
+
+    if [ "$score" -lt "$best_score" ]; then
+      best_score=$score
+      best=$name
+    fi
+  done
+  if [ "$best_score" -le 3 ] && [ -n "$best" ]; then
+    echo "$best"
+  fi
+}
+
+# ============================================================
+# Section 1: Rules validation
+# ============================================================
+check_rules() {
+  echo ""
+  echo "Rules..."
+
+  local defaults_file
+  defaults_file=$(_defaults_file)
+  local default_count=0
+  if [ -f "$defaults_file" ]; then
+    default_count=$(jq '.rules | length' "$defaults_file" 2>/dev/null) || default_count=0
+  fi
+
+  local project_file
+  project_file=$(_project_file)
+  local extra_count=0
+  if [ -n "$project_file" ]; then
+    extra_count=$(jq '.extra_rules // [] | length' "$project_file" 2>/dev/null) || extra_count=0
+  fi
+
+  echo "  $default_count default rules, $extra_count custom rules"
+
+  # Validate defaults rules
+  _validate_rules_in_file "$defaults_file" "rules" "default"
+
+  # Validate extra_rules in project config
+  if [ -n "$project_file" ] && [ "$extra_count" -gt 0 ]; then
+    _validate_rules_in_file "$project_file" "extra_rules" "custom"
+  fi
+}
+
+_validate_rules_in_file() {
+  local file="$1" key="$2" source_label="$3"
+
+  local count
+  count=$(jq ".$key | length" "$file" 2>/dev/null) || return 0
+  [ "$count" -gt 0 ] || return 0
+
+  local i=0
+  while [ "$i" -lt "$count" ]; do
+    local rule
+    rule=$(jq -c ".${key}[$i]" "$file")
+    local rule_id
+    rule_id=$(printf '%s' "$rule" | jq -r '.id // empty')
+    local label="Rule #$((i+1))"
+    [ -n "$rule_id" ] && label="Rule #$((i+1)) ($rule_id)"
+    [ "$source_label" = "custom" ] && label="$label [custom]"
+
+    # ERROR: missing required fields
+    for field in match decision reason; do
+      if ! printf '%s' "$rule" | jq -e "has(\"$field\")" >/dev/null 2>&1; then
+        err "$label — missing '$field' field"
+      fi
+    done
+
+    # ERROR: invalid decision value
+    local decision
+    decision=$(printf '%s' "$rule" | jq -r '.decision // empty')
+    if [ -n "$decision" ]; then
+      case "$decision" in
+        allow|deny|ask|warn) ;;
+        *) err "$label — invalid decision '$decision' (must be allow/deny/ask/warn)" ;;
+      esac
+    fi
+
+    # WARN: missing id
+    if [ -z "$rule_id" ]; then
+      warn "$label — missing 'id' field"
+    fi
+
+    # WARN: broad match
+    local match_fields
+    match_fields=$(printf '%s' "$rule" | jq '.match // {} | to_entries | map(select(.value != "")) | length' 2>/dev/null) || match_fields="0"
+    if [ "$match_fields" = "0" ]; then
+      warn "$label — broad match (empty or no match conditions)"
+    fi
+
+    # WARN: single-char command match
+    local cmd_len
+    cmd_len=$(printf '%s' "$rule" | jq -r '.match.command // "" | length' 2>/dev/null) || cmd_len="0"
+    if [ "$cmd_len" -eq 1 ]; then
+      warn "$label — very short command match (1 char)"
+    fi
+
+    # WARN: ReDoS patterns
+    local regex_fields
+    regex_fields=$(printf '%s' "$rule" | jq -r '.match // {} | [.pattern, .tool] | map(select(. != null and . != "")) | .[]' 2>/dev/null)
+    if [ -n "$regex_fields" ]; then
+      while IFS= read -r pat; do
+        [ -z "$pat" ] && continue
+        if printf '%s' "$pat" | grep -qP '\([^)]*[+*]\)[+*?]|\(\?[^)]*[+*]\)[+*?]' 2>/dev/null; then
+          warn "$label — regex '$pat' has nested quantifiers (ReDoS risk)"
+        fi
+        if [ ${#pat} -gt 500 ]; then
+          warn "$label — regex pattern exceeds 500 chars"
+        fi
+      done <<< "$regex_fields"
+    fi
+
+    i=$((i+1))
+  done
+
+  # Check duplicate IDs
+  local dups
+  dups=$(jq -r "[.${key}[] | .id // empty] | group_by(.) | map(select(length > 1) | .[0]) | .[]" "$file" 2>/dev/null) || dups=""
+  if [ -n "$dups" ]; then
+    while IFS= read -r dup_id; do
+      [ -z "$dup_id" ] && continue
+      warn "Duplicate id '$dup_id' in $source_label rules"
+    done <<< "$dups"
+  fi
+}
+
+# ============================================================
+# Section 2: Policy validation
+# ============================================================
+check_policies() {
+  echo "Policies..."
+
+  local config
+  config=$(_resolve_config)
+
+  local has_policies
+  has_policies=$(jq 'has("policies") and (.policies | length > 0)' "$config" 2>/dev/null) || has_policies="false"
+
+  if [ "$has_policies" != "true" ]; then
+    echo "  No policies configured"
+    return
+  fi
+
+  # Get all policy names in config
+  local policy_names
+  policy_names=$(jq -r '.policies | keys[]' "$config" 2>/dev/null) || return
+
+  local policy_count
+  policy_count=$(jq '.policies | length' "$config" 2>/dev/null) || policy_count=0
+  local active_count
+  active_count=$(jq '[.policies | to_entries[] | select(.value.enabled != false)] | length' "$config" 2>/dev/null) || active_count="$policy_count"
+  info "$active_count active policies ($policy_count configured)"
+
+  while IFS= read -r pname; do
+    [ -z "$pname" ] && continue
+
+    # Check if known
+    local known=false
+    for kp in $KNOWN_POLICIES; do
+      if [ "$pname" = "$kp" ]; then
+        known=true
+        break
+      fi
+    done
+
+    if [ "$known" = false ]; then
+      local suggestion
+      suggestion=$(_did_you_mean "$pname")
+      if [ -n "$suggestion" ]; then
+        err "Unknown policy '$pname' — did you mean '$suggestion'?"
+      else
+        err "Unknown policy '$pname'"
+      fi
+      continue
+    fi
+
+    # Validate policy structure
+    local policy
+    policy=$(jq -c ".policies[\"$pname\"]" "$config")
+
+    # ERROR: invalid default value
+    local default_val
+    default_val=$(printf '%s' "$policy" | jq -r '.default // empty')
+    if [ -n "$default_val" ]; then
+      case "$default_val" in
+        allow|deny) ;;
+        *) err "Policy '$pname' — invalid default '$default_val' (must be allow/deny)" ;;
+      esac
+    fi
+
+    # ERROR: enabled field not boolean
+    local has_enabled
+    has_enabled=$(printf '%s' "$policy" | jq 'has("enabled")' 2>/dev/null)
+    if [ "$has_enabled" = "true" ]; then
+      local enabled_type
+      enabled_type=$(printf '%s' "$policy" | jq -r '.enabled | type' 2>/dev/null)
+      if [ "$enabled_type" != "boolean" ]; then
+        err "Policy '$pname' — 'enabled' must be boolean, got $enabled_type"
+      fi
+    fi
+
+    # ERROR: test-compile regex patterns in allowed[]/denied[]
+    for arr in allowed denied; do
+      local patterns
+      patterns=$(printf '%s' "$policy" | jq -r ".${arr} // [] | .[]" 2>/dev/null) || continue
+      [ -z "$patterns" ] && continue
+      while IFS= read -r pat; do
+        [ -z "$pat" ] && continue
+        # Test-compile with jq test()
+        if ! printf '""' | jq --arg p "$pat" 'test($p)' >/dev/null 2>&1; then
+          err "Policy '$pname' — invalid regex in ${arr}[]: '$pat'"
+        fi
+        # WARN: ReDoS patterns
+        if printf '%s' "$pat" | grep -qP '\([^)]*[+*]\)[+*?]' 2>/dev/null; then
+          warn "Policy '$pname' — regex in ${arr}[] has nested quantifiers (ReDoS risk): '$pat'"
+        fi
+      done <<< "$patterns"
+    done
+
+    # WARN: empty denied[] + default:deny
+    local denied_len
+    denied_len=$(printf '%s' "$policy" | jq '.denied // [] | length' 2>/dev/null) || denied_len="0"
+    local allowed_len
+    allowed_len=$(printf '%s' "$policy" | jq '.allowed // [] | length' 2>/dev/null) || allowed_len="0"
+
+    if [ "$denied_len" = "0" ] && [ "$allowed_len" = "0" ] && [ "$default_val" = "deny" ]; then
+      warn "Policy '$pname' — denied[] is empty with default:deny (blocks all of that type)"
+    fi
+
+    # WARN: both empty with explicit config (no-op) — skip type:free policies
+    local policy_type
+    policy_type=$(printf '%s' "$policy" | jq -r '.type // empty')
+    if [ "$denied_len" = "0" ] && [ "$allowed_len" = "0" ] && [ "$default_val" = "allow" ] && [ "$policy_type" != "free" ]; then
+      warn "Policy '$pname' — both allowed[] and denied[] empty with default:allow (no-op policy)"
+    fi
+
+  done <<< "$policy_names"
+}
+
+# ============================================================
+# Section 3: Cross-reference validation
+# ============================================================
+check_crossrefs() {
+  local pre_errors="${1:-$ERRORS}" pre_warnings="${2:-$WARNINGS}"
+
+  echo ""
+  echo "Cross-references..."
+
+  local project_file
+  project_file=$(_project_file)
+  if [ -z "$project_file" ]; then
+    echo "  No project config — skipping"
+    return
+  fi
+
+  local defaults_file
+  defaults_file=$(_defaults_file)
+
+  # Get all default rule IDs
+  local default_ids
+  default_ids=$(jq -r '.rules[].id // empty' "$defaults_file" 2>/dev/null | sort) || default_ids=""
+
+  # Check disabled_rules
+  local disabled
+  disabled=$(jq -r '.disabled_rules // [] | .[]' "$project_file" 2>/dev/null) || disabled=""
+  if [ -n "$disabled" ]; then
+    while IFS= read -r did; do
+      [ -z "$did" ] && continue
+      if ! printf '%s\n' "$default_ids" | grep -qxF "$did"; then
+        warn "disabled_rules: '$did' not found in defaults"
+      fi
+    done <<< "$disabled"
+  fi
+
+  # Check rule_overrides
+  local overrides
+  overrides=$(jq -r '.rule_overrides // [] | .[].id // empty' "$project_file" 2>/dev/null) || overrides=""
+  if [ -n "$overrides" ]; then
+    while IFS= read -r oid; do
+      [ -z "$oid" ] && continue
+      if ! printf '%s\n' "$default_ids" | grep -qxF "$oid"; then
+        warn "rule_overrides: '$oid' not found in defaults"
+      fi
+    done <<< "$overrides"
+  fi
+
+  # Check extends value
+  local extends
+  extends=$(jq -r '.extends // empty' "$project_file" 2>/dev/null) || extends=""
+  if [ -n "$extends" ] && [ "$extends" != "defaults" ]; then
+    warn "extends: '$extends' is not recognized (only 'defaults' is supported)"
+  fi
+
+  # If no new errors/warnings in this section, say OK
+  if [ "$ERRORS" -eq "$pre_errors" ] && [ "$WARNINGS" -eq "$pre_warnings" ]; then
+    echo "  OK"
+  fi
+}
+
+# ============================================================
+# Section 4: Budget/evaluator validation
+# ============================================================
+check_budget() {
+  echo ""
+  echo "Budget..."
+
+  local config
+  config=$(_resolve_config)
+
+  local has_budget
+  has_budget=$(jq 'has("budget")' "$config" 2>/dev/null) || has_budget="false"
+
+  if [ "$has_budget" = "true" ]; then
+    # max_actions: positive integer
+    local max_actions_type
+    max_actions_type=$(jq -r '.budget.max_actions | type' "$config" 2>/dev/null) || max_actions_type=""
+    if [ -n "$max_actions_type" ] && [ "$max_actions_type" != "null" ]; then
+      if [ "$max_actions_type" != "number" ]; then
+        err "budget.max_actions must be a positive integer, got $max_actions_type"
+      else
+        local max_actions
+        max_actions=$(jq '.budget.max_actions' "$config")
+        if [ "$max_actions" -le 0 ] 2>/dev/null; then
+          err "budget.max_actions must be a positive integer, got $max_actions"
+        fi
+      fi
+    fi
+
+    # timeout_seconds: positive integer
+    local timeout_type
+    timeout_type=$(jq -r '.budget.timeout_seconds | type' "$config" 2>/dev/null) || timeout_type=""
+    if [ -n "$timeout_type" ] && [ "$timeout_type" != "null" ]; then
+      if [ "$timeout_type" != "number" ]; then
+        err "budget.timeout_seconds must be a positive integer, got $timeout_type"
+      else
+        local timeout_val
+        timeout_val=$(jq '.budget.timeout_seconds' "$config")
+        if [ "$timeout_val" -le 0 ] 2>/dev/null; then
+          err "budget.timeout_seconds must be a positive integer, got $timeout_val"
+        fi
+      fi
+    fi
+
+    # max_tokens: positive integer or null
+    local max_tokens_type
+    max_tokens_type=$(jq -r '.budget.max_tokens | type' "$config" 2>/dev/null) || max_tokens_type=""
+    if [ -n "$max_tokens_type" ] && [ "$max_tokens_type" != "null" ]; then
+      if [ "$max_tokens_type" != "number" ]; then
+        err "budget.max_tokens must be a positive integer or null, got $max_tokens_type"
+      else
+        local max_tokens
+        max_tokens=$(jq '.budget.max_tokens' "$config")
+        if [ "$max_tokens" -le 0 ] 2>/dev/null; then
+          err "budget.max_tokens must be a positive integer, got $max_tokens"
+        fi
+      fi
+    fi
+  fi
+
+  # Check evaluators
+  local has_evaluators
+  has_evaluators=$(jq 'has("evaluators")' "$config" 2>/dev/null) || has_evaluators="false"
+
+  if [ "$has_evaluators" = "true" ]; then
+    local eval_names
+    eval_names=$(jq -r '.evaluators | keys[]' "$config" 2>/dev/null) || eval_names=""
+    if [ -n "$eval_names" ]; then
+      while IFS= read -r ename; do
+        [ -z "$ename" ] && continue
+        local known=false
+        for ke in $KNOWN_EVALUATORS; do
+          if [ "$ename" = "$ke" ]; then
+            known=true
+            break
+          fi
+        done
+        if [ "$known" = false ]; then
+          warn "Unknown evaluator '$ename'"
+        fi
+      done <<< "$eval_names"
+    fi
+  fi
+
+  # If no new errors in this section, say OK
+  if [ "$ERRORS" -eq "$pre_budget_errors" ]; then
+    echo "  OK"
+  fi
+}
+
+# ============================================================
+# Section 5: Security posture
+# ============================================================
+check_posture() {
+  echo ""
+  echo "Security posture:"
+
+  local defaults_file
+  defaults_file=$(_defaults_file)
+  local project_file
+  project_file=$(_project_file)
+
+  # Count disabled rules
+  local default_count
+  default_count=$(jq '.rules | length' "$defaults_file" 2>/dev/null) || default_count=0
+  local disabled_count=0
+  if [ -n "$project_file" ]; then
+    disabled_count=$(jq '.disabled_rules // [] | length' "$project_file" 2>/dev/null) || disabled_count=0
+  fi
+
+  if [ "$disabled_count" -gt 0 ]; then
+    info "$disabled_count of $default_count default rules disabled"
+  fi
+
+  # WARN: >50% disabled
+  if [ "$default_count" -gt 0 ] && [ "$disabled_count" -gt 0 ]; then
+    local half=$((default_count / 2))
+    if [ "$disabled_count" -gt "$half" ]; then
+      warn "More than 50% of default rules disabled ($disabled_count of $default_count)"
+    fi
+  fi
+
+  # Check for empty match + allow rules (allows everything)
+  local config
+  config=$(_resolve_config)
+  local broad_allow
+  broad_allow=$(jq '[(.rules // []) + (.extra_rules // []) | .[] | select(.decision == "allow") | select(.match | to_entries | map(select(.value != "")) | length == 0)] | length' "$config" 2>/dev/null) || broad_allow=0
+  if [ "$broad_allow" -gt 0 ]; then
+    warn "$broad_allow rule(s) with empty match + allow decision (allows everything)"
+  fi
+
+  # Check security-sensitive policies
+  local has_policies
+  has_policies=$(jq 'has("policies")' "$config" 2>/dev/null) || has_policies="false"
+
+  if [ "$has_policies" = "true" ]; then
+    # governance_paths disabled (jq // treats false as null, use if/then/else)
+    local gp_enabled
+    gp_enabled=$(jq '.policies | if has("governance_paths") and (.governance_paths | has("enabled")) then .governance_paths.enabled else true end' "$config" 2>/dev/null) || gp_enabled="true"
+    if [ "$gp_enabled" = "false" ]; then
+      warn "governance_paths policy is disabled — config files unprotected"
+    fi
+
+    # shell_configs disabled
+    local sc_enabled
+    sc_enabled=$(jq '.policies | if has("shell_configs") and (.shell_configs | has("enabled")) then .shell_configs.enabled else true end' "$config" 2>/dev/null) || sc_enabled="true"
+    if [ "$sc_enabled" = "false" ]; then
+      warn "shell_configs policy is disabled — dotfiles unprotected"
+    fi
+
+    # hidden_chars disabled
+    local hc_enabled
+    hc_enabled=$(jq '.policies | if has("hidden_chars") and (.hidden_chars | has("enabled")) then .hidden_chars.enabled else true end' "$config" 2>/dev/null) || hc_enabled="true"
+    if [ "$hc_enabled" = "false" ]; then
+      warn "hidden_chars policy is disabled — unicode injection unprotected"
+    fi
+  fi
+
+  # No rules at all
+  local rule_count
+  rule_count=$(jq '.rules // [] | length' "$config" 2>/dev/null) || rule_count=0
+  if [ "$rule_count" -eq 0 ]; then
+    warn "No rules configured"
+  fi
+}
+
+# ============================================================
+# Audit file persistence
+# ============================================================
+# ============================================================
+# Main
+# ============================================================
+usage() {
+  echo "lanekeep audit — validate config and check security posture"
+  echo ""
+  echo "Usage: lanekeep audit [options]"
+}
+
+main() {
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      help|-h|--help) usage; exit 0 ;;
+      *) echo "Unknown option: $1" >&2; exit 1 ;;
+    esac
+  done
+
+  # Set up audit file
+  local audit_dir="$PROJECT_DIR/.lanekeep/audits"
+  mkdir -p -m 0700 "$audit_dir"
+  local audit_file="$audit_dir/audit-$(date -u +%Y%m%d-%H%M%S).txt"
+
+  {
+    echo "lanekeep audit"
+    echo ""
+
+    # Track warnings/errors before each section for crossref OK message
+    local pre_xref_errors pre_xref_warnings
+
+    check_policies
+    check_rules
+
+    pre_xref_errors=$ERRORS
+    pre_xref_warnings=$WARNINGS
+    check_crossrefs "$pre_xref_errors" "$pre_xref_warnings"
+
+    local pre_budget_errors=$ERRORS
+    check_budget
+    check_posture
+
+    echo ""
+    echo "Audit complete: $ERRORS error(s), $WARNINGS warning(s), $INFOS info(s)"
+  } | tee "$audit_file"
+
+  chmod 600 "$audit_file"
+
+  # Determine exit code from saved file (globals lost in pipe subshell)
+  if grep -q "Audit complete: 0 error" "$audit_file"; then
+    exit 0
+  else
+    exit 1
+  fi
+}
+
+main "$@"

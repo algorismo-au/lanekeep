@@ -1,0 +1,227 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export LANEKEEP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Resolve project directory once — pwd can fail if CWD was deleted/renamed
+export PROJECT_DIR="${PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
+
+HOOK_PATH="$LANEKEEP_DIR/hooks/evaluate.sh"
+POST_HOOK_PATH="$LANEKEEP_DIR/hooks/post-evaluate.sh"
+AUTOFORMAT_HOOK_PATH="$LANEKEEP_DIR/hooks/auto-format.sh"
+STOP_HOOK_PATH="$LANEKEEP_DIR/hooks/stop.sh"
+
+# Resolve settings file: project-local > global
+_lanekeep_settings_file() {
+  local project_settings="${LANEKEEP_PROJECT_DIR:-$PROJECT_DIR}/.claude/settings.local.json"
+  local global_settings="$HOME/.claude/settings.json"
+  if [ -f "$project_settings" ]; then
+    echo "$project_settings"
+  else
+    echo "$global_settings"
+  fi
+}
+
+case "${1:-help}" in
+  serve)  shift; exec "$LANEKEEP_DIR/bin/lanekeep-serve" "$@" ;;
+  trace)  shift; exec "$LANEKEEP_DIR/bin/lanekeep-trace" "$@" ;;
+  init)   shift; exec "$LANEKEEP_DIR/bin/lanekeep-init" "$@" ;;
+  demo)   shift; exec "$LANEKEEP_DIR/bin/lanekeep-demo" "$@" ;;
+  migrate) shift; exec "$LANEKEEP_DIR/bin/lanekeep-migrate" "$@" ;;
+  selftest) shift; exec "$LANEKEEP_DIR/bin/lanekeep-selftest" "$@" ;;
+  license) shift; source "$LANEKEEP_DIR/lib/license.sh"; print_license_info; exit 0 ;;
+  plugin) shift; exec "$LANEKEEP_DIR/bin/lanekeep-plugin" "$@" ;;
+  rules)  shift; exec "$LANEKEEP_DIR/bin/lanekeep-rules" "$@" ;;
+  audit)  shift; exec "$LANEKEEP_DIR/bin/lanekeep-audit" "$@" ;;
+  policy) shift; exec "$LANEKEEP_DIR/bin/lanekeep-policy" "$@" ;;
+  bookmarks) shift; exec "$LANEKEEP_DIR/bin/lanekeep-bookmarks" "$@" ;;
+  status) shift; exec "$LANEKEEP_DIR/bin/lanekeep-status" "$@" ;;
+  ui)     shift; exec "$LANEKEEP_DIR/bin/lanekeep-ui" "$@" ;;
+  start)
+    shift
+    UI_PORT="${LANEKEEP_UI_PORT:-8111}"
+    TLS="${LANEKEEP_UI_TLS:-}"
+    # Fallback: read ui.tls from project lanekeep.json
+    if [ -z "$TLS" ] && [ -f "$PROJECT_DIR/lanekeep.json" ]; then
+      if jq -e '.ui.tls == true' "$PROJECT_DIR/lanekeep.json" >/dev/null 2>&1; then
+        TLS="1"
+      fi
+    fi
+    export LANEKEEP_UI_TLS="${TLS}"
+    UI_PID=""
+    SERVE_PID=""
+    cleanup_start() {
+      [ -n "$UI_PID" ] && kill "$UI_PID" 2>/dev/null || true
+      [ -n "$SERVE_PID" ] && kill "$SERVE_PID" 2>/dev/null || true
+      rm -f "$PROJECT_DIR/.lanekeep/ui-port"
+      wait 2>/dev/null || true
+    }
+    trap cleanup_start EXIT INT TERM
+    # Start UI in background
+    "$LANEKEEP_DIR/bin/lanekeep-ui" --foreground "$@" &
+    UI_PID=$!
+    # Wait for lanekeep-ui to write .lanekeep/ui-port (port may differ from default)
+    for _i in 1 2 3 4 5; do
+      if [ -f "$PROJECT_DIR/.lanekeep/ui-port" ]; then
+        UI_PORT=$(cat "$PROJECT_DIR/.lanekeep/ui-port")
+        break
+      fi
+      sleep 0.2
+    done
+    # Wait for server to accept connections, then open browser
+    SCHEME="http"; [ -n "$TLS" ] && SCHEME="https"
+    _url="$SCHEME://localhost:$UI_PORT"
+    _ready=false
+    for _i in $(seq 1 30); do
+      if python3 -c "import socket,sys;s=socket.socket();s.settimeout(0.05);s.connect(('127.0.0.1',int(sys.argv[1])));s.close()" "$UI_PORT" 2>/dev/null; then
+        _ready=true; break
+      fi
+      sleep 0.1
+    done
+    if [ "$_ready" = true ]; then
+      echo "[LaneKeep] UI: $_url"
+      # Open browser — best-effort
+      (
+        if command -v xdg-open >/dev/null 2>&1; then
+          setsid xdg-open "$_url" >/dev/null 2>&1 &
+        elif command -v open >/dev/null 2>&1; then
+          open "$_url" >/dev/null 2>&1
+        else
+          python3 -c "import webbrowser,sys;webbrowser.open(sys.argv[1])" "$_url" >/dev/null 2>&1
+        fi
+      ) &
+      disown 2>/dev/null || true
+    fi
+    # Start sidecar in foreground
+    "$LANEKEEP_DIR/bin/lanekeep-serve" "$@" &
+    SERVE_PID=$!
+    wait "$SERVE_PID"
+    echo "[LaneKeep] Sidecar has stopped. Shutting down." >&2
+    ;;
+  enable)
+    SETTINGS=$(_lanekeep_settings_file)
+    if [ ! -f "$SETTINGS" ]; then
+      jq -n --arg pre "$HOOK_PATH" --arg post "$POST_HOOK_PATH" \
+        --arg af "$AUTOFORMAT_HOOK_PATH" --arg stop "$STOP_HOOK_PATH" \
+        '{hooks: {
+          PreToolUse: [{"matcher": "", "hooks": [{"type": "command", "command": $pre, "timeout": 10000}]}],
+          PostToolUse: [{"matcher": "", "hooks": [{"type": "command", "command": $post, "timeout": 10000}]}, {"matcher": "", "hooks": [{"type": "command", "command": $af, "timeout": 10000}]}],
+          Stop: [{"matcher": "", "hooks": [{"type": "command", "command": $stop, "timeout": 10000}]}]
+        }}' > "$SETTINGS"
+    else
+      existing=$(jq -r '.hooks.PreToolUse // empty' "$SETTINGS" 2>/dev/null)
+      if printf '%s' "$existing" | grep -q "evaluate.sh" 2>/dev/null; then
+        echo "LaneKeep is already enabled in $SETTINGS"
+      else
+        jq --arg pre "$HOOK_PATH" --arg post "$POST_HOOK_PATH" \
+          --arg af "$AUTOFORMAT_HOOK_PATH" --arg stop "$STOP_HOOK_PATH" \
+          '.hooks.PreToolUse = [{"matcher": "", "hooks": [{"type": "command", "command": $pre, "timeout": 10000}]}]
+          | .hooks.PostToolUse = [{"matcher": "", "hooks": [{"type": "command", "command": $post, "timeout": 10000}]}, {"matcher": "", "hooks": [{"type": "command", "command": $af, "timeout": 10000}]}]
+          | .hooks.Stop = [{"matcher": "", "hooks": [{"type": "command", "command": $stop, "timeout": 10000}]}]' \
+          "$SETTINGS" > "${SETTINGS}.tmp" && mv "${SETTINGS}.tmp" "$SETTINGS"
+      fi
+    fi
+    # Normalize any flat-format hooks (repairs broken installs)
+    source "$LANEKEEP_DIR/lib/hooks.sh"
+    if normalize_hook_format "$SETTINGS"; then
+      echo "Repaired hook format in $SETTINGS (flat → nested)"
+    fi
+    echo "LaneKeep enabled in $SETTINGS"
+    echo "Restart Claude Code for changes to take effect."
+    ;;
+  disable)
+    SETTINGS=$(_lanekeep_settings_file)
+    if [ ! -f "$SETTINGS" ]; then
+      echo "No settings file found — LaneKeep is not enabled."
+      exit 0
+    fi
+    has_hook=$(jq -r '.hooks.PreToolUse // empty' "$SETTINGS" 2>/dev/null)
+    if ! printf '%s' "$has_hook" | grep -q "evaluate.sh" 2>/dev/null; then
+      echo "LaneKeep is not enabled in $SETTINGS"
+      exit 0
+    fi
+    jq 'del(.hooks.PreToolUse) | del(.hooks.PostToolUse) | del(.hooks.Stop) | if .hooks == {} then del(.hooks) else . end' \
+      "$SETTINGS" > "${SETTINGS}.tmp" && mv "${SETTINGS}.tmp" "$SETTINGS"
+    echo "LaneKeep disabled in $SETTINGS"
+    echo "Restart Claude Code for changes to take effect."
+    ;;
+  stop)
+    SOCKET="${LANEKEEP_SOCKET:-$PROJECT_DIR/.lanekeep/lanekeep.sock}"
+    PIDFILE="$(dirname "$SOCKET")/lanekeep-serve.pid"
+    LOCKFILE="$(dirname "$SOCKET")/lanekeep-serve.lock"
+    if [ -f "$PIDFILE" ]; then
+      SHELL_PID=$(head -1 "$PIDFILE" 2>/dev/null)
+      SOCAT_PID=$(sed -n '2p' "$PIDFILE" 2>/dev/null)
+      # Kill shell first (triggers graceful cleanup trap)
+      if [ -n "$SHELL_PID" ] && kill -0 "$SHELL_PID" 2>/dev/null; then
+        kill "$SHELL_PID" 2>/dev/null || true
+        echo "[LaneKeep] Stopped sidecar (pid $SHELL_PID)."
+      fi
+      # Kill socat as fallback (orphan case)
+      if [ -n "$SOCAT_PID" ] && kill -0 "$SOCAT_PID" 2>/dev/null; then
+        kill "$SOCAT_PID" 2>/dev/null || true
+        echo "[LaneKeep] Killed orphaned socat (pid $SOCAT_PID)."
+      fi
+      rm -f "$PIDFILE" "$SOCKET" "$LOCKFILE"
+    elif [ -S "$SOCKET" ]; then
+      # No PID file but socket exists — find and kill orphan via lsof
+      ORPHAN_PID=$(lsof -t "$SOCKET" 2>/dev/null || true)
+      if [ -n "$ORPHAN_PID" ]; then
+        kill "$ORPHAN_PID" 2>/dev/null || true
+        echo "[LaneKeep] Killed orphaned listener (pid $ORPHAN_PID)."
+      fi
+      rm -f "$SOCKET" "$LOCKFILE"
+    else
+      echo "[LaneKeep] No sidecar running (no PID file)."
+    fi
+    # Stop UI server if running in daemon mode
+    UI_PIDFILE="$(dirname "$SOCKET")/ui.pid"
+    if [ -f "$UI_PIDFILE" ]; then
+      UI_PID=$(cat "$UI_PIDFILE" 2>/dev/null)
+      if [ -n "$UI_PID" ] && kill -0 "$UI_PID" 2>/dev/null; then
+        kill "$UI_PID" 2>/dev/null || true
+        echo "[LaneKeep] Stopped UI server (pid $UI_PID)."
+      fi
+      rm -f "$UI_PIDFILE"
+    fi
+    rm -f "$(dirname "$SOCKET")/ui-port"
+    ;;
+  version|-v|--version)
+    VERSION=$(jq -r '.version // "unknown"' "$LANEKEEP_DIR/defaults/lanekeep.json")
+    echo "lanekeep $VERSION"
+    echo "© 2026 Algorismo"
+    echo "lanekeep.ai"
+    exit 0
+    ;;
+  help|-h|--help)
+    echo "lanekeep — Claude Code governance sidecar"
+    echo ""
+    echo "Commands:"
+    echo "  enable                  Register LaneKeep hooks in Claude Code settings"
+    echo "  disable                 Remove LaneKeep hooks from Claude Code settings"
+    echo "  start                   Start sidecar + UI together"
+    echo "  stop                    Stop running sidecar"
+    echo "  status                  Show governance state as JSON"
+    echo "  ui [config]             Launch rules dashboard in browser"
+    echo "  serve [--spec <file>]   Start governance sidecar only"
+    echo "  trace [--follow|clear]  View or clear audit trail"
+    echo "  demo                    See LaneKeep block dangerous actions (no setup needed)"
+    echo "  init                    Initialize lanekeep.json + Claude Code hook"
+    echo "  migrate [dir]           Convert monolithic lanekeep.json to layered config"
+    echo "  selftest                Verify LaneKeep installation and pipeline health"
+    echo "  audit                   Validate config and check security posture"
+    echo "  plugin <subcommand>     Manage plugins (new/list/test)"
+    echo "  rules <subcommand>      Manage rules (list/export/import/add/test/validate/update)"
+    echo "  license                 Show license tier and API version"
+    echo "  policy <subcommand>     Manage policy/rule state (disable/enable)"
+    echo "  bookmarks <subcommand>  Manage file bookmarks (add/list/remove/open)"
+    echo ""
+    echo "Environment:"
+    echo "  LANEKEEP_SOCKET              Override socket path (default: .lanekeep/lanekeep.sock)"
+    echo "  LANEKEEP_MAX_ACTIONS         Override action budget"
+    echo "  LANEKEEP_TIMEOUT_SECONDS     Override time budget"
+    echo "  LANEKEEP_UI_TLS              Enable HTTPS on UI server (set to 1)"
+    echo "  LANEKEEP_UI_CERT/LANEKEEP_UI_KEY  BYO TLS certificate and key paths"
+    ;;
+  *) echo "Unknown command: $1" >&2; exit 1 ;;
+esac

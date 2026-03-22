@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LANEKEEP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+# --- Dependency checks ---
+for dep in jq socat; do
+  if ! command -v "$dep" >/dev/null 2>&1; then
+    echo "Error: '$dep' is required but not installed." >&2
+    echo "Install it with: sudo apt install $dep" >&2
+    exit 1
+  fi
+done
+
+# --- Parse arguments ---
+SPEC_FILE=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --spec) SPEC_FILE="$2"; shift 2 ;;
+    *) echo "Unknown option: $1" >&2; exit 1 ;;
+  esac
+done
+
+# --- Resolve paths ---
+PROJECT_DIR="${PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
+SOCKET="${LANEKEEP_SOCKET:-$PROJECT_DIR/.lanekeep/lanekeep.sock}"
+
+# Validate socket path length (Unix limit: 108 bytes)
+if [ ${#SOCKET} -gt 108 ]; then
+  echo "Error: Socket path too long (${#SOCKET} > 108 bytes): $SOCKET" >&2
+  echo "Fix: set LANEKEEP_SOCKET to a shorter path, e.g. /tmp/lanekeep-\$PROJECT.sock" >&2
+  exit 1
+fi
+
+# --- Prevent duplicate listeners ---
+PIDFILE="$(dirname "$SOCKET")/lanekeep-serve.pid"
+LOCKFILE="$(dirname "$SOCKET")/lanekeep-serve.lock"
+(umask 077 && mkdir -p "$(dirname "$SOCKET")")
+
+exec 7>"$LOCKFILE"
+if ! flock -n 7; then
+  echo "[LaneKeep] ERROR: sidecar already running (lock held)" >&2
+  echo "[LaneKeep] Run: lanekeep stop" >&2
+  exec 7>&-
+  exit 1
+fi
+
+if [ -f "$PIDFILE" ]; then
+  OLD_SHELL_PID=$(head -1 "$PIDFILE" 2>/dev/null)
+  OLD_SOCAT_PID=$(sed -n '2p' "$PIDFILE" 2>/dev/null)
+  if [ -n "$OLD_SHELL_PID" ] && kill -0 "$OLD_SHELL_PID" 2>/dev/null; then
+    echo "[LaneKeep] ERROR: sidecar already running (pid $OLD_SHELL_PID)" >&2
+    echo "[LaneKeep] Run: lanekeep stop  or  kill $OLD_SHELL_PID" >&2
+    exec 7>&-
+    exit 1
+  fi
+  # Shell is dead — kill orphaned socat if present
+  if [ -n "$OLD_SOCAT_PID" ] && kill -0 "$OLD_SOCAT_PID" 2>/dev/null; then
+    kill "$OLD_SOCAT_PID" 2>/dev/null || true
+    # Wait up to 0.5s for socat to exit
+    for _i in 1 2 3 4 5; do
+      kill -0 "$OLD_SOCAT_PID" 2>/dev/null || break
+      sleep 0.1
+    done
+  fi
+  rm -f "$PIDFILE"
+fi
+
+# Socket-based fallback: kill any remaining listener from pre-fix PID files
+if [ -S "$SOCKET" ]; then
+  ORPHAN_PID=$(lsof -t "$SOCKET" 2>/dev/null || true)
+  if [ -n "$ORPHAN_PID" ]; then
+    kill "$ORPHAN_PID" 2>/dev/null || true
+    sleep 0.2
+  fi
+fi
+
+# --- Load config, parse spec, initialize session ---
+source "$LANEKEEP_DIR/lib/config.sh"
+load_config "$PROJECT_DIR" "$SPEC_FILE"
+
+# --- Cache plugin hashes at startup for handler performance (1D) ---
+PLUGIN_DIR="$LANEKEEP_DIR/plugins.d"
+if [ -d "$PLUGIN_DIR" ]; then
+  _cached=""
+  for p in "$PLUGIN_DIR"/*.plugin.sh "$PLUGIN_DIR"/*.plugin.py \
+           "$PLUGIN_DIR"/*.plugin.js "$PLUGIN_DIR"/*.plugin; do
+    [ -f "$p" ] || continue
+    _h=$(sha256sum "$p" 2>/dev/null | cut -d' ' -f1)
+    _n=$(basename "$p")
+    [ -n "$_cached" ] && _cached="${_cached};"
+    _cached="${_cached}${_n}=${_h}"
+  done
+  export LANEKEEP_PLUGIN_HASHES="$_cached"
+fi
+
+# --- Prepare socket (VULN-10: restrict permissions to owner only) ---
+rm -f "$SOCKET"
+
+# --- Start Ralph watcher in background ---
+RALPH_PID=""
+if [ -d "$PROJECT_DIR/.ralph" ]; then
+  if [ -x "$LANEKEEP_DIR/lib/ralph-context.sh" ]; then
+    "$LANEKEEP_DIR/lib/ralph-context.sh" watch "$PROJECT_DIR/.ralph" &
+    RALPH_PID=$!
+  fi
+fi
+
+# --- Cleanup trap ---
+SOCAT_PID=""
+cleanup() {
+  if [ -n "$SOCAT_PID" ] && kill -0 "$SOCAT_PID" 2>/dev/null; then
+    kill "$SOCAT_PID" 2>/dev/null || true
+    wait "$SOCAT_PID" 2>/dev/null || true
+  fi
+  rm -f "$SOCKET" "$PIDFILE" "$LOCKFILE"
+  if [ -n "$RALPH_PID" ] && kill -0 "$RALPH_PID" 2>/dev/null; then
+    kill "$RALPH_PID" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT INT TERM
+
+# --- Start server ---
+echo "[LaneKeep] Project: $PROJECT_DIR"
+echo "[LaneKeep] Session: $LANEKEEP_SESSION_ID (pid $$)"
+echo "[LaneKeep] Trace:   $LANEKEEP_TRACE_FILE"
+
+# VULN-10: Set umask before socat creates socket to restrict to owner-only
+SOCAT_T=$(( ${LANEKEEP_HOOK_TIMEOUT:-2} + 1 ))
+(umask 077 && exec socat -t "$SOCAT_T" UNIX-LISTEN:"$SOCKET",fork,unlink-early,backlog=128 \
+  EXEC:"$LANEKEEP_DIR/bin/lanekeep-handler",pipes) &
+SOCAT_PID=$!
+printf '%s\n%s\n' "$$" "$SOCAT_PID" > "$PIDFILE"
+
+# Verify socat started (brief check before blocking wait)
+sleep 0.1
+if ! kill -0 "$SOCAT_PID" 2>/dev/null; then
+  echo "[LaneKeep] ERROR: socat failed to start" >&2
+  exit 1
+fi
+
+wait "$SOCAT_PID"
+EXIT_CODE=$?
+if [ $EXIT_CODE -ne 0 ]; then
+  echo "[LaneKeep] Sidecar stopped unexpectedly (exit code $EXIT_CODE)" >&2
+else
+  echo "[LaneKeep] Sidecar stopped." >&2
+fi

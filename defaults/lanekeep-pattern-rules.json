@@ -1,0 +1,62 @@
+{
+  "rules": [
+    {
+      "match": {
+        "pattern": "github\\.com[:/]myorg/",
+        "tool": "Bash"
+      },
+      "decision": "allow",
+      "reason": "Allowed org repo",
+      "category": "repo",
+      "type": "free"
+    },
+    {
+      "match": {
+        "pattern": "\\.(exe|dll|so)\"",
+        "tool": "Write|Edit"
+      },
+      "decision": "deny",
+      "reason": "Binary extension blocked",
+      "category": "extension",
+      "intent": "Binary files should not be written by AI agents — they are not reviewable and may contain compiled malware",
+      "type": "free"
+    },
+    {
+      "match": {
+        "pattern": "\\b10\\.0\\.0\\.",
+        "tool": "Bash"
+      },
+      "decision": "deny",
+      "reason": "Internal IP blocked",
+      "category": "network",
+      "intent": "Commands targeting internal network IPs risk lateral movement — restrict to approved hosts",
+      "type": "free"
+    },
+    {
+      "match": {
+        "pattern": "\\.py\""
+      },
+      "decision": "allow",
+      "reason": "Python file allowed",
+      "category": "extension",
+      "type": "free"
+    },
+    {
+      "match": {
+        "pattern": "SENSITIVE_PATTERN"
+      },
+      "decision": "deny",
+      "reason": "Sensitive pattern matched",
+      "category": "security",
+      "intent": "Matches a project-specific sensitive pattern that must not appear in tool output",
+      "type": "free"
+    }
+  ],
+  "policies": {},
+  "hard_blocks": [],
+  "budget": {
+    "max_actions": 500,
+    "max_tokens": null,
+    "timeout_seconds": 3600
+  }
+}

@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# lanekeep selftest — verify LaneKeep installation, platform compatibility, and pipeline health
+
+LANEKEEP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+COMPAT="$LANEKEEP_DIR/defaults/compat.json"
+PASS=0
+WARN=0
+FAIL=0
+
+_pass() { echo "  PASS  $1"; PASS=$((PASS + 1)); }
+_warn() { echo "  WARN  $1"; WARN=$((WARN + 1)); }
+_fail() { echo "  FAIL  $1"; FAIL=$((FAIL + 1)); }
+
+echo "LaneKeep Selftest"
+echo "============"
+echo ""
+
+# --- 1. Dependencies ---
+echo "Dependencies:"
+if command -v jq >/dev/null 2>&1; then
+  _pass "jq $(jq --version 2>/dev/null || echo '?')"
+else
+  _fail "jq not found"
+fi
+
+if command -v bash >/dev/null 2>&1; then
+  if [ "${BASH_VERSINFO[0]}" -ge 4 ]; then
+    _pass "bash ${BASH_VERSION}"
+  else
+    _fail "bash ${BASH_VERSION} (need >= 4)"
+  fi
+else
+  _fail "bash not found"
+fi
+
+if command -v socat >/dev/null 2>&1; then
+  _pass "socat available"
+else
+  _warn "socat not found — sidecar mode unavailable"
+fi
+
+echo ""
+
+# --- 2. Platform detection ---
+echo "Platform:"
+PLATFORM="unknown"
+PLATFORM_VERSION=""
+
+if command -v claude >/dev/null 2>&1; then
+  PLATFORM="claude-code"
+  PLATFORM_VERSION=$(claude --version 2>/dev/null | head -1 | grep -oP '[\d.]+' | head -1) || PLATFORM_VERSION="?"
+  _pass "Claude Code detected (${PLATFORM_VERSION})"
+elif command -v cursor >/dev/null 2>&1; then
+  PLATFORM="cursor"
+  PLATFORM_VERSION=$(cursor --version 2>/dev/null | head -1 | grep -oP '[\d.]+' | head -1) || PLATFORM_VERSION="?"
+  _pass "Cursor detected (${PLATFORM_VERSION})"
+else
+  _warn "No known platform detected (Claude Code or Cursor)"
+fi
+
+# Check compatibility
+if [ -f "$COMPAT" ] && [ "$PLATFORM" != "unknown" ]; then
+  tested=$(jq -r --arg p "$PLATFORM" '.platforms[$p].tested // empty' "$COMPAT" 2>/dev/null) || tested=""
+  adapter=$(jq -r --arg p "$PLATFORM" '.platforms[$p].adapter // empty' "$COMPAT" 2>/dev/null) || adapter=""
+  if [ -n "$tested" ]; then
+    _pass "Tested with $PLATFORM $tested (adapter: $adapter)"
+  fi
+fi
+
+echo ""
+
+# --- 3. Config ---
+echo "Config:"
+PROJECT_DIR="${PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
+if [ -f "$PROJECT_DIR/lanekeep.json" ]; then
+  extends=$(jq -r '.extends // empty' "$PROJECT_DIR/lanekeep.json" 2>/dev/null) || extends=""
+  if [ "$extends" = "defaults" ]; then
+    _pass "lanekeep.json uses layered config (extends: defaults)"
+  else
+    rule_count=$(jq '.rules | length' "$PROJECT_DIR/lanekeep.json" 2>/dev/null) || rule_count="?"
+    _pass "lanekeep.json found ($rule_count rules, monolithic)"
+  fi
+else
+  _warn "No lanekeep.json in $PROJECT_DIR — using defaults"
+fi
+
+if [ -f "$LANEKEEP_DIR/defaults/lanekeep.json" ]; then
+  default_rules=$(jq '.rules | length' "$LANEKEEP_DIR/defaults/lanekeep.json" 2>/dev/null) || default_rules="?"
+  version=$(jq -r '.version // "?"' "$LANEKEEP_DIR/defaults/lanekeep.json" 2>/dev/null) || version="?"
+  _pass "Defaults: $default_rules rules (v$version)"
+else
+  _fail "defaults/lanekeep.json not found"
+fi
+
+echo ""
+
+# --- 4. Pipeline test ---
+echo "Pipeline:"
+
+# Send a known-dangerous command through lanekeep-handler
+DENY_INPUT='{"tool_name":"Bash","tool_input":{"command":"rm -rf /"}}'
+export LANEKEEP_DIR PROJECT_DIR
+export LANEKEEP_FAIL_POLICY="allow"
+
+# Create temp state/trace for selftest
+SELFTEST_TMP=$(mktemp -d)
+export LANEKEEP_STATE_FILE="$SELFTEST_TMP/state.json"
+export LANEKEEP_TRACE_FILE="$SELFTEST_TMP/trace.jsonl"
+export LANEKEEP_TASKSPEC_FILE=""
+jq -n --argjson epoch "$(date +%s)" '{action_count: 0, token_count: 0, start_epoch: $epoch}' > "$LANEKEEP_STATE_FILE"
+
+# Need a config file
+if [ -f "$PROJECT_DIR/lanekeep.json" ]; then
+  export LANEKEEP_CONFIG_FILE="$PROJECT_DIR/lanekeep.json"
+else
+  export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
+fi
+export LANEKEEP_SESSION_ID="selftest"
+
+DENY_RESULT=$(printf '%s' "$DENY_INPUT" | "$LANEKEEP_DIR/bin/lanekeep-handler" 2>/dev/null) || true
+DENY_DECISION=$(printf '%s' "$DENY_RESULT" | jq -r '.decision // empty' 2>/dev/null) || DENY_DECISION=""
+
+if [ "$DENY_DECISION" = "deny" ]; then
+  _pass "Dangerous command correctly denied (rm -rf /)"
+else
+  _fail "Dangerous command NOT denied (got: $DENY_DECISION)"
+fi
+
+# Send a known-safe command
+ALLOW_INPUT='{"tool_name":"Read","tool_input":{"file_path":"/tmp/test.txt"}}'
+ALLOW_RESULT=$(printf '%s' "$ALLOW_INPUT" | "$LANEKEEP_DIR/bin/lanekeep-handler" 2>/dev/null) || true
+ALLOW_DECISION=$(printf '%s' "$ALLOW_RESULT" | jq -r '.decision // empty' 2>/dev/null) || ALLOW_DECISION=""
+
+if [ "$ALLOW_DECISION" = "allow" ]; then
+  _pass "Safe command correctly allowed (Read file)"
+else
+  _fail "Safe command NOT allowed (got: $ALLOW_DECISION)"
+fi
+
+# Send malformed input
+MALFORMED_INPUT='not json at all'
+MALFORMED_RESULT=$(printf '%s' "$MALFORMED_INPUT" | "$LANEKEEP_DIR/bin/lanekeep-handler" 2>/dev/null) || true
+MALFORMED_DECISION=$(printf '%s' "$MALFORMED_RESULT" | jq -r '.decision // empty' 2>/dev/null) || MALFORMED_DECISION=""
+
+if [ "$MALFORMED_DECISION" = "deny" ]; then
+  _pass "Malformed input correctly denied"
+else
+  _fail "Malformed input NOT denied (got: $MALFORMED_DECISION)"
+fi
+
+# Send input missing required fields
+MISSING_FIELDS='{"foo":"bar"}'
+MISSING_RESULT=$(printf '%s' "$MISSING_FIELDS" | "$LANEKEEP_DIR/bin/lanekeep-handler" 2>/dev/null) || true
+MISSING_DECISION=$(printf '%s' "$MISSING_RESULT" | jq -r '.decision // empty' 2>/dev/null) || MISSING_DECISION=""
+
+if [ "$MISSING_DECISION" = "deny" ]; then
+  _pass "Missing fields correctly denied"
+else
+  _fail "Missing fields NOT denied (got: $MISSING_DECISION)"
+fi
+
+rm -rf "$SELFTEST_TMP"
+
+echo ""
+
+# --- 5. Hook format ---
+echo "Hook Format:"
+HOOK_SETTINGS="${PROJECT_DIR}/.claude/settings.local.json"
+if [ -f "$HOOK_SETTINGS" ]; then
+  source "$LANEKEEP_DIR/lib/hooks.sh"
+  if validate_hook_format "$HOOK_SETTINGS"; then
+    _pass "All hooks use nested format"
+  else
+    _fail "Flat-format hooks detected in $HOOK_SETTINGS (run: lanekeep enable)"
+  fi
+else
+  _warn "No settings file found at $HOOK_SETTINGS — hooks not installed"
+fi
+
+echo ""
+
+# --- Summary ---
+TOTAL=$((PASS + WARN + FAIL))
+echo "Results: $PASS passed, $WARN warnings, $FAIL failures (out of $TOTAL checks)"
+
+if [ "$FAIL" -gt 0 ]; then
+  echo ""
+  echo "FAIL — Fix the failures above before using LaneKeep."
+  exit 1
+elif [ "$WARN" -gt 0 ]; then
+  echo ""
+  echo "WARN — LaneKeep works but with reduced functionality."
+  exit 0
+else
+  echo ""
+  echo "PASS — LaneKeep is fully operational."
+  exit 0
+fi

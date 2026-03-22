@@ -1,0 +1,6 @@
+{
+  "hard_blocks": [
+    "rm -rf /",
+    "DROP TABLE"
+  ]
+}

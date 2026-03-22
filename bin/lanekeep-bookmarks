@@ -1,0 +1,198 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LANEKEEP_DIR="${LANEKEEP_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+PROJECT_DIR="${LANEKEEP_PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
+BOOKMARKS_DIR="${PROJECT_DIR}/.lanekeep"
+BOOKMARKS_FILE="${BOOKMARKS_DIR}/bookmarks.json"
+MAX_BOOKMARKS=100
+MAX_COMMENT_LEN=200
+
+ensure_bookmarks_file() {
+  if [ ! -f "$BOOKMARKS_FILE" ]; then
+    mkdir -p "$BOOKMARKS_DIR"
+    printf '[]\n' > "$BOOKMARKS_FILE"
+  fi
+}
+
+validate_path() {
+  local input_path="$1"
+
+  # Reject empty
+  if [ -z "$input_path" ]; then
+    echo "Error: path is required" >&2
+    return 1
+  fi
+
+  # Reject absolute paths
+  if [[ "$input_path" == /* ]]; then
+    echo "Error: absolute paths not allowed" >&2
+    return 1
+  fi
+
+  # Resolve and check it stays within project
+  local resolved
+  resolved="$(cd "$PROJECT_DIR" && realpath -m -- "$input_path" 2>/dev/null)" || {
+    echo "Error: invalid path" >&2
+    return 1
+  }
+
+  # Prefix check: resolved must start with PROJECT_DIR
+  local project_resolved
+  project_resolved="$(realpath -m -- "$PROJECT_DIR")"
+  case "$resolved" in
+    "${project_resolved}"|"${project_resolved}/"*)
+      # OK — inside project
+      ;;
+    *)
+      echo "Error: path traversal not allowed" >&2
+      return 1
+      ;;
+  esac
+
+  # Return the relative path (normalized)
+  local rel
+  rel="${resolved#"${project_resolved}/"}"
+  printf '%s' "$rel"
+}
+
+cmd_add() {
+  local path="" comment=""
+
+  # Parse args
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --comment|-c)
+        shift
+        comment="${1:-}"
+        ;;
+      *)
+        if [ -z "$path" ]; then
+          path="$1"
+        else
+          echo "Error: unexpected argument: $1" >&2
+          exit 1
+        fi
+        ;;
+    esac
+    shift
+  done
+
+  if [ -z "$path" ]; then
+    echo "Usage: lanekeep bookmarks add <path> [--comment \"...\"]" >&2
+    exit 1
+  fi
+
+  # Validate path
+  local validated
+  validated="$(validate_path "$path")" || exit 1
+
+  # Truncate comment
+  if [ ${#comment} -gt $MAX_COMMENT_LEN ]; then
+    comment="${comment:0:$MAX_COMMENT_LEN}"
+  fi
+
+  ensure_bookmarks_file
+
+  # Check cap
+  local count
+  count=$(jq 'length' "$BOOKMARKS_FILE")
+  if [ "$count" -ge "$MAX_BOOKMARKS" ]; then
+    echo "Error: bookmark limit reached ($MAX_BOOKMARKS)" >&2
+    exit 1
+  fi
+
+  # Check duplicate
+  local exists
+  exists=$(jq --arg p "$validated" '[.[] | select(.path == $p)] | length' "$BOOKMARKS_FILE")
+  if [ "$exists" -gt 0 ]; then
+    echo "Error: bookmark already exists: $validated" >&2
+    exit 1
+  fi
+
+  # Add bookmark
+  local ts
+  ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  jq --arg p "$validated" --arg c "$comment" --arg t "$ts" \
+    '. + [{"path": $p, "comment": $c, "added": $t}]' \
+    "$BOOKMARKS_FILE" > "${BOOKMARKS_FILE}.tmp" \
+    && mv "${BOOKMARKS_FILE}.tmp" "$BOOKMARKS_FILE"
+
+  echo "Bookmarked: $validated"
+}
+
+cmd_list() {
+  ensure_bookmarks_file
+
+  local count
+  count=$(jq 'length' "$BOOKMARKS_FILE")
+  if [ "$count" -eq 0 ]; then
+    echo "No bookmarks."
+    return 0
+  fi
+
+  jq -r '.[] | "\(.path)\t\(.comment)"' "$BOOKMARKS_FILE" | while IFS=$'\t' read -r p c; do
+    if [ -n "$c" ]; then
+      printf '%s  # %s\n' "$p" "$c"
+    else
+      printf '%s\n' "$p"
+    fi
+  done
+}
+
+cmd_remove() {
+  local path="${1:-}"
+  if [ -z "$path" ]; then
+    echo "Usage: lanekeep bookmarks remove <path>" >&2
+    exit 1
+  fi
+
+  local validated
+  validated="$(validate_path "$path")" || exit 1
+
+  ensure_bookmarks_file
+
+  local exists
+  exists=$(jq --arg p "$validated" '[.[] | select(.path == $p)] | length' "$BOOKMARKS_FILE")
+  if [ "$exists" -eq 0 ]; then
+    echo "Error: bookmark not found: $validated" >&2
+    exit 1
+  fi
+
+  jq --arg p "$validated" '[.[] | select(.path != $p)]' \
+    "$BOOKMARKS_FILE" > "${BOOKMARKS_FILE}.tmp" \
+    && mv "${BOOKMARKS_FILE}.tmp" "$BOOKMARKS_FILE"
+
+  echo "Removed: $validated"
+}
+
+cmd_open() {
+  local path="${1:-}"
+  if [ -z "$path" ]; then
+    echo "Usage: lanekeep bookmarks open <path>" >&2
+    exit 1
+  fi
+
+  local validated
+  validated="$(validate_path "$path")" || exit 1
+
+  local editor="${EDITOR:-vi}"
+  exec "$editor" "${PROJECT_DIR}/${validated}"
+}
+
+case "${1:-help}" in
+  add)    shift; cmd_add "$@" ;;
+  list|ls) shift; cmd_list "$@" ;;
+  remove|rm) shift; cmd_remove "$@" ;;
+  open)   shift; cmd_open "$@" ;;
+  help|-h|--help)
+    echo "lanekeep bookmarks — manage file bookmarks"
+    echo ""
+    echo "Commands:"
+    echo "  add <path> [--comment \"...\"]  Add a bookmark"
+    echo "  list                          List all bookmarks"
+    echo "  remove <path>                 Remove a bookmark"
+    echo "  open <path>                   Open file in \$EDITOR"
+    ;;
+  *) echo "Unknown bookmarks command: $1" >&2; exit 1 ;;
+esac

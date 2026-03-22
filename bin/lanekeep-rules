@@ -1,0 +1,642 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# lanekeep rules — export, import, and list rules
+
+LANEKEEP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+PROJECT_DIR="${PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
+
+
+usage() {
+  echo "lanekeep rules — manage rules"
+  echo ""
+  echo "Commands:"
+  echo "  list     [--category CAT]   List rules with IDs and decisions"
+  echo "  export   [--category CAT]   Export rules as portable JSON"
+  echo "  import   FILE               Import rules into extra_rules"
+  echo "  add      [options]          Add a custom rule interactively or via flags"
+  echo "  test     COMMAND            Dry-run: show which rule matches a command"
+  echo "  validate [FILE]             Validate rules for correctness"
+  echo "  update   [--check] [--enable-new] [--yes]  Fetch latest default rules"
+  echo ""
+  echo "Options:"
+  echo "  --category CAT   Filter by category (e.g., git, system, secrets)"
+  echo ""
+  echo "Add flags (non-interactive):"
+  echo "  --match-command STR   Substring to match in command input"
+  echo "  --match-tool STR      Regex to match tool name"
+  echo "  --match-pattern STR   Regex to match in tool input"
+  echo "  --match-target STR    Substring to match in tool input"
+  echo "  --decision DECISION   allow, deny, ask, or warn"
+  echo "  --reason TEXT         Why this rule exists"
+  echo "  --category CAT        Rule category"
+  echo "  --id ID               Rule identifier (auto-generated if omitted)"
+  echo ""
+  echo "Test flags:"
+  echo "  --tool TOOL           Tool name to simulate (default: Bash)"
+  echo ""
+  echo "Update flags:"
+  echo "  --check          Check for updates only (exit 0=current, 2=available)"
+  echo "  --enable-new     New rules arrive enabled (default: disabled)"
+  echo "  --yes            Skip confirmation prompt"
+}
+
+_resolve_config() {
+  if [ -f "$PROJECT_DIR/lanekeep.json" ]; then
+    echo "$PROJECT_DIR/lanekeep.json"
+  else
+    echo "$LANEKEEP_DIR/defaults/lanekeep.json"
+  fi
+}
+
+cmd_list() {
+  local config category=""
+  config=$(_resolve_config)
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --category) category="$2"; shift 2 ;;
+      *) echo "Unknown option: $1" >&2; exit 1 ;;
+    esac
+  done
+
+  local filter='.'
+  if [ -n "$category" ]; then
+    filter="select(.category == \"$category\")"
+  fi
+
+  jq -r --arg filter "$category" '
+    .rules[] |
+    if $filter != "" then select(.category == $filter) else . end |
+    [.id // "?", .decision, .category // "?",
+     (.match | to_entries | map(.key + "=" + (.value | tostring)) | join(", ")),
+     .reason // ""] |
+    @tsv
+  ' "$config" | column -t -s $'\t'
+}
+
+cmd_export() {
+  local config category=""
+  config=$(_resolve_config)
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --category) category="$2"; shift 2 ;;
+      *) echo "Unknown option: $1" >&2; exit 1 ;;
+    esac
+  done
+
+  if [ -n "$category" ]; then
+    jq --arg cat "$category" '{rules: [.rules[] | select(.category == $cat)]}' "$config"
+  else
+    jq '{rules: .rules}' "$config"
+  fi
+}
+
+cmd_import() {
+  local file="$1"
+  if [ ! -f "$file" ]; then
+    echo "Error: file not found: $file" >&2
+    exit 1
+  fi
+
+  # Block path traversal — reject paths containing .. components
+  local resolved
+  resolved=$(realpath -m "$file" 2>/dev/null) || resolved="$file"
+  case "$resolved" in
+    */..*) echo "Error: path traversal not allowed: $file" >&2; exit 1 ;;
+  esac
+
+  # Validate the import file
+  if ! jq -e '.rules | type == "array"' "$file" >/dev/null 2>&1; then
+    echo "Error: invalid format — expected {\"rules\": [...]}" >&2
+    exit 1
+  fi
+
+  # Validate each rule has required fields
+  local invalid
+  invalid=$(jq '[.rules[] | select(has("match") and has("decision") and has("reason") | not)] | length' "$file" 2>/dev/null) || invalid="-1"
+  if [ "$invalid" != "0" ]; then
+    echo "Error: $invalid rules missing required fields (match, decision, reason)" >&2
+    exit 1
+  fi
+
+  # Verify signature on Pro packs (tier != free/community)
+  local pack_tier
+  pack_tier=$(jq -r '.tier // "free"' "$file" 2>/dev/null) || pack_tier="free"
+  if [ "$pack_tier" != "free" ] && [ "$pack_tier" != "community" ]; then
+    source "$LANEKEEP_DIR/lib/eval-rules.sh"
+    local sig_rc=0
+    verify_pack_rules "$file" || sig_rc=$?
+    if [ "$sig_rc" -eq 1 ]; then
+      echo "Error: Pro pack signature verification FAILED — file may be tampered" >&2
+      exit 1
+    elif [ "$sig_rc" -eq 2 ]; then
+      echo "Error: Pro pack is unsigned or signing key not found" >&2
+      echo "Upgrade to LaneKeep Pro for certified compliance packs: https://lanekeep.dev/pricing" >&2
+      exit 1
+    fi
+    echo "Pack signature verified"
+  fi
+
+  local user_config="$PROJECT_DIR/lanekeep.json"
+
+  if [ ! -f "$user_config" ]; then
+    # Create new layered config with imported rules as extra_rules
+    local import_rules
+    import_rules=$(jq '.rules' "$file")
+    jq -n --argjson rules "$import_rules" '{"extends": "defaults", "extra_rules": $rules}' > "$user_config"
+    echo "Created $user_config with $(jq '.rules | length' "$file") imported rules"
+    return
+  fi
+
+  # Check if config uses layered format
+  local extends
+  extends=$(jq -r '.extends // empty' "$user_config" 2>/dev/null) || extends=""
+
+  if [ "$extends" = "defaults" ]; then
+    # Append to extra_rules
+    local merged
+    merged=$(jq -s '.[0].extra_rules = ((.[0].extra_rules // []) + .[1].rules) | .[0]' "$user_config" "$file")
+    printf '%s\n' "$merged" | jq '.' > "$user_config"
+    echo "Added $(jq '.rules | length' "$file") rules to extra_rules in $user_config"
+  else
+    # Legacy: append to rules array
+    local merged
+    merged=$(jq -s '.[0].rules = (.[0].rules + .[1].rules) | .[0]' "$user_config" "$file")
+    printf '%s\n' "$merged" | jq '.' > "$user_config"
+    echo "Added $(jq '.rules | length' "$file") rules to $user_config"
+  fi
+}
+
+# Atomic write of defaults file: mktemp + mv prevents partial writes
+_write_defaults_file() {
+  local defaults_file="$1" content="$2"
+  local tmp_defaults
+  tmp_defaults=$(mktemp "${defaults_file}.XXXXXX") || return 1
+  printf '%s\n' "$content" > "$tmp_defaults" || { rm -f "$tmp_defaults"; return 1; }
+  mv "$tmp_defaults" "$defaults_file" || { rm -f "$tmp_defaults"; return 1; }
+}
+
+# Validate remote rule fields: each must have match, decision, reason and valid decision enum
+_validate_remote_rules() {
+  local file="$1"
+  local invalid
+  invalid=$(jq '[.rules[] | select(has("match") and has("decision") and has("reason") | not)] | length' "$file" 2>/dev/null)
+  if [ "${invalid:-0}" -gt 0 ]; then
+    echo "Error: $invalid rules missing required fields (match, decision, reason)" >&2
+    return 1
+  fi
+  local bad_decisions
+  bad_decisions=$(jq '[.rules[] | select(.decision | IN("allow","deny","ask","warn") | not)] | length' "$file" 2>/dev/null)
+  if [ "${bad_decisions:-0}" -gt 0 ]; then
+    echo "Error: $bad_decisions rules with invalid decision (must be allow/deny/ask/warn)" >&2
+    return 1
+  fi
+  return 0
+}
+
+cmd_update() {
+  echo "Remote rule updates are not available in the open-source edition." >&2
+  echo "Use 'lanekeep rules import FILE' to update rules from a local file." >&2
+  exit 1
+}
+
+cmd_validate() {
+  local file="${1:-}"
+  local errors=0 warnings=0
+
+  # If no file given, validate the resolved config
+  if [ -z "$file" ]; then
+    file=$(_resolve_config)
+  fi
+
+  if [ ! -f "$file" ]; then
+    echo "Error: file not found: $file" >&2
+    exit 1
+  fi
+
+  # Block path traversal
+  local resolved
+  resolved=$(realpath -m "$file" 2>/dev/null) || resolved="$file"
+  case "$resolved" in
+    */..*) echo "Error: path traversal not allowed: $file" >&2; exit 1 ;;
+  esac
+
+  # Check valid JSON with rules array
+  if ! jq -e '.rules | type == "array"' "$file" >/dev/null 2>&1 && \
+     ! jq -e '.extra_rules | type == "array"' "$file" >/dev/null 2>&1; then
+    echo "ERROR: no .rules or .extra_rules array found" >&2
+    exit 1
+  fi
+
+  # Determine which key to validate
+  local rules_key="rules"
+  if jq -e '.extra_rules | type == "array"' "$file" >/dev/null 2>&1 && \
+     ! jq -e '.rules | type == "array"' "$file" >/dev/null 2>&1; then
+    rules_key="extra_rules"
+  fi
+
+  # Validate each rule
+  local rule_count
+  rule_count=$(jq ".$rules_key | length" "$file")
+
+  local i=0
+  while [ "$i" -lt "$rule_count" ]; do
+    local rule
+    rule=$(jq -c ".${rules_key}[$i]" "$file")
+    local label="Rule #$((i+1))"
+    local rule_id
+    rule_id=$(printf '%s' "$rule" | jq -r '.id // empty')
+    if [ -n "$rule_id" ]; then
+      label="Rule #$((i+1)) ($rule_id)"
+    fi
+
+    # ERROR: missing required fields
+    if ! printf '%s' "$rule" | jq -e 'has("match")' >/dev/null 2>&1; then
+      echo "ERROR: $label — missing 'match' field"
+      errors=$((errors+1))
+    fi
+    if ! printf '%s' "$rule" | jq -e 'has("decision")' >/dev/null 2>&1; then
+      echo "ERROR: $label — missing 'decision' field"
+      errors=$((errors+1))
+    fi
+    if ! printf '%s' "$rule" | jq -e 'has("reason")' >/dev/null 2>&1; then
+      echo "ERROR: $label — missing 'reason' field"
+      errors=$((errors+1))
+    fi
+
+    # ERROR: invalid decision value
+    local decision
+    decision=$(printf '%s' "$rule" | jq -r '.decision // empty')
+    if [ -n "$decision" ]; then
+      case "$decision" in
+        allow|deny|ask|warn) ;;
+        *) echo "ERROR: $label — invalid decision '$decision' (must be allow/deny/ask/warn)"
+           errors=$((errors+1)) ;;
+      esac
+    fi
+
+    # WARNING: missing id
+    if [ -z "$rule_id" ]; then
+      echo "WARN:  $label — missing 'id' field (cannot override/disable without id)"
+      warnings=$((warnings+1))
+    fi
+
+    # WARNING: broad match (empty match object or all-empty fields)
+    local match_fields
+    match_fields=$(printf '%s' "$rule" | jq '.match // {} | to_entries | map(select(.value != "")) | length' 2>/dev/null) || match_fields="0"
+    if [ "$match_fields" = "0" ]; then
+      echo "WARN:  $label — broad match (empty or no match conditions) — will match ALL tool calls"
+      warnings=$((warnings+1))
+    fi
+
+    # WARNING: regex patterns with nested quantifiers (ReDoS risk)
+    local regex_fields
+    regex_fields=$(printf '%s' "$rule" | jq -r '.match // {} | [.pattern, .tool] | map(select(. != null and . != "")) | .[]' 2>/dev/null)
+    if [ -n "$regex_fields" ]; then
+      while IFS= read -r pat; do
+        [ -z "$pat" ] && continue
+        # Detect nested quantifiers: (X+)+, (X*)+, (X+)*, (X*)*
+        if printf '%s' "$pat" | grep -qP '\([^)]*[+*]\)[+*?]|\(\?[^)]*[+*]\)[+*?]'; then
+          echo "WARN:  $label — regex pattern '$pat' has nested quantifiers (ReDoS risk)"
+          warnings=$((warnings+1))
+        fi
+        # Overly long patterns
+        if [ ${#pat} -gt 500 ]; then
+          echo "WARN:  $label — regex pattern exceeds 500 chars (complexity risk)"
+          warnings=$((warnings+1))
+        fi
+      done <<< "$regex_fields"
+    fi
+
+    # WARNING: single-char command match
+    local cmd_len
+    cmd_len=$(printf '%s' "$rule" | jq -r '.match.command // "" | length' 2>/dev/null) || cmd_len="0"
+    if [ "$cmd_len" -eq 1 ]; then
+      echo "WARN:  $label — very short command match (1 char) — likely too broad"
+      warnings=$((warnings+1))
+    fi
+
+    i=$((i+1))
+  done
+
+  # Check for duplicate IDs
+  local dup_count
+  dup_count=$(jq "[.${rules_key}[] | .id // empty] | group_by(.) | map(select(length > 1)) | length" "$file" 2>/dev/null) || dup_count="0"
+  if [ "$dup_count" != "0" ]; then
+    local dups
+    dups=$(jq -r "[.${rules_key}[] | .id // empty] | group_by(.) | map(select(length > 1) | .[0]) | .[]" "$file")
+    printf '%s\n' "$dups" | while IFS= read -r dup_id; do
+      echo "WARN:  Duplicate id '$dup_id'"
+      warnings=$((warnings+1))
+    done
+  fi
+
+  # Summary
+  if [ "$errors" -gt 0 ]; then
+    echo ""
+    echo "Validation failed: $errors error(s), $warnings warning(s)"
+    exit 1
+  elif [ "$warnings" -gt 0 ]; then
+    echo ""
+    echo "Validation passed with $warnings warning(s)"
+    exit 0
+  else
+    echo "Validation passed: $rule_count rule(s), no issues"
+    exit 0
+  fi
+}
+
+cmd_add() {
+  local match_command="" match_tool="" match_pattern="" match_target=""
+  local decision="" reason="" category="" rule_id=""
+  local interactive=true
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --match-command) match_command="$2"; interactive=false; shift 2 ;;
+      --match-tool)    match_tool="$2"; interactive=false; shift 2 ;;
+      --match-pattern) match_pattern="$2"; interactive=false; shift 2 ;;
+      --match-target)  match_target="$2"; interactive=false; shift 2 ;;
+      --decision)      decision="$2"; interactive=false; shift 2 ;;
+      --reason)        reason="$2"; interactive=false; shift 2 ;;
+      --category)      category="$2"; interactive=false; shift 2 ;;
+      --id)            rule_id="$2"; interactive=false; shift 2 ;;
+      *) echo "Unknown option: $1" >&2; exit 1 ;;
+    esac
+  done
+
+  if [ "$interactive" = true ]; then
+    echo "Add a custom rule"
+    echo "─────────────────"
+    echo ""
+
+    # Match type
+    echo "Match conditions (leave blank to skip):"
+    printf "  Command substring (e.g., 'git push'): "
+    read -r match_command
+    printf "  Tool regex (e.g., '^Bash$'): "
+    read -r match_tool
+    printf "  Pattern regex (e.g., 'password'): "
+    read -r match_pattern
+    printf "  Target substring (e.g., '/etc/'): "
+    read -r match_target
+
+    if [ -z "$match_command" ] && [ -z "$match_tool" ] && \
+       [ -z "$match_pattern" ] && [ -z "$match_target" ]; then
+      echo "Error: at least one match condition is required" >&2
+      exit 1
+    fi
+
+    # Decision
+    printf "Decision (allow/deny/ask/warn): "
+    read -r decision
+
+    # Reason
+    printf "Reason: "
+    read -r reason
+
+    # Category
+    printf "Category (e.g., custom, git, system): "
+    read -r category
+
+    # ID
+    printf "Rule ID (leave blank for auto): "
+    read -r rule_id
+  fi
+
+  # Validate required fields
+  if [ -z "$decision" ]; then
+    echo "Error: --decision is required" >&2
+    exit 1
+  fi
+  case "$decision" in
+    allow|deny|ask|warn) ;;
+    *) echo "Error: invalid decision '$decision' (must be allow/deny/ask/warn)" >&2; exit 1 ;;
+  esac
+
+  if [ -z "$reason" ]; then
+    echo "Error: --reason is required" >&2
+    exit 1
+  fi
+
+  if [ -z "$match_command" ] && [ -z "$match_tool" ] && \
+     [ -z "$match_pattern" ] && [ -z "$match_target" ]; then
+    echo "Error: at least one match condition is required (--match-command, --match-tool, --match-pattern, --match-target)" >&2
+    exit 1
+  fi
+
+  # Auto-generate ID if not provided
+  if [ -z "$rule_id" ]; then
+    rule_id="custom-$(date +%s)-$$"
+  fi
+
+  # Default category
+  if [ -z "$category" ]; then
+    category="custom"
+  fi
+
+  # Build match object
+  local match_json
+  match_json=$(jq -n \
+    --arg cmd "$match_command" \
+    --arg tool "$match_tool" \
+    --arg pat "$match_pattern" \
+    --arg tgt "$match_target" \
+    '{} |
+     if $cmd != "" then . + {command: $cmd} else . end |
+     if $tool != "" then . + {tool: $tool} else . end |
+     if $pat != "" then . + {pattern: $pat} else . end |
+     if $tgt != "" then . + {target: $tgt} else . end')
+
+  # Build rule JSON
+  local rule_json
+  rule_json=$(jq -n \
+    --arg id "$rule_id" \
+    --argjson match "$match_json" \
+    --arg decision "$decision" \
+    --arg reason "$reason" \
+    --arg category "$category" \
+    '{id: $id, match: $match, decision: $decision, reason: $reason, category: $category}')
+
+  # Append to lanekeep.json extra_rules
+  local user_config="$PROJECT_DIR/lanekeep.json"
+
+  if [ ! -f "$user_config" ]; then
+    jq -n --argjson rule "$rule_json" \
+      '{"extends": "defaults", "extra_rules": [$rule]}' > "$user_config"
+    echo "Created $user_config"
+  else
+    local extends
+    extends=$(jq -r '.extends // empty' "$user_config" 2>/dev/null) || extends=""
+
+    if [ "$extends" = "defaults" ]; then
+      local merged
+      merged=$(jq --argjson rule "$rule_json" \
+        '.extra_rules = ((.extra_rules // []) + [$rule])' "$user_config")
+      printf '%s\n' "$merged" | jq '.' > "$user_config"
+    else
+      # Legacy: append to rules array
+      local merged
+      merged=$(jq --argjson rule "$rule_json" \
+        '.rules = ((.rules // []) + [$rule])' "$user_config")
+      printf '%s\n' "$merged" | jq '.' > "$user_config"
+    fi
+  fi
+
+  echo "Added rule: $rule_id ($decision) — $reason"
+  printf '%s\n' "$rule_json" | jq '.'
+}
+
+cmd_test() {
+  local command="" tool_name="Bash"
+
+  # Parse arguments
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --tool) tool_name="$2"; shift 2 ;;
+      -*) echo "Unknown option: $1" >&2; exit 1 ;;
+      *)
+        if [ -z "$command" ]; then
+          command="$1"; shift
+        else
+          echo "Error: unexpected argument '$1'" >&2; exit 1
+        fi
+        ;;
+    esac
+  done
+
+  if [ -z "$command" ]; then
+    echo "Usage: lanekeep rules test \"command string\" [--tool TOOL]" >&2
+    exit 1
+  fi
+
+  local config
+  config=$(_resolve_config)
+
+  # If using layered config, resolve it first
+  if [ -f "$PROJECT_DIR/lanekeep.json" ]; then
+    local extends
+    extends=$(jq -r '.extends // empty' "$PROJECT_DIR/lanekeep.json" 2>/dev/null) || extends=""
+    if [ "$extends" = "defaults" ]; then
+      local resolved
+      resolved=$(jq -s '
+        .[0] as $defaults | .[1] as $user |
+        (
+          ($defaults.rules // []) |
+          if ($user.rule_overrides | length) > 0 then
+            map(
+              . as $rule |
+              if ($rule | has("id")) then
+                ($user.rule_overrides | map(select(.id == $rule.id)) | first // null) as $override |
+                if $override != null then ($rule * $override) else $rule end
+              else $rule end
+            )
+          else . end |
+          if ($user.disabled_rules | length) > 0 then
+            map(select(
+              if has("id") then (.id as $rid | $user.disabled_rules | map(select(. == $rid)) | length == 0)
+              else true end
+            ))
+          else . end
+        ) + (($user.extra_rules // []) | map(. + {"source": "custom"}))
+        | {"rules": .}
+      ' "$LANEKEEP_DIR/defaults/lanekeep.json" "$PROJECT_DIR/lanekeep.json" 2>/dev/null)
+      if [ -n "$resolved" ]; then
+        config=$(mktemp)
+        printf '%s\n' "$resolved" > "$config"
+        trap "rm -f '$config'" EXIT
+      fi
+    fi
+  fi
+
+  # Run the same matching logic as eval-rules.sh
+  local result
+  result=$(jq -c --arg tool "$tool_name" --arg input "$command" --arg env "${LANEKEEP_ENV:-}" '
+    def safe_test(pat; flags): try test(pat; flags) catch false;
+
+    ($input | ascii_downcase) as $lower_input |
+    ($tool | ascii_downcase) as $lower_tool |
+    [.rules // [] | to_entries[] |
+      select(.value.enabled != false) |
+      .key as $idx | .value as $r |
+      select(
+        (($r.match.command // "") as $c |
+          if $c == "" then true
+          else ($lower_input | contains($c | ascii_downcase))
+          end) and
+        (($r.match.target // "") as $t |
+          if $t == "" then true
+          else ($lower_input | contains($t | ascii_downcase))
+          end) and
+        (($r.match.tool // "") as $tl |
+          if $tl == "" then true
+          else ($lower_tool | safe_test($tl; "i"))
+          end) and
+        (($r.match.pattern // "") as $p |
+          if $p == "" then true
+          else ($lower_input | safe_test($p; "i"))
+          end) and
+        (($r.match.env // "") as $e |
+          if $e == "" then true
+          elif $env == "" then false
+          else ($env | safe_test($e; "i"))
+          end)
+      ) |
+      {index: $idx, decision: ($r.decision // "allow"),
+       reason: ($r.reason // "Matched rule"),
+       id: ($r.id // null),
+       category: ($r.category // ""),
+       source: ($r.source // "default"),
+       match: $r.match}
+    ] | first // empty
+  ' "$config" 2>/dev/null)
+
+  echo "Testing: tool=$tool_name command=\"$command\""
+  echo ""
+
+  if [ -z "$result" ]; then
+    echo "Result: ALLOW (no rule matched — default allow)"
+    return 0
+  fi
+
+  local decision idx rule_id category source reason
+  eval "$(printf '%s' "$result" | jq -r '
+    "decision=" + (.decision | @sh),
+    "idx=" + (.index | tostring | @sh),
+    "rule_id=" + (.id // "?" | @sh),
+    "category=" + (.category | @sh),
+    "source=" + (.source | @sh),
+    "reason=" + (.reason | @sh)')"
+
+  local match_desc
+  match_desc=$(printf '%s' "$result" | jq -r '.match | to_entries | map(.key + "=" + (.value | tostring)) | join(", ")')
+
+  local source_label=""
+  if [ "$source" = "custom" ]; then
+    source_label=" [custom]"
+  fi
+
+  echo "Result: $(printf '%s' "$decision" | tr '[:lower:]' '[:upper:]')"
+  echo "  Rule:     #$((idx+1)) (id: $rule_id)${source_label}"
+  echo "  Category: $category"
+  echo "  Match:    $match_desc"
+  echo "  Reason:   $reason"
+
+  case "$decision" in
+    deny|ask) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+case "${1:-help}" in
+  list)     shift; cmd_list "$@" ;;
+  export)   shift; cmd_export "$@" ;;
+  import)   shift; cmd_import "$@" ;;
+  add)      shift; cmd_add "$@" ;;
+  test)     shift; cmd_test "$@" ;;
+  validate) shift; cmd_validate "$@" ;;
+  update)   shift; cmd_update "$@" ;;
+  help|-h|--help) usage ;;
+  *) echo "Unknown command: $1" >&2; usage; exit 1 ;;
+esac

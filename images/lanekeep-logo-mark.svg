@@ -1,0 +1,26 @@
+<svg width="240" height="240" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+  <!-- Left lane dashes -->
+  <rect x="20" y="20" width="8" height="48" rx="1" fill="#FFFFFF"/>
+  <rect x="20" y="96" width="8" height="48" rx="1" fill="#FFFFFF"/>
+  <rect x="20" y="172" width="8" height="48" rx="1" fill="#FFFFFF"/>
+
+  <!-- White circle -->
+  <circle cx="120" cy="120" r="58" fill="#FFFFFF"/>
+
+  <!-- Agent head -->
+  <rect x="80" y="94" width="80" height="52" rx="22" fill="#d4442e" stroke="#b83826" stroke-width="1.5"/>
+  <!-- Visor -->
+  <rect x="92" y="104" width="56" height="30" rx="12" fill="#2A2D35"/>
+  <!-- Eyes -->
+  <circle cx="108" cy="119" r="4" fill="#FFFFFF"/>
+  <circle cx="132" cy="119" r="4" fill="#FFFFFF"/>
+  <!-- Mouth -->
+  <path d="M112 128 Q120 134 128 128" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Antenna -->
+  <rect x="114" y="86" width="12" height="12" rx="4" fill="#d4442e" stroke="#b83826" stroke-width="1"/>
+
+  <!-- Right lane dashes -->
+  <rect x="212" y="20" width="8" height="48" rx="1" fill="#FFFFFF"/>
+  <rect x="212" y="96" width="8" height="48" rx="1" fill="#FFFFFF"/>
+  <rect x="212" y="172" width="8" height="48" rx="1" fill="#FFFFFF"/>
+</svg>

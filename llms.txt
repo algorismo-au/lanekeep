@@ -1,0 +1,28 @@
+# LaneKeep
+
+> Governance sidecar for AI coding agents
+
+LaneKeep evaluates every tool call through a multi-tier pipeline before it
+executes. Rules, limits, audit trail. Your agent runs within boundaries that
+you define.
+
+## Docs
+
+- [README](README.md): Quick start, configuration, CLI reference
+- [REFERENCE](REFERENCE.md): Full config reference — rules, policies, budget, env vars
+- [Developer Guide](CLAUDE.md): Architecture, evaluators, hooks, testing
+- [Contributing](CONTRIBUTING.md): Setup, workflow, PR checklist
+- [Security](SECURITY.md): Vulnerability reporting, defense layers
+- [Plugin Authoring](plugins.d/AUTHORING.md): Write custom evaluators (Bash + polyglot)
+
+## Core Concepts
+
+- 9-tier evaluation pipeline (hardblock, rules, hidden text, PII, budget, plugins, semantic)
+- 140 default rules (+ 58 Windows rules on Windows platforms) across 13 categories
+- First-match-wins rule engine with AND-logic match fields
+- Three enforcement profiles: strict, guided (default), autonomous
+- JSON everywhere: config, wire protocol, audit trail
+- Zero network calls in core evaluation path
+- Plugin system: Bash and polyglot (Python, JS) with subshell isolation
+- Append-only JSONL audit trail — every decision logged
+- Claude Code support via hook adapters; Cursor adapter included (untested)

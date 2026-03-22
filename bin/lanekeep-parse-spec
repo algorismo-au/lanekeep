@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# PRP/Design markdown → TaskSpec JSON
+# Extracts goal, anti-patterns (→ denied_tools), and budget from markdown sections.
+
+SPEC_FILE="${1:?Usage: lanekeep-parse-spec <markdown-file>}"
+
+if [ ! -f "$SPEC_FILE" ]; then
+  echo "Error: file not found: $SPEC_FILE" >&2
+  exit 1
+fi
+
+CONTENT=$(cat "$SPEC_FILE")
+
+# --- Extract goal (first # heading or ## Goal content) ---
+goal=""
+# Try "# Goal" section first
+goal=$(printf '%s' "$CONTENT" | sed -n '/^# Goal$/,/^#/{/^# Goal$/d;/^#/d;p}' | sed '/^$/d' | head -5 | tr '\n' ' ' | sed 's/  */ /g; s/^ *//; s/ *$//')
+
+# Fallback to first # heading content
+if [ -z "$goal" ]; then
+  goal=$(printf '%s' "$CONTENT" | sed -n '/^# /{s/^# //;p;q}')
+fi
+
+# --- Extract denied tools from Anti-Patterns section ---
+denied_tools="[]"
+anti_patterns=$(printf '%s' "$CONTENT" | sed -n '/^## Anti-Patterns$/,/^##/{/^## Anti-Patterns$/d;/^##/d;p}')
+if [ -n "$anti_patterns" ]; then
+  # Look for tool names: "Avoid X tool" or "Do not use X"
+  tools=()
+  while IFS= read -r line; do
+    # Match "Avoid <Tool> tool" or "Do not use <Tool>"
+    tool=$(printf '%s' "$line" | sed -n 's/.*[Aa]void \([A-Z][a-zA-Z]*\) tool.*/\1/p')
+    [ -z "$tool" ] && tool=$(printf '%s' "$line" | sed -n 's/.*[Dd]o not use \([A-Z][a-zA-Z]*\) tool.*/\1/p')
+    [ -n "$tool" ] && tools+=("$tool")
+  done <<< "$anti_patterns"
+
+  if [ ${#tools[@]} -gt 0 ]; then
+    denied_tools=$(printf '%s\n' "${tools[@]}" | jq -R '.' | jq -s '.')
+  fi
+fi
+
+# --- Extract budget from Budget section ---
+max_actions="null"
+timeout_seconds="null"
+
+budget_section=$(printf '%s' "$CONTENT" | sed -n '/^## Budget$/,/^##/{/^## Budget$/d;/^##/d;p}')
+if [ -n "$budget_section" ]; then
+  # Extract "Maximum N actions" or "max_actions: N"
+  val=$(printf '%s' "$budget_section" | sed -n 's/.*[Mm]aximum \([0-9]*\) action.*/\1/p' | head -1)
+  [ -z "$val" ] && val=$(printf '%s' "$budget_section" | sed -n 's/.*max_actions[: ]*\([0-9]*\).*/\1/p' | head -1)
+  [ -n "$val" ] && max_actions="$val"
+
+  # Extract "Timeout: N minutes" or "timeout_seconds: N"
+  minutes=$(printf '%s' "$budget_section" | sed -n 's/.*[Tt]imeout[: ]* *\([0-9]*\) *minute.*/\1/p' | head -1)
+  if [ -n "$minutes" ]; then
+    timeout_seconds=$((minutes * 60))
+  else
+    val=$(printf '%s' "$budget_section" | sed -n 's/.*timeout_seconds[: ]*\([0-9]*\).*/\1/p' | head -1)
+    [ -n "$val" ] && timeout_seconds="$val"
+  fi
+fi
+
+# --- Extract allowed tools from Implementation Blueprint or Allowed Tools section ---
+allowed_tools="[]"
+for section_name in "Allowed Tools" "Implementation Blueprint"; do
+  tools_section=$(printf '%s' "$CONTENT" | sed -n "/^## ${section_name}$/,/^##/{/^## ${section_name}$/d;/^##/d;p}")
+  if [ -n "$tools_section" ]; then
+    tools=()
+    while IFS= read -r line; do
+      # Match "Tools needed: X, Y, Z" or "Tools: X, Y, Z"
+      tool_list=$(printf '%s' "$line" | sed -n 's/.*[Tt]ools[^:]*: *\(.*\)/\1/p')
+      if [ -n "$tool_list" ]; then
+        while IFS=, read -ra items; do
+          for item in "${items[@]}"; do
+            t=$(printf '%s' "$item" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/[[:space:]]*(.*//;s/[^a-zA-Z].*//')
+            [ -n "$t" ] && tools+=("$t")
+          done
+        done <<< "$tool_list"
+      fi
+      # Match list items like "- Read", "- Write", "- Bash"
+      t=$(printf '%s' "$line" | sed -n 's/^[[:space:]]*[-*][[:space:]]*\([A-Z][a-zA-Z]*\)[[:space:]]*$/\1/p')
+      [ -n "$t" ] && tools+=("$t")
+    done <<< "$tools_section"
+
+    if [ ${#tools[@]} -gt 0 ]; then
+      allowed_tools=$(printf '%s\n' "${tools[@]}" | sort -u | jq -R '.' | jq -s '.')
+      break
+    fi
+  fi
+done
+
+# --- Build TaskSpec JSON ---
+jq -n \
+  --arg goal "$goal" \
+  --argjson allowed "$allowed_tools" \
+  --argjson denied "$denied_tools" \
+  --argjson max_actions "$max_actions" \
+  --argjson timeout "$timeout_seconds" \
+  '{
+    goal: $goal,
+    allowed_tools: $allowed,
+    denied_tools: $denied,
+    budget: {
+      max_actions: $max_actions,
+      timeout_seconds: $timeout
+    }
+  }'

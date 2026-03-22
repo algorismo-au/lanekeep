@@ -1,0 +1,246 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LANEKEEP_DIR="${LANEKEEP_DIR:?}"
+PLUGIN_DIR="${PLUGIN_DIR:-$LANEKEEP_DIR/plugins.d}"
+
+usage() {
+  echo "lanekeep plugin — manage plugins"
+  echo ""
+  echo "Commands:"
+  echo "  new <name>                  Scaffold a new plugin"
+  echo "  list                        List installed plugins"
+  echo "  test <json> [--tool NAME]   Test tool call against plugins only"
+  echo ""
+  echo "Plugin names must match: ^[a-z][a-z0-9-]*$"
+}
+
+# --- new ---
+cmd_new() {
+  local name="${1:-}"
+  if [ -z "$name" ]; then
+    echo "Usage: lanekeep plugin new <name>" >&2
+    exit 1
+  fi
+
+  # Validate name
+  if ! printf '%s' "$name" | grep -qE '^[a-z][a-z0-9-]*$'; then
+    echo "Error: invalid plugin name '$name' — must match ^[a-z][a-z0-9-]*$" >&2
+    exit 1
+  fi
+
+  local plugin_file="$PLUGIN_DIR/${name}.plugin.sh"
+
+  # Reject duplicates
+  if [ -f "$plugin_file" ]; then
+    echo "Error: plugin '$name' already exists at $plugin_file" >&2
+    exit 1
+  fi
+
+  # Convert kebab-case to snake_case for function/variable names
+  local func_name="${name//-/_}"
+  local upper_name
+  upper_name=$(printf '%s' "$func_name" | tr '[:lower:]' '[:upper:]')
+
+  mkdir -p "$PLUGIN_DIR"
+
+  cat > "$plugin_file" <<TEMPLATE
+#!/usr/bin/env bash
+# ${name} — describe what this plugin does
+# Drop into plugins.d/ to activate.
+
+${upper_name}_PASSED=true
+${upper_name}_REASON=""
+${upper_name}_DECISION="deny"
+
+${func_name}_eval() {
+  local tool_name="\$1"
+  local tool_input="\$2"
+  ${upper_name}_PASSED=true
+  ${upper_name}_REASON=""
+  ${upper_name}_DECISION="deny"
+
+  # Only inspect Bash commands (change as needed)
+  [ "\$tool_name" = "Bash" ] || return 0
+
+  local command
+  command=\$(printf '%s' "\$tool_input" | jq -r '.command // empty' 2>/dev/null) || return 0
+  [ -n "\$command" ] || return 0
+
+  # TODO: Add your checks here
+  # case "\$command" in
+  #   *"dangerous-pattern"*)
+  #     ${upper_name}_PASSED=false
+  #     ${upper_name}_REASON="[LaneKeep] DENIED by plugin:${name} — reason"
+  #     ${upper_name}_DECISION="deny"  # or "ask" or "warn"
+  #     return 1
+  #     ;;
+  # esac
+
+  return 0
+}
+
+LANEKEEP_PLUGIN_EVALS="\${LANEKEEP_PLUGIN_EVALS:-} ${func_name}_eval"
+TEMPLATE
+
+  chmod +x "$plugin_file"
+
+  echo "Created plugin: $plugin_file"
+  echo "  Function:  ${func_name}_eval"
+  echo "  Globals:   ${upper_name}_PASSED, ${upper_name}_REASON, ${upper_name}_DECISION"
+  echo ""
+  echo "Edit the TODO section, then test with:"
+  echo "  lanekeep plugin test '{\"command\":\"your-command\"}' --tool Bash"
+}
+
+# --- list ---
+cmd_list() {
+  local count=0
+  printf '%-30s %-8s %-14s %s\n' "NAME" "TYPE" "HASH" "PATH"
+  printf '%-30s %-8s %-14s %s\n' "----" "----" "----" "----"
+
+  for plugin in "$PLUGIN_DIR"/*.plugin.sh "$PLUGIN_DIR"/*.plugin.py \
+                "$PLUGIN_DIR"/*.plugin.js "$PLUGIN_DIR"/*.plugin; do
+    [ -f "$plugin" ] || continue
+    local pname pext ptype phash
+    pname=$(basename "$plugin")
+    pext="${plugin##*.plugin}"
+    case "$pext" in
+      .sh) ptype="bash" ;;
+      .py) ptype="python" ;;
+      .js) ptype="node" ;;
+      *)   ptype="exec" ;;
+    esac
+    phash=$(sha256sum "$plugin" 2>/dev/null | cut -d' ' -f1)
+    phash="${phash:0:12}"
+    printf '%-30s %-8s %-14s %s\n' "$pname" "$ptype" "$phash" "$plugin"
+    count=$((count + 1))
+  done
+
+  echo ""
+  echo "$count plugin(s) found"
+}
+
+# --- test ---
+cmd_test() {
+  local tool_input="" tool_name="Bash"
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --tool) tool_name="$2"; shift 2 ;;
+      -*) echo "Unknown option: $1" >&2; exit 1 ;;
+      *) tool_input="$1"; shift ;;
+    esac
+  done
+
+  if [ -z "$tool_input" ]; then
+    echo "Usage: lanekeep plugin test '<json>' [--tool NAME]" >&2
+    exit 1
+  fi
+
+  # Validate JSON
+  if ! printf '%s' "$tool_input" | jq empty 2>/dev/null; then
+    echo "Error: invalid JSON input" >&2
+    exit 1
+  fi
+
+  echo "Testing tool_name=$tool_name against plugins..."
+  echo ""
+
+  local total=0 pass=0 deny=0 ask=0 warn=0 crash=0
+
+  # Bash plugins
+  for plugin in "$PLUGIN_DIR"/*.plugin.sh; do
+    [ -f "$plugin" ] || continue
+    total=$((total + 1))
+    local pname
+    pname=$(basename "$plugin")
+
+    # Run plugin in subshell (same as handler Tier 7)
+    local plugin_result
+    plugin_result=$(
+      set +e
+      source "$plugin" 2>/dev/null || { echo "CRASHED"; exit 0; }
+      for func in $LANEKEEP_PLUGIN_EVALS; do
+        "$func" "$tool_name" "$tool_input" 2>/dev/null
+        prefix="${func%_eval}"
+        prefix_upper=$(printf '%s' "$prefix" | tr '[:lower:]' '[:upper:]')
+        declare -n _p_ref="${prefix_upper}_PASSED" 2>/dev/null || true
+        declare -n _r_ref="${prefix_upper}_REASON" 2>/dev/null || true
+        declare -n _d_ref="${prefix_upper}_DECISION" 2>/dev/null || true
+        p="${_p_ref:-true}"
+        r="${_r_ref:-}"
+        d="${_d_ref:-deny}"
+        unset -n _p_ref _r_ref _d_ref
+        printf '%s\n%s\n%s\n%s\n' "$func" "$p" "$r" "$d"
+      done
+    ) 2>/dev/null || plugin_result="CRASHED"
+
+    if [ "$plugin_result" = "CRASHED" ] || [ -z "$plugin_result" ]; then
+      printf '  CRASH  %s\n' "$pname"
+      crash=$((crash + 1))
+      continue
+    fi
+
+    while IFS= read -r func_name && IFS= read -r p_passed && IFS= read -r p_reason && IFS= read -r p_decision; do
+      [ -n "$func_name" ] || continue
+      if [ "$p_passed" = "false" ]; then
+        case "${p_decision:-deny}" in
+          deny) printf '  DENY   %s — %s\n' "$func_name" "$p_reason"; deny=$((deny + 1)) ;;
+          ask)  printf '  ASK    %s — %s\n' "$func_name" "$p_reason"; ask=$((ask + 1)) ;;
+          warn) printf '  WARN   %s — %s\n' "$func_name" "$p_reason"; warn=$((warn + 1)) ;;
+        esac
+      else
+        printf '  PASS   %s\n' "$func_name"
+        pass=$((pass + 1))
+      fi
+    done <<< "$plugin_result"
+  done
+
+  # Polyglot plugins
+  for plugin in "$PLUGIN_DIR"/*.plugin.py "$PLUGIN_DIR"/*.plugin.js "$PLUGIN_DIR"/*.plugin; do
+    [ -f "$plugin" ] || continue
+    [ -x "$plugin" ] || continue
+    total=$((total + 1))
+    local pname
+    pname=$(basename "$plugin")
+
+    local poly_input poly_result
+    poly_input=$(printf '{"tool_name":"%s","tool_input":%s}' "$tool_name" "$tool_input")
+    poly_result=$(printf '%s' "$poly_input" | timeout 5 "$plugin" 2>/dev/null) || poly_result="CRASHED"
+
+    if [ "$poly_result" = "CRASHED" ] || [ -z "$poly_result" ]; then
+      printf '  CRASH  %s\n' "$pname"
+      crash=$((crash + 1))
+      continue
+    fi
+
+    local pp pr pd
+    pp=$(printf '%s' "$poly_result" | jq -r 'if .passed == false then "false" else "true" end' 2>/dev/null) || pp="true"
+    pr=$(printf '%s' "$poly_result" | jq -r '.reason // ""' 2>/dev/null) || pr=""
+    pd=$(printf '%s' "$poly_result" | jq -r '.decision // "deny"' 2>/dev/null) || pd="deny"
+
+    if [ "$pp" = "false" ]; then
+      case "$pd" in
+        deny) printf '  DENY   %s — %s\n' "$pname" "$pr"; deny=$((deny + 1)) ;;
+        ask)  printf '  ASK    %s — %s\n' "$pname" "$pr"; ask=$((ask + 1)) ;;
+        warn) printf '  WARN   %s — %s\n' "$pname" "$pr"; warn=$((warn + 1)) ;;
+      esac
+    else
+      printf '  PASS   %s\n' "$pname"
+      pass=$((pass + 1))
+    fi
+  done
+
+  echo ""
+  echo "Results: $total tested, $pass passed, $deny denied, $ask ask, $warn warn, $crash crashed"
+}
+
+# --- dispatch ---
+case "${1:-help}" in
+  new)  shift; cmd_new "$@" ;;
+  list) shift; cmd_list "$@" ;;
+  test) shift; cmd_test "$@" ;;
+  help|-h|--help) usage ;;
+  *) echo "Unknown command: $1" >&2; usage; exit 1 ;;
+esac

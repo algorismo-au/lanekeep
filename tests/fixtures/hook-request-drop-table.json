@@ -1,0 +1,10 @@
+{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "psql -c 'DROP TABLE users'"
+  },
+  "tool_use_id": "toolu_10DRP",
+  "session_id": "sess_test_001",
+  "cwd": "/home/user/project"
+}

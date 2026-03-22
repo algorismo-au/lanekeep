@@ -1,0 +1,10 @@
+{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git push --force origin main"
+  },
+  "tool_use_id": "toolu_11GPF",
+  "session_id": "sess_test_001",
+  "cwd": "/home/user/project"
+}
