@@ -1772,8 +1772,8 @@ class Handler(BaseHTTPRequestHandler):
                 html_content = cached['data']
             else:
                 md_text = doc_path.read_text(encoding='utf-8')
-                # Strip leading HTML logo block (GitHub-specific, rendered natively in UI)
-                md_text = re.sub(r'^<p[^>]*>\s*<picture>.*?</picture>\s*</p>\s*', '', md_text, flags=re.DOTALL)
+                # Strip leading HTML blocks (GitHub-specific logo + badges, rendered natively in UI)
+                md_text = re.sub(r'^(<p[^>]*>.*?</p>\s*)+', '', md_text, flags=re.DOTALL)
                 # Strip trailing HTML footer (GitHub-specific, not for Docs viewer)
                 md_text = re.sub(r'\n---\s*\n\s*<div\b.*', '', md_text, flags=re.DOTALL)
                 html_content = _md_to_html(md_text)
