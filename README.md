@@ -29,8 +29,7 @@ agent runs within boundaries that you define.
 - **Defense in depth** — 9-tier pipeline, config integrity, PII detection, injection detection
 - **Config audit** — one-click health check for rules, policies, and security posture
 
-> **Every rule is configurable.** Start with 144 built-in defaults, add
-> [community rules](https://github.com/algorismo-au/lanekeep/wiki/Community-Rules),
+> **Every policy and rule is configurable.** Start with 30+ policies and 140+ rules as built-in defaults, add community rules,
 > or write your own. See [Configuration](#configuration).
 
 <p align="center">
