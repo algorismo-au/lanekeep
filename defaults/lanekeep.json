@@ -1089,6 +1089,17 @@
       "type": "free"
     },
     {
+      "id": "sys-089",
+      "match": {
+        "pattern": "\\brmdir\\b"
+      },
+      "decision": "ask",
+      "reason": "Directory removal — confirm target is intentional",
+      "category": "system",
+      "intent": "rmdir removes directories — verify the target before proceeding",
+      "type": "free"
+    },
+    {
       "id": "warn-005",
       "match": {
         "pattern": "\\bchmod\\b.*\\b755\\b"
@@ -2173,12 +2184,12 @@
       "id": "csec-038",
       "match": {
         "tool": "Write|Edit",
-        "pattern": "fs\\.(unlinkSync|rmdirSync|rmSync|rm)\\(|os\\.(remove|unlink)\\(|shutil\\.(rmtree|move)\\("
+        "pattern": "fs\\.(unlinkSync|rmdirSync|rmSync|rm)\\(|rimraf\\s*\\(|fs-extra\\.\\s*(remove|removeSync)\\(|os\\.(remove|unlink|rmdir|removedirs|RemoveAll|Remove)\\(|shutil\\.(rmtree|move)\\(|std::fs::(remove_dir_all|remove_dir|remove_file)\\(|std::filesystem::(remove_all|remove)\\(|Files\\.(delete|deleteIfExists)\\(|FileUtils\\.(deleteDirectory|rm_rf|rm_r|remove_dir)\\(|\\.deleteRecursively\\(|Dir\\.rmdir\\(|\\brmdir\\s*\\(|\\brmtree\\s*\\(|File::Path::(rmtree|remove_tree)\\(|Remove-Item\\s"
       },
       "decision": "ask",
-      "reason": "Programmatic file deletion/move requires approval",
+      "reason": "Programmatic file/folder deletion requires approval",
       "category": "code-security",
-      "intent": "Programmatic file deletion and moves should be verified — ensure targets are safe and not user-controlled paths",
+      "intent": "Programmatic file or directory deletion across any language should be verified — ensure targets are safe and not user-controlled paths",
       "type": "free"
     },
     {
@@ -2410,7 +2421,7 @@
     "retention_days": 365,
     "max_sessions": 100
   },
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sandbox": {
     "enabled": false,
     "base_image": "ubuntu:22.04",
