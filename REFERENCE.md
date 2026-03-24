@@ -289,8 +289,32 @@ values always take precedence over profile defaults.
 Token counts use Claude Code transcript JSONL when available, with estimation
 fallback. TaskSpec constrains tools and budget; immutable after startup.
 
+**Setting a goal** (used by the [semantic evaluator](#semantic-evaluator) to
+judge intent alignment):
+
+1. **Pass a markdown spec at startup** (preferred):
+   ```bash
+   lanekeep serve --spec DESIGN.md
+   ```
+   `lanekeep-parse-spec` parses the markdown and extracts:
+   - **goal** — from a `# Goal` section or the first `#` heading
+   - **denied_tools** — from `## Anti-Patterns` (e.g. "Avoid Bash tool")
+   - **allowed_tools** — from `## Allowed Tools` or `## Implementation Blueprint`
+   - **budget** — from `## Budget` (max actions, timeout)
+
+   The result is saved to `.lanekeep/taskspec.json`.
+
+2. **Write the JSON directly** to `.lanekeep/taskspec.json`:
+   ```json
+   {
+     "goal": "Fix the authentication bypass in login_handler.py",
+     "allowed_tools": [],
+     "denied_tools": [],
+     "budget": {}
+   }
+   ```
+
 ```bash
-lanekeep serve --spec DESIGN.md
 LANEKEEP_MAX_ACTIONS=50 LANEKEEP_TIMEOUT_SECONDS=900 lanekeep serve
 ```
 
@@ -319,7 +343,9 @@ with the declared task goal. It is particularly effective at catching
 rule-based checks, but are semantically wrong for the task. Examples:
 reading `/etc/passwd` during a "fix login bug" task, or base64-encoding
 files unrelated to the goal. Enable it when you need defense-in-depth
-beyond pattern matching.
+beyond pattern matching. The goal is read from [TaskSpec](#budget--taskspec)
+(`$LANEKEEP_TASKSPEC_FILE`) — set it via `lanekeep serve --spec` or write
+`.lanekeep/taskspec.json` directly.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
@@ -328,7 +354,7 @@ beyond pattern matching.
 | `evaluators.semantic.tools` | array | `["Bash","Write","Edit"]` | Tools to evaluate |
 | `evaluators.semantic.provider` | string | `"anthropic"` | LLM provider |
 | `evaluators.semantic.api_key_env` | string | `"ANTHROPIC_API_KEY"` | Env var for API key |
-| `evaluators.semantic.timeout` | number | `5` | Request timeout (seconds) |
+| `evaluators.semantic.timeout` | number | `10` | Request timeout (seconds) |
 | `evaluators.semantic.on_error` | string | `"deny"` | On LLM error: `"deny"` or `"allow"` |
 
 ## Environment Variables

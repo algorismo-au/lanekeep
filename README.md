@@ -197,6 +197,10 @@ First deny stops the pipeline.
 | 7 | Semantic | LLM-based intent check — catches goal misalignment, data exfiltration disguised as legitimate work, and actions that pass rule-based tiers but violate the spirit of the task (opt-in) |
 | Post | ResultTransform | Secrets/injection in output |
 
+The Semantic evaluator reads the task goal from TaskSpec — set it with
+`lanekeep serve --spec DESIGN.md` or write `.lanekeep/taskspec.json` directly.
+See [REFERENCE.md](REFERENCE.md#budget--taskspec) for details.
+
 See [CLAUDE.md](CLAUDE.md) for detailed tier descriptions and data flow.
 
 ## Configuration

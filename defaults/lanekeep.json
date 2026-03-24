@@ -253,7 +253,7 @@
       "provider": "anthropic",
       "model": "claude-haiku-4-5-20251001",
       "api_key_env": "ANTHROPIC_API_KEY",
-      "timeout": 5,
+      "timeout": 10,
       "on_error": "deny",
       "tools": [
         "Bash",
@@ -2410,7 +2410,7 @@
     "retention_days": 365,
     "max_sessions": 100
   },
-  "version": "1.0.0",
+  "version": "1.0.1",
   "sandbox": {
     "enabled": false,
     "base_image": "ubuntu:22.04",
