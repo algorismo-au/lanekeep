@@ -313,6 +313,14 @@ LANEKEEP_MAX_ACTIONS=50 LANEKEEP_TIMEOUT_SECONDS=900 lanekeep serve
 
 ### Semantic Evaluator
 
+The semantic evaluator uses an LLM to judge whether each tool call aligns
+with the declared task goal. It is particularly effective at catching
+**intent misalignment** — actions that are syntactically valid and pass
+rule-based checks, but are semantically wrong for the task. Examples:
+reading `/etc/passwd` during a "fix login bug" task, or base64-encoding
+files unrelated to the goal. Enable it when you need defense-in-depth
+beyond pattern matching.
+
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `evaluators.semantic.enabled` | bool | `false` | Enable LLM-based evaluation |

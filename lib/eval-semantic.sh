@@ -62,10 +62,10 @@ semantic_eval() {
   local sample_rate
   sample_rate=$(jq -r '.evaluators.semantic.sample_rate // 1' "$config" 2>/dev/null)
   if [ "$sample_rate" != "1" ] && [ "$sample_rate" != "1.0" ]; then
-    local rand=$((RANDOM % 100))
-    # Use awk for floating point comparison
+    local rval=$((RANDOM % 100))
+    # Use awk for floating point comparison (avoid 'rand' — reserved in some awk)
     local skip
-    skip=$(awk -v rate="$sample_rate" -v rand="$rand" 'BEGIN { print (rand >= rate * 100) ? "1" : "0" }')
+    skip=$(awk -v rate="$sample_rate" -v rval="$rval" 'BEGIN { print (rval >= rate * 100) ? "1" : "0" }')
     if [ "$skip" = "1" ]; then
       SEMANTIC_REASON="Skipped (sampling)"
       return 0
@@ -155,9 +155,10 @@ semantic_eval() {
 
 _semantic_xml_encode() {
   local text="$1"
-  text="${text//&/&amp;}"
-  text="${text//</&lt;}"
-  text="${text//>/&gt;}"
+  # In bash 5.2+, & in replacement refers to matched text — escape with \&
+  text="${text//&/\&amp;}"
+  text="${text//</\&lt;}"
+  text="${text//>/\&gt;}"
   printf '%s' "$text"
 }
 

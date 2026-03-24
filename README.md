@@ -194,7 +194,7 @@ First deny stops the pipeline.
 | 4 | Input PII | PII in tool input (SSNs, credit cards) |
 | 5 | Budget | Action count, token tracking, wall-clock time |
 | 6 | Plugins | Custom evaluators (subshell isolated) |
-| 7 | Semantic | LLM-based intent check (opt-in) |
+| 7 | Semantic | LLM-based intent check — catches goal misalignment, data exfiltration disguised as legitimate work, and actions that pass rule-based tiers but violate the spirit of the task (opt-in) |
 | Post | ResultTransform | Secrets/injection in output |
 
 See [CLAUDE.md](CLAUDE.md) for detailed tier descriptions and data flow.
