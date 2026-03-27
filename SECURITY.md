@@ -63,3 +63,10 @@ LaneKeep has minimal dependencies by design:
 
 No package manager, no `node_modules`, no runtime downloads. Vendor libraries
 are bundled as static files — no CDN calls, no external fetches.
+
+> **Supply-chain note:** Package install scripts (`setup.py`, wheel hooks, npm
+> lifecycle scripts) execute outside LaneKeep's evaluation boundary. LaneKeep
+> requires human approval before any package-manager command (`dep-001`) but
+> cannot inspect code that runs *inside* the install process. Operators in
+> high-assurance environments should layer OS-level egress controls or a
+> Falco/eBPF credential-access rule on top of LaneKeep.
