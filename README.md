@@ -236,7 +236,13 @@ Or use the CLI:
 lanekeep rules add --match-command "docker compose down" --decision deny --reason "..."
 ```
 
-Rules can also be added and edited in the **Rules** tab of the dashboard.
+Rules can also be added, edited, and tested in the **Rules** tab of the dashboard.
+
+Test any command against your active ruleset before writing a rule:
+
+```bash
+lanekeep rules test "docker compose down"
+```
 
 ### Enforcement Profiles
 
