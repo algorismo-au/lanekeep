@@ -17,9 +17,7 @@
 
 # LaneKeep
 
-Governance guardrails and insights for AI coding agents. Evaluates every tool call through a
-multi-tier pipeline before it executes — rules, limits, audit trail. Your
-agent runs within boundaries that you define.
+Stop your AI agent before it does something you didn't ask for. LaneKeep intercepts every tool call — before it executes — and enforces the rules, limits, and audit trail you define.
 
 > Works with **Claude Code CLI** (including incremental and multi-agent setups). Generic JSON protocol. **No data leaves your machine.**
 
@@ -28,6 +26,7 @@ agent runs within boundaries that you define.
 - **Full audit trail** — every tool call logged with matched rule and reason
 - **Defense in depth** — 9-tier pipeline, config integrity, PII detection, injection detection
 - **Config audit** — one-click health check for rules, policies, and security posture
+- **Compliance-ready** — built-in coverage for NIST, OWASP, CWE, ATT&CK, and more; Pro packs for EU AI Act, SOC2, HIPAA, PCI-DSS
 
 > **Every policy and rule is configurable.** Start with 30+ policies and 140+ rules as built-in defaults, add community rules,
 > or write your own. See [Configuration](#configuration).
@@ -149,28 +148,7 @@ Reads are allowed — security depends on the agent being unable to modify enfor
 
 ## How It Works
 
-Intercepts tool calls via the [PreToolUse hook](https://docs.anthropic.com/en/docs/claude-code/hooks),
-runs them through a tiered pipeline, logs every decision to append-only JSONL.
-
-```mermaid
-graph LR
-    A["Agent proposes<br/>tool call"] -- "PreToolUse hook" --> B["LaneKeep<br/>evaluates"]
-    B --> C["Allow"]
-    B --> D["Deny"]
-    B --> E["Ask User"]
-    B --> F["Warn"]
-
-    style A fill:#1a1a2e,stroke:#e94560,color:#eee
-    style B fill:#0f3460,stroke:#e94560,color:#eee
-    style C fill:#16213e,stroke:#0f0,color:#0f0
-    style D fill:#16213e,stroke:#f00,color:#f00
-    style E fill:#16213e,stroke:#ff0,color:#ff0
-    style F fill:#16213e,stroke:#f90,color:#f90
-```
-
-## Evaluation Pipeline
-
-First deny stops the pipeline.
+Hooks into the [PreToolUse hook](https://docs.anthropic.com/en/docs/claude-code/hooks) and runs every tool call through a tiered pipeline before it executes. First deny stops the pipeline.
 
 | Tier | Evaluator | What it checks |
 |------|-----------|----------------|
@@ -272,17 +250,11 @@ See [REFERENCE.md — CLI Reference](REFERENCE.md#cli-reference) for the full co
 
 ## Dashboard
 
-See exactly what your agent is doing while it builds. Every file it touches,
-every token it burns, every rule it triggers — live, in one place. No
-guessing what happened after the fact; watch the decisions, the budget, and
-the file activity as your session runs.
+See exactly what your agent is doing while it builds — live decisions, token usage, file activity, and audit trail in one place.
 
 ### Governance
 
-Session and all-time stats at a glance: action count, token usage, context
-window consumption, wall-clock time — each with a progress bar against your
-budget limits. Plus the full config stack showing which layers are loaded and
-your config integrity hash.
+Budget and session stats with progress bars against your limits; full config stack and integrity hash.
 
 <p align="center">
   <img src="images/readme/lanekeep_governance.png" alt="LaneKeep Governance — budget and session stats" width="749" />
@@ -290,9 +262,7 @@ your config integrity hash.
 
 ### Insights
 
-Live decision feed with trends over time. See which tools get denied most,
-which evaluators fire, per-file read/write activity, check latency
-percentiles, and a decision timeline across your session.
+Live decision feed, denial trends, per-file activity, latency percentiles, and a decision timeline across your session.
 
 <p align="center">
   <img src="images/readme/lanekeep_insights1.png" alt="LaneKeep Insights — trends and top denied" width="749" />
@@ -303,21 +273,7 @@ percentiles, and a decision timeline across your session.
 
 ### Audit & Coverage
 
-One-click config validation. Checks your policies, rules, and security
-posture — flags misconfigurations, missing coverage, and integrity issues.
-
-The Coverage tab maps rules and evaluators to regulatory frameworks
-(PCI-DSS, HIPAA, GDPR, NIST SP800-53, SOC2, OWASP, CWE, AU Privacy Act).
-It shows three things:
-
-- **Summary cards** — framework count, mapped requirements, coverage gaps,
-  and total evidence events drawn from the audit trace.
-- **Evidence chain** — a three-column visualization linking frameworks →
-  requirements → the rules that enforce them. Requirements with no
-  backing rule are highlighted as coverage gaps.
-- **Rule impact analysis** — select any rule to see its blast radius:
-  which compliance requirements it satisfies, total and 30-day denial
-  counts, and which files it has protected.
+One-click config validation, plus a coverage map linking rules to regulatory frameworks (PCI-DSS, HIPAA, GDPR, NIST SP800-53, SOC2, OWASP, CWE, AU Privacy Act) — with gap highlighting and rule impact analysis.
 
 <p align="center">
   <img src="images/readme/lanekeep_audit1.png" alt="LaneKeep Audit — config validation" width="749" />
@@ -329,15 +285,9 @@ It shows three things:
   <img src="images/readme/lanekeep_audit3.png" alt="LaneKeep Coverage — rule impact analysis" width="749" />
 </p>
 
-Rules gain coverage tags through the `compliance` field in `lanekeep.json`
-(or via the Rules editor in the dashboard). Evaluators contribute tags via
-`evaluators.<name>.compliance_by_category`.
-
 ### Files
 
-Every file your agent reads or writes, with operation counts, token tracking,
-and denial history. Bookmark frequently-edited files for quick access. Open
-any file in the inline editor to inspect what changed.
+Every file your agent reads or writes — operation counts, token tracking, denial history, and an inline editor.
 
 <p align="center">
   <img src="images/readme/lanekeep_files.png" alt="LaneKeep Files — file tree and editor" width="749" />
