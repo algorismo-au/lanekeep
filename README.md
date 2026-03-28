@@ -225,6 +225,18 @@ add your own rules, or disable what you don't need.
 Config resolves: `$PROJECT_DIR/lanekeep.json` -> `$LANEKEEP_DIR/defaults/lanekeep.json`.
 Config is hash-checked at startup — mid-session modifications deny all calls.
 
+### Policies
+
+Evaluated before rules. 20 built-in categories — each with dedicated extraction
+logic (e.g. `domains` parses URLs, `branches` extracts branch names from git
+commands). Categories: `tools`, `extensions`, `paths`, `commands`, `domains`,
+`mcp_servers`, and more. Toggle with `lanekeep policy`.
+
+**Policies vs Rules:** Policies are structured, typed controls for predefined
+categories. Rules are the flexible catch-all — they match any tool name + any
+regex pattern against the full tool input. If your use case doesn't fit a policy
+category, write a rule instead.
+
 ### Rules
 
 Ordered first-match-wins table. No match = allow. Match fields use AND logic.
@@ -267,18 +279,6 @@ lanekeep rules add --match-command "docker compose down" --decision deny --reaso
 | `autonomous` | Permissive, budget + trace only. 500 actions, 2 hours. |
 
 Set via `LANEKEEP_PROFILE` env var or `"profile"` in `lanekeep.json`.
-
-### Policies
-
-Evaluated before rules. 20 built-in categories — each with dedicated extraction
-logic (e.g. `domains` parses URLs, `branches` extracts branch names from git
-commands). Categories: `tools`, `extensions`, `paths`, `commands`, `domains`,
-`mcp_servers`, and more. Toggle with `lanekeep policy`.
-
-**Policies vs Rules:** Policies are structured, typed controls for predefined
-categories. Rules are the flexible catch-all — they match any tool name + any
-regex pattern against the full tool input. If your use case doesn't fit a policy
-category, write a rule instead.
 
 See [REFERENCE.md](REFERENCE.md) for rule fields, policy categories, settings,
 and environment variables.
