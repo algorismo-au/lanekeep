@@ -46,30 +46,40 @@ hardblock_check() {
     _hbr_source=""
   fi
 
-  local pattern
-  while IFS= read -r pattern; do
-    [ -z "$pattern" ] && continue
-    local lower_pattern
-    lower_pattern=$(printf '%s' "$pattern" | tr '[:upper:]' '[:lower:]')
-    if printf '%s' "$search_text" | grep -qF "$lower_pattern"; then
-      HARDBLOCK_REASON="[LaneKeep] HARD-BLOCKED (Tier 1)\nPattern matched: '$pattern'\nAction: $tool_name"
+  # Fixed-string patterns: lowercase all at once, single grep across all patterns
+  if [ -n "$_hb_source" ]; then
+    local _hb_lower _matched
+    _hb_lower=$(printf '%s\n' "$_hb_source" | tr '[:upper:]' '[:lower:]')
+    _matched=$(printf '%s' "$search_text" | grep -oFm1 -f <(printf '%s\n' "$_hb_lower") 2>/dev/null) || true
+    if [ -n "$_matched" ]; then
+      HARDBLOCK_REASON="[LaneKeep] HARD-BLOCKED (Tier 1)\nPattern matched: '$_matched'\nAction: $tool_name"
       return 1
     fi
-  done <<< "$_hb_source"
+  fi
 
-  # Regex patterns for flag-reordering-aware matching
-  while IFS= read -r pattern; do
-    [ -z "$pattern" ] && continue
-    # Skip patterns with nested quantifiers (ReDoS risk)
-    if printf '%s' "$pattern" | grep -qE '\([^)]*[+*]\)[+*?]'; then
-      echo "[LaneKeep] WARN: skipping hard_blocks_regex with ReDoS risk: $pattern" >&2
-      continue
+  # Regex patterns: validate with bash built-in (no subprocess), combine into single grep
+  if [ -n "$_hbr_source" ]; then
+    local safe_patterns=() pattern
+    while IFS= read -r pattern; do
+      [ -z "$pattern" ] && continue
+      # Skip patterns with nested quantifiers (ReDoS risk) — bash ERE match, no subprocess
+      if [[ "$pattern" =~ \([^\)]*[+*]\)[+*?] ]]; then
+        echo "[LaneKeep] WARN: skipping hard_blocks_regex with ReDoS risk: $pattern" >&2
+        continue
+      fi
+      safe_patterns+=("$pattern")
+    done <<< "$_hbr_source"
+
+    if [ ${#safe_patterns[@]} -gt 0 ]; then
+      local combined
+      combined=$(printf '(?:%s)' "${safe_patterns[0]}")
+      local p; for p in "${safe_patterns[@]:1}"; do combined+="|(?:$p)"; done
+      if printf '%s' "$search_text" | timeout 1 grep -qP "$combined" 2>/dev/null; then
+        HARDBLOCK_REASON="[LaneKeep] HARD-BLOCKED (Tier 1)\nRegex matched destructive pattern\nAction: $tool_name"
+        return 1
+      fi
     fi
-    if printf '%s' "$search_text" | timeout 1 grep -qP "$pattern" 2>/dev/null; then
-      HARDBLOCK_REASON="[LaneKeep] HARD-BLOCKED (Tier 1)\nRegex matched destructive pattern\nAction: $tool_name"
-      return 1
-    fi
-  done <<< "$_hbr_source"
+  fi
 
   return 0
 }

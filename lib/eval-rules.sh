@@ -75,11 +75,7 @@ verify_pack_rules() {
 }
 
 rules_enabled() {
-  local config="$LANEKEEP_CONFIG_FILE"
-  [ -f "$config" ] || return 1
-  local count
-  count=$(jq '.rules | length // 0' "$config" 2>/dev/null) || return 1
-  [ "$count" -gt 0 ]
+  [ "${_CFG_RULES_COUNT:-0}" -gt 0 ]
 }
 
 validate_patterns() {
@@ -122,9 +118,13 @@ policies_check() {
   local tool_input="$2"
   local config="$LANEKEEP_CONFIG_FILE"
 
-  # Skip if no policies section exists
+  # Skip if no policies section exists (use pre-extracted flag when available)
   local has_policies
-  has_policies=$(jq 'has("policies") and (.policies | length > 0)' "$config" 2>/dev/null) || return 0
+  if [ -n "${_CFG_HAS_POLICIES+x}" ]; then
+    has_policies="$_CFG_HAS_POLICIES"
+  else
+    has_policies=$(jq 'has("policies") and (.policies | length > 0)' "$config" 2>/dev/null) || return 0
+  fi
   [ "$has_policies" = "true" ] || return 0
 
   local result

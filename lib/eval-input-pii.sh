@@ -26,12 +26,13 @@ input_pii_eval() {
     on_detect="$_CFG_INPUT_PII_ON_DETECT"
     pii_patterns_raw="$_CFG_INPUT_PII_PATTERNS"
     all_compliance="$_CFG_INPUT_PII_COMPLIANCE"
-    _has_custom_tools_filter=""
-
     # Default tools filter (Write|Edit|Bash) — skip non-mutation tools
-    # Custom tools filters need jq fallback (rare)
-    if [ -f "$config" ]; then
-      _has_custom_tools_filter=$(jq -r 'if .evaluators.input_pii | has("tools") then "yes" else "" end' "$config" 2>/dev/null) || _has_custom_tools_filter=""
+    # Use pre-extracted flag; custom tools filters need jq fallback (rare)
+    _has_custom_tools_filter=""
+    if [ "${_CFG_INPUT_PII_HAS_TOOLS:-false}" = "true" ]; then
+      _has_custom_tools_filter="yes"
+    elif [ -z "${_CFG_INPUT_PII_HAS_TOOLS+x}" ] && [ -f "$config" ]; then
+      _has_custom_tools_filter=$(jq -r 'if (.evaluators.input_pii | has("tools")) and (.evaluators.input_pii.tools | length > 0) then "yes" else "" end' "$config" 2>/dev/null) || _has_custom_tools_filter=""
     fi
 
     if [ -z "$_has_custom_tools_filter" ]; then
@@ -43,17 +44,31 @@ input_pii_eval() {
           ;;
       esac
     else
-      # Custom tools filter — fall back to jq for this rare path
-      local tool_match
-      tool_match=$(jq -r --arg t "$tool_name" '.evaluators.input_pii.tools // [] | map(select(. == $t)) | length' "$config" 2>/dev/null) || tool_match=0
-      if [ "$tool_match" -eq 0 ]; then
-        local tools_len
-        tools_len=$(jq -r '.evaluators.input_pii.tools // [] | length' "$config" 2>/dev/null) || tools_len=0
-        if [ "$tools_len" != "0" ]; then
-          INPUT_PII_REASON="Tool '$tool_name' not in input PII scan list"
-          return 0
+      # Custom tools filter — check pre-extracted list first, jq only as last resort
+      if [ -n "${_CFG_INPUT_PII_TOOLS+x}" ]; then
+        # Pre-extracted comma-separated tools list
+        if [ -n "$_CFG_INPUT_PII_TOOLS" ]; then
+          case ",$_CFG_INPUT_PII_TOOLS," in
+            *",$tool_name,"*) ;;
+            *)
+              INPUT_PII_REASON="Tool '$tool_name' not in input PII scan list"
+              return 0
+              ;;
+          esac
         fi
-        # tools_len=0 means empty array → scan all tools
+        # Empty list → scan all tools (fall through)
+      else
+        # Fallback: jq (standalone testing / no handler pre-extraction)
+        local tool_match
+        tool_match=$(jq -r --arg t "$tool_name" '.evaluators.input_pii.tools // [] | map(select(. == $t)) | length' "$config" 2>/dev/null) || tool_match=0
+        if [ "$tool_match" -eq 0 ]; then
+          local tools_len
+          tools_len=$(jq -r '.evaluators.input_pii.tools // [] | length' "$config" 2>/dev/null) || tools_len=0
+          if [ "$tools_len" != "0" ]; then
+            INPUT_PII_REASON="Tool '$tool_name' not in input PII scan list"
+            return 0
+          fi
+        fi
       fi
     fi
   else
