@@ -1,0 +1,7 @@
+title = "gitleaks config"
+
+[allowlist]
+description = "tests/ intentionally contains example secret patterns (AKIA*, sk-*, ghp_*) to test LaneKeep's PII evaluator. These are not real credentials."
+paths = [
+    '''tests/''',
+]

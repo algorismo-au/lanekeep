@@ -20,8 +20,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: actionlint
-        uses: rhysd/action-actionlint@v1
+      - name: Install actionlint
+        run: |
+          curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v1.7.11/actionlint_1.7.11_linux_amd64.tar.gz" \
+            | tar -xz actionlint
+          sudo mv actionlint /usr/local/bin/
+      - name: Run actionlint
+        run: actionlint
 
       - name: shellcheck
         run: |
