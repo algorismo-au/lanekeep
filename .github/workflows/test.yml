@@ -24,3 +24,23 @@ jobs:
 
       - name: Run tests
         run: bats --recursive tests/
+
+      - name: Generate app token
+        if: github.event_name == 'push'
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.DISPATCHER_APP_ID }}
+          private-key: ${{ secrets.DISPATCHER_PRIVATE_KEY }}
+          repositories: buildinglanekeep
+
+      - name: Trigger meta-repo E2E
+        if: github.event_name == 'push'
+        env:
+          TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/algorismo-au/buildinglanekeep/dispatches \
+            -d '{"event_type":"lanekeep-release"}'
