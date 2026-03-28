@@ -138,38 +138,14 @@ LaneKeep protects itself and the agent's own governance files from modification
 by the agent it governs. Without this, a compromised or prompt-injected agent
 could disable enforcement, tamper with audit logs, or bypass budget limits.
 
-**Protected governance paths** (Write/Edit denied via `governance_paths` policy):
+| Path | What it protects |
+|------|-----------------|
+| `claude.md`, `.claude/` | Claude Code instructions, settings, hooks, memory |
+| `lanekeep.json`, `.lanekeep/` | LaneKeep config, rules, traces, runtime state |
+| `lanekeep/bin/`, `lib/`, `hooks/` | LaneKeep source code |
+| `plugins.d/` | Plugin evaluators |
 
-| Path | Scope | What it protects |
-|------|-------|------------------|
-| `claude.md` | Global + project | Claude Code instructions — matches any path ending in `claude.md` |
-| `.claude/` | Global + project | Claude Code settings, hooks, memory, commands — covers both `~/.claude/` and project `.claude/` |
-| `lanekeep.json` | Project | LaneKeep configuration and rules |
-| `lanekeep/bin/`, `lib/`, `hooks/`, `defaults/` | Install | LaneKeep source code |
-| `.lanekeep/` | Project | Runtime state — traces, budget counters, session data |
-| `lanekeep/plugins.d/` | Install | Plugin evaluators |
-
-Patterns are unanchored regex matched against the full file path, so both
-relative (`.claude/settings.json`) and absolute (`/home/user/.claude/settings.json`)
-paths are caught. Global and project-level Claude configs get the same protection.
-
-**Self-protection rules** (Bash denied):
-
-| Rule | What it blocks |
-|------|---------------|
-| `sys-086`, `sys-087` | Killing LaneKeep processes (`kill`, `pkill`, `killall`) |
-| `sys-088` | Modifying LaneKeep env vars (`LANEKEEP_FAIL_POLICY`, `LANEKEEP_CONFIG_FILE`, etc.) |
-
-**Design principle:** Reads are allowed. LaneKeep is open source — security
-depends on the agent being unable to modify enforcement, not on hiding the rules.
-
-To temporarily bypass governance path protection (e.g. to update `CLAUDE.md`):
-
-```bash
-lanekeep policy disable governance_paths --reason "Updating CLAUDE.md"
-# ... make changes ...
-lanekeep policy enable governance_paths
-```
+Reads are allowed — security depends on the agent being unable to modify enforcement, not on hiding the rules. See [SECURITY.md](SECURITY.md) for details.
 
 ## How It Works
 
@@ -235,6 +211,14 @@ commands). Categories: `tools`, `extensions`, `paths`, `commands`, `domains`,
 categories. Rules are the flexible catch-all — they match any tool name + any
 regex pattern against the full tool input. If your use case doesn't fit a policy
 category, write a rule instead.
+
+To temporarily disable a policy (e.g. to update `CLAUDE.md`):
+
+```bash
+lanekeep policy disable governance_paths --reason "Updating CLAUDE.md"
+# ... make changes ...
+lanekeep policy enable governance_paths
+```
 
 ### Rules
 
