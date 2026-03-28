@@ -3,6 +3,10 @@ name: test
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
@@ -12,6 +16,7 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -23,8 +28,26 @@ jobs:
           find bin -type f | xargs shellcheck --shell=bash
           shellcheck lib/*.sh hooks/*.sh
 
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz \
+            | tar -xz gitleaks
+          sudo mv gitleaks /usr/local/bin/
+
+      - name: Run gitleaks
+        run: gitleaks detect --source . --no-banner
+
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -35,7 +58,7 @@ jobs:
 
       - name: Install bats
         run: |
-          git clone https://github.com/bats-core/bats-core.git /tmp/bats
+          git clone --depth 1 --branch v1.13.0 https://github.com/bats-core/bats-core.git /tmp/bats
           sudo /tmp/bats/install.sh /usr/local
 
       - name: Run tests
