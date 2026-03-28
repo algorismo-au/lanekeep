@@ -134,10 +134,12 @@ write_trace() {
     --arg ud "${_TRACE_USER_DENIED:-false}" \
     '. as $evals |
      ([.[].compliance? // [] | .[]] | unique | if length == 0 then null else . end) as $comp |
+     ([.[].compliance_tags? // [] | .[]] | unique | if length == 0 then null else . end) as $comp_tags |
      {timestamp:$ts,source:"lanekeep",session_id:$sid,event_type:$et,tool_name:$tn,tool_input:$ti,
        decision:$dec,reason:$rea,latency_ms:$lat,evaluators:$evals,ralph:$ralph,
        config_hash:$chash}
      | if $comp then .compliance = $comp else . end
+     | if $comp_tags then .compliance_tags = $comp_tags else . end
      | if $tuid != "" then .tool_use_id = $tuid else . end
      | if $ud == "true" then .user_denied = true else . end
      | if ($ti | type == "object") and ($ti.file_path? // "" | length > 0) then .file_path = $ti.file_path else . end')

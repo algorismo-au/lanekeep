@@ -6,6 +6,7 @@ RULES_PASSED=true
 RULES_REASON=""
 RULES_DECISION="allow"
 RULES_COMPLIANCE="[]"
+RULES_COMPLIANCE_TAGS="[]"
 RULES_INTENT=""
 
 # Verify Ed25519 signature on a Pro compliance pack's rules file.
@@ -595,6 +596,7 @@ rules_eval() {
   RULES_REASON="No rule matched"
   RULES_DECISION="allow"
   RULES_COMPLIANCE="[]"
+  RULES_COMPLIANCE_TAGS="[]"
   RULES_INTENT=""
 
   local config="$LANEKEEP_CONFIG_FILE"
@@ -656,7 +658,8 @@ rules_eval() {
        category: ($r.category // ""),
        source: ($r.source // "default"),
        compliance: (($r.compliance // []) | join(", ")),
-       compliance_arr: ($r.compliance // [])}
+       compliance_arr: ($r.compliance // []),
+       compliance_tags: ($r.compliance_tags // [])}
     ] | first // empty
   ' "$config" 2>/dev/null)
   local jq_exit=$?
@@ -681,7 +684,8 @@ rules_eval() {
     "category=" + (.category | @sh),
     "source=" + (.source // "default" | @sh),
     "compliance=" + (.compliance // "" | @sh),
-    "RULES_COMPLIANCE=" + (.compliance_arr // [] | tojson | @sh)')"
+    "RULES_COMPLIANCE=" + (.compliance_arr // [] | tojson | @sh),
+    "RULES_COMPLIANCE_TAGS=" + (.compliance_tags // [] | tojson | @sh)')"
   RULES_INTENT="$intent"
 
   RULES_DECISION="$decision"

@@ -169,6 +169,9 @@ load_config() {
   # --- Load platform-specific rule packs ---
   load_platform_pack "$LANEKEEP_CONFIG_FILE"
 
+  # --- Load pro compliance tag overlays (gated on license tier) ---
+  load_pro_packs "$LANEKEEP_CONFIG_FILE"
+
   # --- Apply profile overlay if set ---
   apply_profile "$LANEKEEP_CONFIG_FILE"
 
@@ -326,6 +329,59 @@ load_platform_pack() {
 
   local _tmp; _tmp=$(mktemp "${config}.XXXXXX")
   printf '%s\n' "$merged" > "$_tmp" && mv "$_tmp" "$config"
+}
+
+# Load pro compliance tag overlays — merges compliance_tags from each pack's
+# overlay.json onto matching rules by rule_id. Tags are additive (pro tags
+# append on top of free-tier tags already baked into the rule). Gated on
+# LANEKEEP_LICENSE_TIER=pro|enterprise.
+#
+# Requires verify_pack_rules() from eval-rules.sh, which is sourced before
+# this function is called in load_config() (at eval-rules.sh source line).
+load_pro_packs() {
+  local config="$1"
+  [ -f "$config" ] || return 0
+
+  # Only active for pro or enterprise tiers
+  case "${LANEKEEP_LICENSE_TIER:-community}" in
+    pro|enterprise) ;;
+    *) return 0 ;;
+  esac
+
+  # Locate the pro packs directory; LANEKEEP_PRO_DIR allows non-standard installs
+  local pro_dir="${LANEKEEP_PRO_DIR:-$(dirname "${LANEKEEP_DIR:-}")/lanekeep-pro}"
+  local packs_dir="${pro_dir}/packs"
+  [ -d "$packs_dir" ] || return 0
+
+  local pack_dir overlay_file
+  for pack_dir in "$packs_dir"/*/; do
+    overlay_file="${pack_dir}overlay.json"
+    [ -f "$overlay_file" ] || continue
+
+    # Verify pack signature (free-tier packs pass without check)
+    if ! verify_pack_rules "$overlay_file" 2>/dev/null; then
+      echo "[LaneKeep] WARNING: Pro pack signature invalid for '$(basename "$pack_dir")' — skipping" >&2
+      continue
+    fi
+
+    # Merge: for each overlay entry, find the matching rule by rule_id and
+    # append its compliance_tags (additive — never removes existing tags)
+    local merged
+    merged=$(jq --slurpfile overlay "$overlay_file" '
+      ($overlay[0].overlays // []) as $ovl |
+      .rules = [.rules[] |
+        . as $rule |
+        ([$ovl[] | select(.rule_id == $rule.id)] | first) as $match |
+        if $match then
+          .compliance_tags = ((.compliance_tags // []) + ($match.compliance_tags // []) | unique)
+        else . end
+      ]
+    ' "$config" 2>/dev/null) || continue
+
+    [ -n "$merged" ] || continue
+    local _tmp; _tmp=$(mktemp "${config}.XXXXXX")
+    printf '%s\n' "$merged" > "$_tmp" && mv "$_tmp" "$config"
+  done
 }
 
 apply_profile() {

@@ -215,8 +215,8 @@ case "$HOOK_EVENT" in
       _re_score=1; _re_intent=""
       [ "$RULES_PASSED" = true ] && _re_score=0
       [ -n "$RULES_INTENT" ] && _re_intent="$(printf ',"intent":"%s"' "$(_json_escape "$RULES_INTENT")")"
-      RESULTS+=("$(printf '{"name":"RuleEngine","tier":2,"score":%d,"passed":%s,"detail":"%s","compliance":%s%s}' \
-        "$_re_score" "$RULES_PASSED" "$(_json_escape "$RULES_REASON")" "$RULES_COMPLIANCE" "$_re_intent")")
+      RESULTS+=("$(printf '{"name":"RuleEngine","tier":2,"score":%d,"passed":%s,"detail":"%s","compliance":%s,"compliance_tags":%s%s}' \
+        "$_re_score" "$RULES_PASSED" "$(_json_escape "$RULES_REASON")" "$RULES_COMPLIANCE" "$RULES_COMPLIANCE_TAGS" "$_re_intent")")
     else
       # Legacy: codediff only (hardblock now runs unconditionally at Tier 1)
       if [ "$BLOCKED" = false ]; then
