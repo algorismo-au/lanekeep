@@ -1755,6 +1755,7 @@ class Handler(BaseHTTPRequestHandler):
             'contributing': ('Contributing', LANEKEEP_DIR / 'CONTRIBUTING.md'),
             'security': ('Security', LANEKEEP_DIR / 'SECURITY.md'),
             'license': ('License', LANEKEEP_DIR / 'LICENSE'),
+            'diagrams': ('Architecture Diagrams', PROJECT_DIR / 'DIAGRAMS.md'),
             'team': ('Team', LANEKEEP_DIR / 'ee' / 'README.md'),
         }
         doc_key = qs.get('doc', ['readme'])[0]
