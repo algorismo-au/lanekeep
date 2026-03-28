@@ -107,14 +107,15 @@ lanekeep serve       # sidecar only
 
 ### 4. Use your agent normally
 
-Denied actions show a reason. Allowed actions proceed silently. View decisions
-with `lanekeep trace`, `lanekeep trace --follow`, or `lanekeep ui`.
+Denied actions show a reason. Allowed actions proceed silently. View decisions in the **[dashboard](#dashboard)** (`lanekeep ui`) or from the terminal with `lanekeep trace` / `lanekeep trace --follow`.
 
 | | |
 |:---:|:---:|
 | <img src="images/readme/lanekeep_in_action4.png" alt="Git rebase — needs approval" width="486" /> | <img src="images/readme/lanekeep_in_action7.png" alt="Database destroy — denied" width="486" /> |
 | <img src="images/readme/lanekeep_in_action8.png" alt="Netcat — needs approval" width="486" /> | <img src="images/readme/lanekeep_in_action12.png" alt="git push --force — hard-blocked" width="486" /> |
 | <img src="images/readme/lanekeep_in_action13.png" alt="chmod 777 — hard-blocked" width="486" /> | <img src="images/readme/lanekeep_in_action15.png" alt="TLS bypass — needs approval" width="486" /> |
+
+---
 
 ## What Gets Blocked
 
@@ -146,6 +147,8 @@ could disable enforcement, tamper with audit logs, or bypass budget limits.
 
 Reads are allowed — security depends on the agent being unable to modify enforcement, not on hiding the rules. See [SECURITY.md](SECURITY.md) for details.
 
+---
+
 ## How It Works
 
 Hooks into the [PreToolUse hook](https://docs.anthropic.com/en/docs/claude-code/hooks) and runs every tool call through a tiered pipeline before it executes. First deny stops the pipeline.
@@ -169,6 +172,8 @@ See [REFERENCE.md](REFERENCE.md#budget--taskspec) for details.
 
 See [CLAUDE.md](CLAUDE.md) for detailed tier descriptions and data flow.
 
+---
+
 ## Configuration
 
 Everything is configurable — built-in defaults, user-defined rules, and
@@ -183,7 +188,7 @@ Config is hash-checked at startup — mid-session modifications deny all calls.
 Evaluated before rules. 20 built-in categories — each with dedicated extraction
 logic (e.g. `domains` parses URLs, `branches` extracts branch names from git
 commands). Categories: `tools`, `extensions`, `paths`, `commands`, `domains`,
-`mcp_servers`, and more. Toggle with `lanekeep policy`.
+`mcp_servers`, and more. Toggle with `lanekeep policy` or from the **Governance** tab in the dashboard.
 
 **Policies vs Rules:** Policies are structured, typed controls for predefined
 categories. Rules are the flexible catch-all — they match any tool name + any
@@ -231,6 +236,8 @@ Or use the CLI:
 lanekeep rules add --match-command "docker compose down" --decision deny --reason "..."
 ```
 
+Rules can also be added and edited in the **Rules** tab of the dashboard.
+
 ### Enforcement Profiles
 
 | Profile | Behavior |
@@ -244,9 +251,13 @@ Set via `LANEKEEP_PROFILE` env var or `"profile"` in `lanekeep.json`.
 See [REFERENCE.md](REFERENCE.md) for rule fields, policy categories, settings,
 and environment variables.
 
+---
+
 ## CLI Reference
 
 See [REFERENCE.md — CLI Reference](REFERENCE.md#cli-reference) for the full command list.
+
+---
 
 ## Dashboard
 
@@ -293,6 +304,8 @@ Every file your agent reads or writes — operation counts, token tracking, deni
   <img src="images/readme/lanekeep_files.png" alt="LaneKeep Files — file tree and editor" width="749" />
 </p>
 
+---
+
 ## Security
 
 **LaneKeep runs entirely on your machine. No cloud, no telemetry, no account.**
@@ -306,10 +319,14 @@ Every file your agent reads or writes — operation counts, token tracking, deni
 
 See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
+---
+
 ## Development
 
 See [CLAUDE.md](CLAUDE.md) for architecture and conventions. Run tests with
 `bats tests/` or `lanekeep selftest`. Cursor adapter included (untested).
+
+---
 
 ## License
 
