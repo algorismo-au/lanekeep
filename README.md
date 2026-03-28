@@ -268,31 +268,7 @@ and environment variables.
 
 ## CLI Reference
 
-```bash
-lanekeep init [dir]          # Initialize in a project
-lanekeep start               # Start sidecar + dashboard
-lanekeep serve [--spec FILE] # Start sidecar only
-lanekeep demo                # Run demo
-lanekeep trace [--follow]    # View / live tail audit log
-lanekeep trace clear --older-than 7d
-lanekeep audit               # Validate config
-lanekeep rules list          # List active rules
-lanekeep rules test "CMD"    # Dry-run: which rule matches?
-lanekeep rules validate      # Check rules for errors
-lanekeep rules add [opts]    # Add a custom rule
-lanekeep rules export/import # Portable rule transfer
-lanekeep rules update        # Fetch latest defaults
-lanekeep policy status       # Show policy status
-lanekeep policy disable <cat> --reason "..."
-lanekeep stop                # Graceful shutdown
-lanekeep status              # Show sidecar status
-lanekeep selftest            # Built-in self-test
-lanekeep ui                  # Web dashboard
-lanekeep migrate             # Migrate config format
-lanekeep bookmarks           # Manage bookmarks
-lanekeep-scan <dir>          # Scan plugins for issues
-lanekeep-parse-spec <file>   # Parse PRP to TaskSpec
-```
+See [REFERENCE.md — CLI Reference](REFERENCE.md#cli-reference) for the full command list.
 
 ## Dashboard
 
