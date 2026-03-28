@@ -16,7 +16,10 @@ usage() {
   echo "  add      [options]          Add a custom rule interactively or via flags"
   echo "  test     COMMAND            Dry-run: show which rule matches a command"
   echo "  validate [FILE]             Validate rules for correctness"
-  echo "  update   [--check] [--enable-new] [--yes]  Fetch latest default rules"
+  echo "  verify   FILE               Verify Ed25519 signature on a Pro pack"
+  echo "  install  URL[@VERSION]      Install a community pack from a git URL"
+  echo "  update   [PACK-NAME]        Update an installed pack (or fetch default rules)"
+  echo "  remove   PACK-NAME [--yes]  Uninstall a community pack and its rules"
   echo ""
   echo "Options:"
   echo "  --category CAT   Filter by category (e.g., git, system, secrets)"
@@ -33,11 +36,6 @@ usage() {
   echo ""
   echo "Test flags:"
   echo "  --tool TOOL           Tool name to simulate (default: Bash)"
-  echo ""
-  echo "Update flags:"
-  echo "  --check          Check for updates only (exit 0=current, 2=available)"
-  echo "  --enable-new     New rules arrive enabled (default: disabled)"
-  echo "  --yes            Skip confirmation prompt"
 }
 
 _resolve_config() {
@@ -196,9 +194,194 @@ _validate_remote_rules() {
 }
 
 cmd_update() {
-  echo "Remote rule updates are not available in the open-source edition." >&2
-  echo "Use 'lanekeep rules import FILE' to update rules from a local file." >&2
-  exit 1
+  # First non-flag arg is treated as a community pack name to update
+  local pack_name=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --check|--enable-new|--yes) shift ;;  # remote-update flags (not implemented)
+      --*) echo "Unknown option: $1" >&2; exit 1 ;;
+      *) pack_name="$1"; shift; break ;;
+    esac
+  done
+
+  if [ -z "$pack_name" ]; then
+    echo "Remote rule updates are not available in the open-source edition." >&2
+    echo "Use 'lanekeep rules import FILE' to update rules from a local file." >&2
+    echo "Use 'lanekeep rules update <pack-name>' to update an installed community pack." >&2
+    exit 1
+  fi
+
+  source "$LANEKEEP_DIR/lib/pack.sh"
+
+  local local_dir
+  local_dir=$(pack_local_dir "$pack_name")
+  if [ ! -d "$local_dir" ]; then
+    echo "Error: pack '$pack_name' is not installed." >&2
+    echo "Install with: lanekeep rules install <git-url>" >&2
+    exit 1
+  fi
+
+  local old_count=0
+  if [ -f "$PROJECT_DIR/lanekeep.json" ]; then
+    old_count=$(jq --arg p "$pack_name" \
+      '[.extra_rules // [] | .[] | select(.pack == $p)] | length' \
+      "$PROJECT_DIR/lanekeep.json" 2>/dev/null) || old_count=0
+  fi
+
+  echo "Updating $pack_name..."
+  pack_pull "$local_dir"
+  pack_validate "$local_dir" "$pack_name"
+
+  local rules_file
+  rules_file=$(pack_rules_file "$local_dir")
+
+  # Remove old pack rules then re-import
+  _remove_pack_rules "$pack_name"
+  local tagged
+  tagged=$(jq --arg p "$pack_name" '{rules: [.rules[] | . + {pack: $p}]}' "$rules_file")
+  local tmp
+  tmp=$(mktemp)
+  printf '%s\n' "$tagged" > "$tmp"
+  cmd_import "$tmp"
+  rm -f "$tmp"
+
+  local new_count
+  new_count=$(jq '.rules | length' "$rules_file" 2>/dev/null) || new_count=0
+  echo "Updated $pack_name: $old_count → $new_count rules"
+}
+
+# Remove all extra_rules tagged with a given pack name from lanekeep.json
+_remove_pack_rules() {
+  local pack_name="$1"
+  local user_config="$PROJECT_DIR/lanekeep.json"
+  [ -f "$user_config" ] || return 0
+  local updated
+  updated=$(jq --arg p "$pack_name" \
+    'if .extra_rules then .extra_rules = [.extra_rules[] | select(.pack != $p)] else . end' \
+    "$user_config")
+  printf '%s\n' "$updated" | jq '.' > "$user_config"
+}
+
+cmd_verify() {
+  local file="${1:-}"
+  if [ -z "$file" ] || [ ! -f "$file" ]; then
+    echo "Usage: lanekeep rules verify <file>" >&2
+    exit 1
+  fi
+
+  source "$LANEKEEP_DIR/lib/eval-rules.sh"
+
+  local name version tier
+  name=$(jq -r '.name // .framework // "unknown"' "$file" 2>/dev/null) || name="unknown"
+  version=$(jq -r '.version // "?"' "$file" 2>/dev/null) || version="?"
+  tier=$(jq -r '.tier // "free"' "$file" 2>/dev/null) || tier="free"
+
+  echo "Pack:    $name v$version"
+  echo "Tier:    $tier"
+
+  case "$tier" in
+    free|community)
+      echo "Signature: not required (community tier)"
+      exit 0
+      ;;
+  esac
+
+  local rc=0
+  verify_pack_rules "$file" || rc=$?
+  case "$rc" in
+    0) echo "Signature: VALID" ;;
+    1) echo "Signature: INVALID — file may be tampered" >&2; exit 1 ;;
+    2) echo "Signature: MISSING or no public key found" >&2; exit 2 ;;
+  esac
+}
+
+cmd_install() {
+  local ref="${1:-}"
+  if [ -z "$ref" ]; then
+    echo "Usage: lanekeep rules install <git-url>[@version]" >&2
+    exit 1
+  fi
+
+  source "$LANEKEEP_DIR/lib/pack.sh"
+
+  pack_parse_ref "$ref"
+  local url="$PACK_URL" version="$PACK_VERSION"
+  local pack_name
+  pack_name=$(pack_name_from_url "$url")
+  local local_dir
+  local_dir=$(pack_local_dir "$pack_name")
+
+  if [ -d "$local_dir" ]; then
+    echo "Pack '$pack_name' is already installed." >&2
+    echo "Use 'lanekeep rules update $pack_name' to update it." >&2
+    exit 1
+  fi
+
+  echo "Installing $pack_name..."
+  pack_clone "$url" "$version" "$local_dir"
+  pack_validate "$local_dir" "$pack_name"
+
+  local rules_file
+  rules_file=$(pack_rules_file "$local_dir")
+
+  # Tag each rule with the pack name so we can remove them cleanly later
+  local tagged
+  tagged=$(jq --arg p "$pack_name" '{rules: [.rules[] | . + {pack: $p}]}' "$rules_file")
+  local tmp
+  tmp=$(mktemp)
+  printf '%s\n' "$tagged" > "$tmp"
+  cmd_import "$tmp"
+  rm -f "$tmp"
+
+  local rule_count
+  rule_count=$(jq '.rules | length' "$rules_file" 2>/dev/null) || rule_count=0
+  echo "Installed $pack_name${version:+ @ $version} — $rule_count rules"
+}
+
+cmd_remove() {
+  local pack_name="${1:-}" yes=false
+  shift || true
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --yes|-y) yes=true; shift ;;
+      *) echo "Unknown option: $1" >&2; exit 1 ;;
+    esac
+  done
+
+  if [ -z "$pack_name" ]; then
+    echo "Usage: lanekeep rules remove <pack-name> [--yes]" >&2
+    exit 1
+  fi
+
+  source "$LANEKEEP_DIR/lib/pack.sh"
+
+  local local_dir
+  local_dir=$(pack_local_dir "$pack_name")
+
+  local rule_count=0
+  if [ -f "$PROJECT_DIR/lanekeep.json" ]; then
+    rule_count=$(jq --arg p "$pack_name" \
+      '[.extra_rules // [] | .[] | select(.pack == $p)] | length' \
+      "$PROJECT_DIR/lanekeep.json" 2>/dev/null) || rule_count=0
+  fi
+
+  if [ "$rule_count" -eq 0 ] && [ ! -d "$local_dir" ]; then
+    echo "Pack '$pack_name' is not installed." >&2
+    exit 1
+  fi
+
+  if [ "$yes" = "false" ]; then
+    printf "Remove '%s' and its %d rule(s)? [y/N] " "$pack_name" "$rule_count"
+    read -r confirm
+    case "$confirm" in
+      y|Y|yes|YES) ;;
+      *) echo "Aborted."; exit 0 ;;
+    esac
+  fi
+
+  _remove_pack_rules "$pack_name"
+  pack_remove_local "$local_dir"
+  echo "Removed $pack_name — $rule_count rule(s) uninstalled"
 }
 
 cmd_validate() {
@@ -636,7 +819,10 @@ case "${1:-help}" in
   add)      shift; cmd_add "$@" ;;
   test)     shift; cmd_test "$@" ;;
   validate) shift; cmd_validate "$@" ;;
+  verify)   shift; cmd_verify "$@" ;;
+  install)  shift; cmd_install "$@" ;;
   update)   shift; cmd_update "$@" ;;
+  remove)   shift; cmd_remove "$@" ;;
   help|-h|--help) usage ;;
   *) echo "Unknown command: $1" >&2; usage; exit 1 ;;
 esac

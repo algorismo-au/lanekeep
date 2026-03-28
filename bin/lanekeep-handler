@@ -150,6 +150,14 @@ if [ "$_CFG_RESULT_TRANSFORM_ENABLED" != "false" ]; then
   source "$LANEKEEP_DIR/lib/eval-result-transform.sh"
 fi
 
+# Enterprise evaluators: source ee/lib/eval-*.sh (enterprise tier only)
+if [ "${LANEKEEP_LICENSE_TIER:-community}" = "enterprise" ]; then
+  for _ee_eval in "$LANEKEEP_DIR/ee/lib"/eval-*.sh; do
+    [ -f "$_ee_eval" ] && source "$_ee_eval"
+  done
+  unset _ee_eval
+fi
+
 # Phase 4: Capture all timestamp forms at once (1B — one date per request)
 _NOW_NS=$(date +%s%N)
 _NOW_EPOCH=${_NOW_NS:0:10}

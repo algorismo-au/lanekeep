@@ -11,6 +11,8 @@ RULES_INTENT=""
 
 # Verify Ed25519 signature on a Pro compliance pack's rules file.
 # Free/community packs pass without check. Pro packs require valid signature.
+# Supports key rotation: if no explicit pubkey given, tries all *.pub files in
+# keys/ directory — first valid match wins.
 # Returns: 0 = valid (or free), 1 = invalid/tampered, 2 = unsigned or no pubkey
 verify_pack_rules() {
   local rules_file="$1"
@@ -28,20 +30,48 @@ verify_pack_rules() {
     free|community) return 0 ;;
   esac
 
-  # Resolve pubkey: argument > config > default path
-  if [ -z "$pubkey_pem" ]; then
-    pubkey_pem=$(jq -r '.signing.pack_pubkey_path // .signing.pubkey_path // ""' \
-      "${LANEKEEP_CONFIG_FILE:-/dev/null}" 2>/dev/null) || pubkey_pem=""
-    [ -n "$pubkey_pem" ] || pubkey_pem="${LANEKEEP_DIR:-}/keys/pack-signing.pub"
-  fi
-
   # Source signing module if not already loaded
-  if ! command -v verify_inline_sig >/dev/null 2>&1; then
+  if ! declare -f verify_inline_sig >/dev/null 2>&1; then
     [ -f "${LANEKEEP_DIR:-}/lib/signing.sh" ] || return 2
     source "${LANEKEEP_DIR}/lib/signing.sh"
   fi
 
-  verify_inline_sig "$content" "$pubkey_pem"
+  # Explicit key: argument or config override — skip rotation
+  if [ -z "$pubkey_pem" ]; then
+    pubkey_pem=$(jq -r '.signing.pack_pubkey_path // .signing.pubkey_path // ""' \
+      "${LANEKEEP_CONFIG_FILE:-/dev/null}" 2>/dev/null) || pubkey_pem=""
+  fi
+  if [ -n "$pubkey_pem" ]; then
+    verify_inline_sig "$content" "$pubkey_pem"
+    return
+  fi
+
+  # Key rotation: try all *.pub files in keys/ (first valid match wins)
+  # Return codes from verify_inline_sig:
+  #   0 = valid signature
+  #   1 = signature present but invalid for this key
+  #   2 = unsigned (no _signature field) or no tools/pubkey
+  local keys_dir="${LANEKEEP_DIR:-}/keys"
+  local any_key=false found_sig=false rc=0
+  for pub in "$keys_dir"/*.pub; do
+    [ -f "$pub" ] || continue
+    any_key=true
+    rc=0
+    verify_inline_sig "$content" "$pub" || rc=$?
+    case "$rc" in
+      0) return 0 ;;        # valid — matched this key
+      1) found_sig=true ;;  # signature present, wrong for this key — keep trying
+      # 2 = unsigned or tools unavailable — keep trying
+    esac
+  done
+
+  if [ "$any_key" = "false" ]; then
+    return 2  # no public keys configured
+  fi
+  if [ "$found_sig" = "false" ]; then
+    return 2  # pack has no _signature field
+  fi
+  return 1  # signature present but no key matched (tampered or old key)
 }
 
 rules_enabled() {

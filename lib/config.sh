@@ -172,6 +172,9 @@ load_config() {
   # --- Load pro compliance tag overlays (gated on license tier) ---
   load_pro_packs "$LANEKEEP_CONFIG_FILE"
 
+  # --- Load enterprise rules from ee/rules/ (gated on enterprise tier) ---
+  load_enterprise_rules "$LANEKEEP_CONFIG_FILE"
+
   # --- Apply profile overlay if set ---
   apply_profile "$LANEKEEP_CONFIG_FILE"
 
@@ -376,6 +379,42 @@ load_pro_packs() {
           .compliance_tags = ((.compliance_tags // []) + ($match.compliance_tags // []) | unique)
         else . end
       ]
+    ' "$config" 2>/dev/null) || continue
+
+    [ -n "$merged" ] || continue
+    local _tmp; _tmp=$(mktemp "${config}.XXXXXX")
+    printf '%s\n' "$merged" > "$_tmp" && mv "$_tmp" "$config"
+  done
+}
+
+# load_enterprise_rules — merge enterprise rule files from ee/rules/ into the
+# resolved config. Gated strictly on LANEKEEP_LICENSE_TIER=enterprise.
+# Rule files must contain {"tier": "enterprise", "rules": [...]} and carry a
+# valid Ed25519 _signature (same scheme as Pro packs via verify_pack_rules).
+# Silently no-ops when ee/rules/ is empty (public scaffold state).
+load_enterprise_rules() {
+  local config="$1"
+  [ -f "$config" ] || return 0
+
+  [ "${LANEKEEP_LICENSE_TIER:-community}" = "enterprise" ] || return 0
+
+  local ee_rules_dir="${LANEKEEP_DIR}/ee/rules"
+  [ -d "$ee_rules_dir" ] || return 0
+
+  local rules_file
+  for rules_file in "$ee_rules_dir"/*.json; do
+    [ -f "$rules_file" ] || continue
+
+    # Verify Ed25519 signature — enterprise rules must be signed
+    if ! verify_pack_rules "$rules_file" 2>/dev/null; then
+      echo "[LaneKeep] WARNING: Enterprise rule file signature invalid for '$(basename "$rules_file")' — skipping" >&2
+      continue
+    fi
+
+    # Merge .rules[] from enterprise file into the resolved config's rules array
+    local merged
+    merged=$(jq --slurpfile ent "$rules_file" '
+      .rules = (.rules + ($ent[0].rules // []))
     ' "$config" 2>/dev/null) || continue
 
     [ -n "$merged" ] || continue
