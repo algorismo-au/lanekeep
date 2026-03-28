@@ -1343,6 +1343,24 @@
       "type": "free"
     },
     {
+      "id": "sec-033",
+      "match": {
+        "tool": "^Bash$",
+        "pattern": "\\b(echo|printf)\\b[^|\\n]*\\$\\{?[a-z_]*(secret|password|passwd|token|api[_-]?key|credential|auth[_-]?token|private[_-]?key)[a-z_]*\\}?"
+      },
+      "decision": "ask",
+      "reason": "Secret variable echoed to stdout — value will appear in shell history and logs",
+      "category": "secrets",
+      "intent": "Echoing named secret variables (SECRET, TOKEN, API_KEY, etc.) prints their values to stdout, terminal logs, CI output, and ~/.zsh_history. Use 'echo ${#VAR}' (length) or '[[ -n $VAR ]]' to verify without exposing the value.",
+      "type": "free",
+      "compliance": [
+        "PCI-DSS 6.2.4",
+        "GDPR Art.32(1)(a)"
+      ],
+      "compliance_tags": ["attck:t1552", "atlas:t0055", "cis:3", "nist-ai100-2:privacy"],
+      "enabled": true
+    },
+    {
       "id": "sec-014",
       "match": {
         "pattern": "(gsutil\\s+cp|azcopy\\s+copy|rclone\\s+(copy|sync|move))\\s"
