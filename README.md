@@ -57,6 +57,19 @@ brew install bash jq socat       # macOS (bash 4+ required)
 ```bash
 git clone https://github.com/algorismo-au/lanekeep.git
 cd lanekeep
+```
+
+Add `bin/` to your PATH permanently:
+
+```bash
+bash scripts/add-to-path.sh
+```
+
+Detects your login shell (zsh, bash, fish, POSIX) and writes the correct export to your rc file. Idempotent — safe to run more than once.
+
+Or for the current session only:
+
+```bash
 export PATH="$PWD/bin:$PATH"
 ```
 
