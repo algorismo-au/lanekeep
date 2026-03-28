@@ -1,5 +1,8 @@
 name: test
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -7,6 +10,19 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: actionlint
+        uses: rhysd/action-actionlint@v1
+
+      - name: shellcheck
+        run: |
+          find bin -type f | xargs shellcheck --shell=bash
+          shellcheck lib/*.sh hooks/*.sh
+
   test:
     runs-on: ubuntu-latest
     steps:
