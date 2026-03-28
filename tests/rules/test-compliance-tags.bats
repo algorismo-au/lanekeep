@@ -315,10 +315,10 @@ EOF
   [[ "$tags" == *"openssf:dangerous-workflow"* ]]
 }
 
-@test "defaults: 54 rules have compliance_tags" {
+@test "defaults: 55 rules have compliance_tags" {
   count=$(jq '[.rules[] | select(has("compliance_tags"))] | length' \
     "$LANEKEEP_DIR/defaults/lanekeep.json")
-  [ "$count" -eq 54 ]
+  [ "$count" -eq 55 ]
 }
 
 @test "defaults: all compliance_tags values are non-empty arrays" {
