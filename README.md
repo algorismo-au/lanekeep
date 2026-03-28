@@ -19,7 +19,7 @@
 
 Stop your AI agent before it does something you didn't ask for. LaneKeep intercepts every tool call — before it executes — and enforces the rules, limits, and audit trail you define.
 
-> Works with **Claude Code CLI** (including incremental and multi-agent setups). Generic JSON protocol. **No data leaves your machine.**
+> Works with **Claude Code CLI** (including incremental and multi-agent setups). **No data leaves your machine.**
 
 - **Live dashboard** — see every file, token, rule, and decision as your agent builds
 - **Token visibility** — track input/output tokens, context window usage %, and per-file token sizes so you know exactly where tokens are going and can keep your agent efficient
@@ -65,7 +65,7 @@ Add `bin/` to your PATH permanently:
 bash scripts/add-to-path.sh
 ```
 
-Detects your login shell (zsh, bash, fish, POSIX) and writes the correct export to your rc file. Idempotent — safe to run more than once.
+Detects your shell and writes to your rc file. Idempotent.
 
 Or for the current session only:
 
@@ -120,7 +120,7 @@ Denied actions show a reason. Allowed actions proceed silently. View decisions i
 
 ## What Gets Blocked
 
-Everything is configurable — use the included defaults, compliance rule packs, community rules, or write your own. Override, extend, or disable anything. See [Configuration](#configuration).
+See [Configuration](#configuration) to override, extend, or disable anything.
 
 | Category | Examples | Decision |
 |----------|----------|----------|
@@ -164,7 +164,7 @@ Hooks into the [PreToolUse hook](https://docs.anthropic.com/en/docs/claude-code/
 | 4 | Input PII | PII in tool input (SSNs, credit cards) |
 | 5 | Budget | Action count, token tracking, wall-clock time |
 | 6 | Plugins | Custom evaluators (subshell isolated) |
-| 7 | Semantic | LLM-based intent check — catches goal misalignment, data exfiltration disguised as legitimate work, and actions that pass rule-based tiers but violate the spirit of the task (opt-in) |
+| 7 | Semantic | LLM intent check — goal misalignment, spirit-of-task violations, disguised exfiltration (opt-in) |
 | Post | ResultTransform | Secrets/injection in output |
 
 The Semantic evaluator reads the task goal from TaskSpec — set it with
@@ -187,8 +187,8 @@ Config is hash-checked at startup — mid-session modifications deny all calls.
 ### Policies
 
 Evaluated before rules. 20 built-in categories — each with dedicated extraction
-logic (e.g. `domains` parses URLs, `branches` extracts branch names from git
-commands). Categories: `tools`, `extensions`, `paths`, `commands`, `domains`,
+logic (e.g. `domains` parses URLs, `branches` extracts git branch names).
+Categories: `tools`, `extensions`, `paths`, `commands`, `domains`,
 `mcp_servers`, and more. Toggle with `lanekeep policy` or from the **Governance** tab in the dashboard.
 
 **Policies vs Rules:** Policies are structured, typed controls for predefined
@@ -237,9 +237,7 @@ Or use the CLI:
 lanekeep rules add --match-command "docker compose down" --decision deny --reason "..."
 ```
 
-Rules can also be added, edited, and tested in the **Rules** tab of the dashboard.
-
-Test any command against your active ruleset before writing a rule:
+Rules can also be added, edited, and dry-run in the **Rules** tab of the dashboard — or test from the CLI first:
 
 ```bash
 lanekeep rules test "docker compose down"
@@ -272,7 +270,7 @@ See exactly what your agent is doing while it builds — live decisions, token u
 
 ### Governance
 
-Live token counters for input, output, and context window usage — with progress bars against your budget limits. See exactly how much context your agent is consuming, catch sessions heading off the rails before they burn time and money, and set hard caps that auto-enforce when limits are hit.
+Live input/output token counters, context window usage %, and budget progress bars. Catch sessions heading off the rails before they burn time and money — set hard caps on actions, tokens, and time that auto-enforce when hit.
 
 <p align="center">
   <img src="images/readme/lanekeep_governance.png" alt="LaneKeep Governance — budget and session stats" width="749" />
@@ -305,7 +303,7 @@ One-click config validation, plus a coverage map linking rules to regulatory fra
 
 ### Files
 
-Every file your agent reads or writes — with per-file token sizes so you can see what's eating your context window. Spot oversized files, trim what doesn't need to be in context, and keep your agent focused. Plus operation counts, denial history, and an inline editor.
+Every file your agent reads or writes — with per-file token sizes to see what's eating your context window. Plus operation counts, denial history, and an inline editor.
 
 <p align="center">
   <img src="images/readme/lanekeep_files.png" alt="LaneKeep Files — file tree and editor" width="749" />
