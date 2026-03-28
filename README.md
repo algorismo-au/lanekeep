@@ -17,7 +17,7 @@
 
 # LaneKeep
 
-Stop your AI agent before it does something you didn't ask for. LaneKeep intercepts every tool call — before it executes — and enforces the rules, limits, and audit trail you define.
+Stop your AI agent before it does something you didn't ask for. LaneKeep allows you to define your own boundaries.
 
 > Works with **Claude Code CLI** (including incremental and multi-agent setups). **No data leaves your machine.**
 
