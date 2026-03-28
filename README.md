@@ -119,7 +119,7 @@ with `lanekeep trace`, `lanekeep trace --follow`, or `lanekeep ui`.
 
 ## What Gets Blocked
 
-Everything is configurable — use the included defaults, compliance rule packs, community rules, or write your own. Override, extend, or disable anything.
+Everything is configurable — use the included defaults, compliance rule packs, community rules, or write your own. Override, extend, or disable anything. See [Configuration](#configuration).
 
 | Category | Examples | Decision |
 |----------|----------|----------|
