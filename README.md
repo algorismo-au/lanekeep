@@ -22,7 +22,8 @@ Stop your AI agent before it does something you didn't ask for. LaneKeep interce
 > Works with **Claude Code CLI** (including incremental and multi-agent setups). Generic JSON protocol. **No data leaves your machine.**
 
 - **Live dashboard** — see every file, token, rule, and decision as your agent builds
-- **Enforcement profiles** — strict, guided, or autonomous — with budget limits
+- **Token visibility** — track input/output tokens, context window usage %, and per-file token sizes so you know exactly where tokens are going and can keep your agent efficient
+- **Budget limits** — set hard caps on actions, tokens, and wall-clock time; auto-deny when limits are hit so runaway sessions don't burn your budget
 - **Full audit trail** — every tool call logged with matched rule and reason
 - **Defense in depth** — 9-tier pipeline, config integrity, PII detection, injection detection
 - **Config audit** — one-click health check for rules, policies, and security posture
@@ -271,7 +272,7 @@ See exactly what your agent is doing while it builds — live decisions, token u
 
 ### Governance
 
-Budget and session stats with progress bars against your limits; full config stack and integrity hash.
+Live token counters for input, output, and context window usage — with progress bars against your budget limits. See exactly how much context your agent is consuming, catch sessions heading off the rails before they burn time and money, and set hard caps that auto-enforce when limits are hit.
 
 <p align="center">
   <img src="images/readme/lanekeep_governance.png" alt="LaneKeep Governance — budget and session stats" width="749" />
@@ -304,7 +305,7 @@ One-click config validation, plus a coverage map linking rules to regulatory fra
 
 ### Files
 
-Every file your agent reads or writes — operation counts, token tracking, denial history, and an inline editor.
+Every file your agent reads or writes — with per-file token sizes so you can see what's eating your context window. Spot oversized files, trim what doesn't need to be in context, and keep your agent focused. Plus operation counts, denial history, and an inline editor.
 
 <p align="center">
   <img src="images/readme/lanekeep_files.png" alt="LaneKeep Files — file tree and editor" width="749" />
