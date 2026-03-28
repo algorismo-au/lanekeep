@@ -38,4 +38,4 @@ else
 fi
 
 echo ""
-echo "Reload: source \"$CONFIG\""
+echo "Open a new terminal or reload your shell config: source \"$CONFIG\""
