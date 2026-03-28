@@ -119,6 +119,8 @@ with `lanekeep trace`, `lanekeep trace --follow`, or `lanekeep ui`.
 
 ## What Gets Blocked
 
+Everything is configurable — use the included defaults, compliance rule packs, community rules, or write your own. Override, extend, or disable anything.
+
 | Category | Examples | Decision |
 |----------|----------|----------|
 | Destructive ops | `rm -rf`, `DROP TABLE`, `truncate`, `mkfs` | deny |
@@ -129,9 +131,6 @@ with `lanekeep trace`, `lanekeep trace --follow`, or `lanekeep ui`.
 | Self-protection | `kill lanekeep-serve`, `export LANEKEEP_FAIL_POLICY` | deny |
 | Network commands | `curl`, `wget`, `ssh` | ask |
 | Package installs | `npm install`, `pip install` | ask |
-
-All rules are user-defined or community-sourced — override, extend, or disable
-anything. See [Configuration](#configuration).
 
 ### Self-Protection
 
