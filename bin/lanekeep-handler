@@ -80,6 +80,8 @@ _CFG_HT_CSS_DECISION="ask"
 _CFG_HT_HTML_ENABLED="true"
 _CFG_HT_HTML_PATTERNS=""
 _CFG_HT_HTML_DECISION="ask"
+# Workflow injection evaluator config
+_CFG_WORKFLOW_INJECT_ENABLED="true"
 # Input PII evaluator config
 _CFG_INPUT_PII_ON_DETECT="ask"
 _CFG_INPUT_PII_PATTERNS=""
@@ -103,6 +105,7 @@ if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
     "_CFG_INPUT_PII_ENABLED=" + (if .evaluators.input_pii.enabled == false then "false" else "true" end | @sh),
     "_CFG_RESULT_TRANSFORM_ENABLED=" + (if .evaluators.result_transform.enabled == false then "false" else "true" end | @sh),
     "_CFG_SEMANTIC_ENABLED=" + (if .evaluators.semantic.enabled == false then "false" else "true" end | @sh),
+    "_CFG_WORKFLOW_INJECT_ENABLED=" + (if .evaluators.workflow_injection.enabled == false then "false" else "true" end | @sh),
     # -- Hardblock arrays (newline-separated) --
     "_CFG_HARD_BLOCKS=" + (.hard_blocks // [] | join("\n") | @sh),
     "_CFG_HARD_BLOCKS_REGEX=" + (.hard_blocks_regex // [] | join("\n") | @sh),
@@ -145,6 +148,9 @@ if [ "$_CFG_INPUT_PII_ENABLED" != "false" ]; then
 fi
 if [ "$_CFG_SEMANTIC_ENABLED" != "false" ]; then
   source "$LANEKEEP_DIR/lib/eval-semantic.sh"
+fi
+if [ "$_CFG_WORKFLOW_INJECT_ENABLED" != "false" ]; then
+  source "$LANEKEEP_DIR/lib/eval-workflow-injection.sh"
 fi
 if [ "$_CFG_RESULT_TRANSFORM_ENABLED" != "false" ]; then
   source "$LANEKEEP_DIR/lib/eval-result-transform.sh"
@@ -236,6 +242,20 @@ case "$HOOK_EVENT" in
         _cd_score="0.9"; [ "$CODEDIFF_PASSED" = true ] && _cd_score="0"
         RESULTS+=("$(printf '{"name":"CodeDiffEvaluator","tier":2,"score":%s,"passed":%s,"detail":"%s"}' \
           "$_cd_score" "$CODEDIFF_PASSED" "$(_json_escape "$CODEDIFF_REASON")")")
+      fi
+    fi
+
+    # --- Tier 2.5: Workflow expression injection (GitHub Actions ${{ }} in run: steps) ---
+    if [ "$BLOCKED" = false ] && [ "$_CFG_WORKFLOW_INJECT_ENABLED" != "false" ]; then
+      if declare -f workflow_inject_eval >/dev/null 2>&1; then
+        if ! workflow_inject_eval "$TOOL_NAME" "$TOOL_INPUT"; then
+          BLOCKED=true
+          BLOCK_REASON="$WORKFLOW_INJECT_REASON"
+          BLOCK_DECISION="$WORKFLOW_INJECT_DECISION"
+        fi
+        _wi_score="0.9"; [ "$WORKFLOW_INJECT_PASSED" = true ] && _wi_score="0"
+        RESULTS+=("$(printf '{"name":"WorkflowInjectionEvaluator","tier":2.5,"score":%s,"passed":%s,"detail":"%s"}' \
+          "$_wi_score" "$WORKFLOW_INJECT_PASSED" "$(_json_escape "$WORKFLOW_INJECT_REASON")")")
       fi
     fi
 

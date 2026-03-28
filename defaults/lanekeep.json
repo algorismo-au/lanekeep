@@ -262,6 +262,10 @@
       ],
       "sample_rate": 1.0
     },
+    "workflow_injection": {
+      "enabled": true,
+      "decision": "ask"
+    },
     "input_pii": {
       "enabled": true,
       "on_detect": "ask",
