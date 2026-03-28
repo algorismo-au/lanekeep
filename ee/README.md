@@ -61,8 +61,3 @@ Evaluators in `ee/lib/` must:
 - Be named `eval-<name>.sh`
 - Follow the evaluator protocol (see `lib/eval-hardblock.sh` for reference)
 - Be idempotent — sourced on every request
-
-## References
-
-- [DISTRIBUTION.md](../lanekeep-pro/DISTRIBUTION.md) — signing workflow
-- [ROADMAP.md](../ROADMAP.md) — pricing tiers and feature matrix
