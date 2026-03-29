@@ -409,6 +409,9 @@ lanekeep rules validate      # Check rules for errors
 lanekeep rules add [opts]    # Add a custom rule
 lanekeep rules export/import # Portable rule transfer
 lanekeep rules update        # Fetch latest defaults
+lanekeep rules whatsnew      # Show new/removed rules since last acknowledged version
+lanekeep rules whatsnew --skip <id>        # Disable a specific new default rule
+lanekeep rules whatsnew --acknowledge      # Record current state for future comparisons
 lanekeep policy status       # Show policy status
 lanekeep policy disable <cat> --reason "..."
 lanekeep stop                # Graceful shutdown

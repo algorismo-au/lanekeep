@@ -243,6 +243,31 @@ Rules can also be added, edited, and dry-run in the **Rules** tab of the dashboa
 lanekeep rules test "docker compose down"
 ```
 
+### Updating LaneKeep
+
+When you install a new version of LaneKeep, new default rules become active automatically — **your customizations (`extra_rules`, `rule_overrides`, `disabled_rules`) are never touched**.
+
+On the first sidecar start after an upgrade, you'll see a one-time notice:
+
+```
+[LaneKeep] Updated: v1.2.0 → v1.3.0 — 8 new default rule(s) now active.
+[LaneKeep] Run 'lanekeep rules whatsnew' to review. Your customizations are preserved.
+```
+
+To see exactly what changed:
+
+```bash
+lanekeep rules whatsnew
+# Shows new/removed rules with IDs, decisions, and reasons
+
+lanekeep rules whatsnew --skip net-019   # Opt out of a specific new rule
+lanekeep rules whatsnew --acknowledge    # Record current state (clears future notices)
+```
+
+> **Using a monolithic config?** (no `"extends": "defaults"`) New default rules won't be
+> merged automatically. Run `lanekeep migrate` to convert to the layered format and keep
+> all your customizations intact.
+
 ### Enforcement Profiles
 
 | Profile | Behavior |

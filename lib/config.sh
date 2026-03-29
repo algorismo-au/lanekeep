@@ -167,6 +167,40 @@ load_config() {
   jq -n --argjson epoch "$(date +%s)" --arg sid "$LANEKEEP_SESSION_ID" \
     '{action_count: 0, token_count: 0, input_tokens: 0, output_tokens: 0, total_events: 0, start_epoch: $epoch, session_id: $sid}' > "$LANEKEEP_STATE_FILE"
 
+  # --- Defaults version tracking: one-time notice on upgrade ---
+  local _dv_file="$project_dir/.lanekeep/defaults_manifest.json"
+  local _dv_current
+  _dv_current=$(jq -r '.version // empty' "$LANEKEEP_DIR/defaults/lanekeep.json" 2>/dev/null) || _dv_current=""
+  if [ -n "$_dv_current" ]; then
+    if [ -f "$_dv_file" ]; then
+      local _dv_last
+      _dv_last=$(jq -r '.defaults_version // empty' "$_dv_file" 2>/dev/null) || _dv_last=""
+      if [ -n "$_dv_last" ] && [ "$_dv_last" != "$_dv_current" ]; then
+        local _dv_new_count
+        _dv_new_count=$(jq -s --slurpfile manifest "$_dv_file" '
+          .[0] as $defs |
+          ($manifest[0].rule_ids // []) as $old_ids |
+          [($defs.rules // [])[] | select(has("id")) | .id |
+           select(. as $id | ($old_ids | index($id)) == null)] | length
+        ' "$LANEKEEP_DIR/defaults/lanekeep.json" 2>/dev/null) || _dv_new_count="?"
+        echo "[LaneKeep] Updated: v${_dv_last} → v${_dv_current} — ${_dv_new_count} new default rule(s) now active." >&2
+        echo "[LaneKeep] Run 'lanekeep rules whatsnew' to review. Your customizations are preserved." >&2
+        # Update version so this notice doesn't repeat for the same version bump
+        local _dv_tmp; _dv_tmp=$(mktemp "${_dv_file}.XXXXXX")
+        jq --arg v "$_dv_current" '.defaults_version = $v' "$_dv_file" > "$_dv_tmp" 2>/dev/null \
+          && mv "$_dv_tmp" "$_dv_file" || rm -f "$_dv_tmp"
+      fi
+    else
+      # First run: create manifest silently (baseline for future comparisons)
+      local _dv_ids
+      _dv_ids=$(jq -c '[.rules[] | select(has("id")) | .id]' "$LANEKEEP_DIR/defaults/lanekeep.json" 2>/dev/null) || _dv_ids="[]"
+      local _dv_tmp; _dv_tmp=$(mktemp "${_dv_file}.XXXXXX")
+      jq -n --arg v "$_dv_current" --argjson ids "$_dv_ids" \
+        '{defaults_version: $v, rule_ids: $ids}' > "$_dv_tmp" 2>/dev/null \
+        && mv "$_dv_tmp" "$_dv_file" || rm -f "$_dv_tmp"
+    fi
+  fi
+
   # --- Load platform-specific rule packs ---
   load_platform_pack "$LANEKEEP_CONFIG_FILE"
 

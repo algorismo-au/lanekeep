@@ -21,6 +21,7 @@ usage() {
   echo "  install  URL[@VERSION]      Install a community pack from a git URL"
   echo "  update   [PACK-NAME]        Update an installed pack (or fetch default rules)"
   echo "  remove   PACK-NAME [--yes]  Uninstall a community pack and its rules"
+  echo "  whatsnew                    Show new/removed rules since last acknowledged version"
   echo ""
   echo "Options:"
   echo "  --category CAT   Filter by category (e.g., git, system, secrets)"
@@ -808,6 +809,149 @@ cmd_test() {
   esac
 }
 
+cmd_whatsnew() {
+  local acknowledge=false skip_id=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --acknowledge|-y) acknowledge=true; shift ;;
+      --skip) skip_id="$2"; shift 2 ;;
+      *) echo "Unknown option: $1" >&2; exit 1 ;;
+    esac
+  done
+
+  local user_config="$PROJECT_DIR/lanekeep.json"
+  local manifest_file="$PROJECT_DIR/.lanekeep/defaults_manifest.json"
+  local defaults_file="$LANEKEEP_DIR/defaults/lanekeep.json"
+
+  # Warn about monolithic config
+  if [ -f "$user_config" ]; then
+    local extends
+    extends=$(jq -r '.extends // empty' "$user_config" 2>/dev/null) || extends=""
+    if [ "$extends" != "defaults" ]; then
+      echo "Warning: monolithic config detected (no \"extends\": \"defaults\")."
+      echo "New default rules are NOT automatically merged into your setup."
+      echo "Run 'lanekeep migrate' to convert and preserve your customizations."
+      echo ""
+    fi
+  fi
+
+  if [ ! -f "$defaults_file" ]; then
+    echo "Error: defaults file not found: $defaults_file" >&2
+    exit 1
+  fi
+
+  local current_version
+  current_version=$(jq -r '.version // "unknown"' "$defaults_file" 2>/dev/null) || current_version="unknown"
+
+  # Handle --skip: add rule to disabled_rules without blocking its current session
+  if [ -n "$skip_id" ]; then
+    if [ ! -f "$user_config" ]; then
+      echo "Error: no lanekeep.json found in $PROJECT_DIR" >&2
+      exit 1
+    fi
+    extends=$(jq -r '.extends // empty' "$user_config" 2>/dev/null) || extends=""
+    if [ "$extends" != "defaults" ]; then
+      echo "Error: --skip requires layered config. Run 'lanekeep migrate' first." >&2
+      exit 1
+    fi
+    local rule_exists
+    rule_exists=$(jq --arg id "$skip_id" '.rules | map(select(.id == $id)) | length' "$defaults_file" 2>/dev/null) || rule_exists=0
+    if [ "$rule_exists" -eq 0 ]; then
+      echo "Error: rule '$skip_id' not found in defaults" >&2
+      exit 1
+    fi
+    local updated
+    updated=$(jq --arg id "$skip_id" \
+      '.disabled_rules = ((.disabled_rules // []) + [$id] | unique)' "$user_config")
+    printf '%s\n' "$updated" | jq '.' > "$user_config"
+    echo "Rule $skip_id added to disabled_rules in $user_config"
+    return
+  fi
+
+  # Show diff against manifest
+  if [ ! -f "$manifest_file" ]; then
+    echo "LaneKeep v${current_version} — no manifest found."
+    echo "Run 'lanekeep rules whatsnew --acknowledge' to record the current state for future comparisons."
+    echo ""
+    local rule_count
+    rule_count=$(jq '.rules | length' "$defaults_file" 2>/dev/null) || rule_count="?"
+    echo "  $rule_count default rules active"
+  else
+    local last_version
+    last_version=$(jq -r '.defaults_version // "unknown"' "$manifest_file" 2>/dev/null) || last_version="unknown"
+
+    if [ "$last_version" = "$current_version" ]; then
+      echo "LaneKeep v${current_version} — no new rules since last acknowledged version."
+    else
+      echo "LaneKeep v${last_version} → v${current_version}"
+      echo ""
+
+      local diff_out
+      diff_out=$(jq -s --slurpfile manifest "$manifest_file" '
+        .[0] as $defs |
+        ($manifest[0].rule_ids // []) as $old_ids |
+        ($defs.rules // [] | map(select(has("id")))) as $cur_rules |
+        {
+          "new_rules": [$cur_rules[] | select(.id as $id | ($old_ids | index($id)) == null)],
+          "removed_ids": [$old_ids[] | select(. as $id | ($cur_rules | map(select(.id == $id)) | length) == 0)]
+        }
+      ' "$defaults_file" 2>/dev/null) || diff_out='{"new_rules":[],"removed_ids":[]}'
+
+      local n_new n_removed
+      n_new=$(printf '%s' "$diff_out" | jq '.new_rules | length')
+      n_removed=$(printf '%s' "$diff_out" | jq '.removed_ids | length')
+
+      if [ "$n_new" -gt 0 ]; then
+        echo "NEW ($n_new):"
+        printf '%s' "$diff_out" | jq -r \
+          '.new_rules[] | "  [+] \(.id)  \(.decision | ascii_upcase)  (\(.category // "?"))  — \(.reason // "")"'
+        echo ""
+      fi
+
+      if [ "$n_removed" -gt 0 ]; then
+        echo "REMOVED ($n_removed):"
+        printf '%s' "$diff_out" | jq -r '.removed_ids[] | "  [-] \(.)"'
+        echo ""
+      fi
+
+      if [ "$n_new" -eq 0 ] && [ "$n_removed" -eq 0 ]; then
+        echo "No rule additions or removals (version bump may contain other changes)."
+        echo ""
+      fi
+    fi
+
+    # Show user's customizations for context
+    if [ -f "$user_config" ]; then
+      local n_extra n_overrides n_disabled
+      n_extra=$(jq '.extra_rules // [] | length' "$user_config" 2>/dev/null) || n_extra=0
+      n_overrides=$(jq '.rule_overrides // [] | length' "$user_config" 2>/dev/null) || n_overrides=0
+      n_disabled=$(jq '.disabled_rules // [] | length' "$user_config" 2>/dev/null) || n_disabled=0
+      if [ "$n_extra" -gt 0 ] || [ "$n_overrides" -gt 0 ] || [ "$n_disabled" -gt 0 ]; then
+        echo "Your customizations (untouched by this update):"
+        [ "$n_extra" -gt 0 ]     && echo "  $n_extra custom rule(s) in extra_rules"
+        [ "$n_overrides" -gt 0 ] && echo "  $n_overrides rule override(s) in rule_overrides"
+        [ "$n_disabled" -gt 0 ]  && echo "  $n_disabled disabled rule(s) in disabled_rules"
+        echo ""
+      fi
+    fi
+
+    echo "To disable a specific new rule:  lanekeep rules whatsnew --skip <rule-id>"
+    echo "To record current state:         lanekeep rules whatsnew --acknowledge"
+  fi
+
+  # --acknowledge: write current defaults state to manifest
+  if [ "$acknowledge" = true ]; then
+    local rule_ids
+    rule_ids=$(jq -c '[.rules[] | select(has("id")) | .id]' "$defaults_file" 2>/dev/null) || rule_ids="[]"
+    mkdir -p "$PROJECT_DIR/.lanekeep"
+    local _tmp; _tmp=$(mktemp "${manifest_file}.XXXXXX")
+    jq -n --arg v "$current_version" --argjson ids "$rule_ids" \
+      '{defaults_version: $v, rule_ids: $ids}' > "$_tmp" 2>/dev/null \
+      && mv "$_tmp" "$manifest_file" || rm -f "$_tmp"
+    echo "Manifest updated. Future runs will compare against v${current_version}."
+  fi
+}
+
 case "${1:-help}" in
   list)     shift; cmd_list "$@" ;;
   export)   shift; cmd_export "$@" ;;
@@ -819,6 +963,7 @@ case "${1:-help}" in
   install)  shift; cmd_install "$@" ;;
   update)   shift; cmd_update "$@" ;;
   remove)   shift; cmd_remove "$@" ;;
+  whatsnew) shift; cmd_whatsnew "$@" ;;
   help|-h|--help) usage ;;
   *) echo "Unknown command: $1" >&2; usage; exit 1 ;;
 esac
