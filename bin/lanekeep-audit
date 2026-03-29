@@ -116,7 +116,28 @@ check_rules() {
     extra_count=$(jq '.extra_rules // [] | length' "$project_file" 2>/dev/null) || extra_count=0
   fi
 
-  echo "  $default_count default rules, $extra_count custom rules"
+  # Count profile rules — must stay in sync with apply_profile() in lib/config.sh
+  local config
+  config=$(_resolve_config)
+  local profile_name
+  profile_name=$(jq -r '.profile // "guided"' "$config" 2>/dev/null) || profile_name="guided"
+  local profile_count=0
+  case "$profile_name" in
+    strict)    profile_count=2 ;;
+    guided)    profile_count=1 ;;
+    autonomous) profile_count=0 ;;
+  esac
+
+  local total=$(( default_count + profile_count + extra_count ))
+  if [ "$profile_count" -gt 0 ] && [ "$extra_count" -gt 0 ]; then
+    echo "  $total rules ($default_count default + $profile_count '$profile_name' profile + $extra_count custom)"
+  elif [ "$profile_count" -gt 0 ]; then
+    echo "  $total rules ($default_count default + $profile_count from '$profile_name' profile)"
+  elif [ "$extra_count" -gt 0 ]; then
+    echo "  $total rules ($default_count default + $extra_count custom)"
+  else
+    echo "  $total rules"
+  fi
 
   # Validate defaults rules
   _validate_rules_in_file "$defaults_file" "rules" "default"
