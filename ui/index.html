@@ -1941,7 +1941,7 @@ function renderActivityLeftWidgets(statusData) {
   rules += '<div class="aw-stat-row"><span class="aw-stat-label">Default</span><span class="aw-stat-value">' + defRules + '</span></div>'
     + '<div class="aw-stat-row"><span class="aw-stat-label">Project</span><span class="aw-stat-value">' + userRules + '</span></div>'
     + '<div style="border-top:1px solid var(--border);margin:4px 0"></div>'
-    + '<div class="aw-stat-row"><span class="aw-stat-label">Checks</span><span class="aw-stat-value">' + total + '</span></div>';
+    + '<div class="aw-stat-row"><span class="aw-stat-label">Decisions</span><span class="aw-stat-value">' + total + '</span></div>';
   rules += '</div>';
 
   el.innerHTML = budget + '<div class="aw-side-by-side">' + latency + rules + '</div>';
@@ -2513,7 +2513,7 @@ async function loadGovernance() {
       </div>
       <div class="gov-row"><span class="gov-label">PII (input)</span><span class="gov-value" style="color:var(--color-pii)">${esc(String(cumPii.input || 0))}</span></div>
       <div class="gov-row" style="border-top:1px solid rgba(255,255,255,0.05);margin-top:6px;padding-top:6px;"><span class="gov-label">Sessions</span><span class="gov-value">${esc(String(cum.total_sessions || 0))}</span></div>
-      <div class="gov-row"><span class="gov-label">Checks</span><span class="gov-value">${esc(String((cum.latency || {}).count || 0))}</span></div>
+      <div class="gov-row"><span class="gov-label">Evaluations</span><span class="gov-value">${esc(String((cum.latency || {}).count || 0))}</span></div>
 `;
 
     document.getElementById('section-governance').classList.add('no-entrance-anim');
@@ -3379,6 +3379,7 @@ function renderImpactGraph(data, selectedRuleId) {
 let insightsTraceData = null;
 let insightsStatusData = null;
 let insightsFilter = new Set(['all']); // 'all' = show everything; individual filters: deny, warn, ask, allow, pii_input
+let insightsTimelineEntries = null; // unfiltered entries for Decision Timeline — fetched separately when a filter is active
 let insightsSortCol = 'timestamp';
 let insightsSortDir = 'desc';
 let trendRange = 'all';
@@ -3611,19 +3612,16 @@ function renderInsightsAnalytics() {
   const cum = (insightsStatusData && insightsStatusData.cumulative) || {};
   const sessData = (insightsStatusData && insightsStatusData.session) || {};
 
-  // Decision timeline (shared across all modes)
+  // Decision timeline — always shows all unfiltered entries
   const allOn = insightsFilter.has('all');
-  const timelineEntries = allOn ? preEntries : preEntries.filter(e => {
-    const dec = (e.decision || '').toLowerCase();
-    if (insightsFilter.has('pii_input') && (e.evaluators || []).some(ev => (ev.detections || []).some(d => d.category === 'pii'))) return true;
-    return insightsFilter.has(dec);
-  });
+  const timelineSource = insightsTimelineEntries || entries;
+  const timelinePre = timelineSource.filter(e => e.event_type === 'PreToolUse');
   const tlStartIdx = (insightsPage - 1) * insightsPageSize;
-  const dots = timelineEntries.map(e => {
+  const dots = timelinePre.map(e => {
     const d = e.decision || 'allow';
     const time = e.timestamp ? new Date(e.timestamp).toLocaleString() : '';
     const tool = e.tool_name || '';
-    const origIdx = tlStartIdx + entries.indexOf(e);
+    const origIdx = tlStartIdx + timelineSource.indexOf(e);
     return `<div class="timeline-dot ${esc(d)}" data-action="scrollToTraceRow" data-idx="${origIdx}" title="${esc(time)} | ${esc(tool)} | ${esc(d)}"></div>`;
   }).join('');
   const timelineHtml = `<div class="metrics-card full-width"><h3>Decision Timeline</h3>
@@ -3632,7 +3630,7 @@ function renderInsightsAnalytics() {
 
   // Always show side-by-side session + all-time analytics
   const cumSrc = { top_denied_tools: cum.top_denied_tools || {}, top_evaluators: cum.top_evaluators || {}, files_touched: cum.files_touched || {}, latency_values: (cum.latency || {}).values || [], decisions: cum.decisions || {}, _cumLatency: cum.latency || {}, _isCum: true };
-  const sessSrc = !allOn ? computeFilteredMetrics(entries, insightsFilter) : sessData;
+  const sessSrc = sessData; // always unfiltered — filter applies only to the traces table
   const s = _buildAnalyticsCards(sessSrc, 5, 'sess');
   const c = _buildAnalyticsCards(cumSrc, 10, 'cum');
   const mc = (title, body) => `<div class="metrics-card"><h3>${title}</h3><div class="ranked-list">${body}</div></div>`;
@@ -3903,13 +3901,16 @@ async function loadInsights() {
     var traceUrl = API + '/api/trace?limit=' + insightsPageSize + '&offset=' + offset
       + '&sort=' + encodeURIComponent(insightsSortCol) + '&sort_dir=' + encodeURIComponent(insightsSortDir)
       + (filterParam ? '&decision=' + encodeURIComponent(filterParam) : '');
-    const [res, statusRes, trendsRes] = await Promise.all([
+    var timelineUrl = API + '/api/trace?limit=1000&sort=timestamp&sort_dir=asc';
+    const [res, statusRes, trendsRes, timelineRes] = await Promise.all([
       fetch(traceUrl),
       fetch(API + '/api/status'),
-      fetch(API + '/api/trends' + (trendRange !== 'all' ? '?range=' + encodeURIComponent(trendRange) : ''))
+      fetch(API + '/api/trends' + (trendRange !== 'all' ? '?range=' + encodeURIComponent(trendRange) : '')),
+      filterParam ? fetch(timelineUrl) : Promise.resolve(null)
     ]);
     if (!res.ok) return;
     const data = await res.json();
+    insightsTimelineEntries = (filterParam && timelineRes && timelineRes.ok) ? (await timelineRes.json()).entries : null;
     insightsTraceData = data;
     insightsStatusData = statusRes.ok ? await statusRes.json() : {};
     const trendsData = trendsRes.ok ? await trendsRes.json() : null;
@@ -4434,11 +4435,7 @@ function migratePolicies() {
 function renderPolicies() {
   const body = document.getElementById('policies-body');
   const cats = [...new Set([...Object.keys(policies), ...Object.keys(POLICY_LABELS)])];
-  let total = 0;
-  cats.forEach(cat => {
-    const c = policies[cat];
-    if (c) total += (c.allowed || []).length + (c.denied || []).length;
-  });
+  const total = cats.filter(cat => !!policies[cat]).length;
   document.getElementById('policies-count').textContent = total ? `(${total})` : '';
 
   // Split into configured (has entries or default=deny) vs unconfigured
@@ -5252,9 +5249,8 @@ function applyFilters() {
     policiesCountEl.textContent = `(${visiblePolicies} of ${cards.length})`;
   } else {
     const allCats = [...new Set([...Object.keys(policies), ...Object.keys(POLICY_LABELS)])];
-    let total = 0;
-    allCats.forEach(cat => { const c = policies[cat]; if (c) total += (c.allowed || []).length + (c.denied || []).length; });
-    policiesCountEl.textContent = total ? `(${total})` : '';
+    const catCount = allCats.filter(cat => !!policies[cat]).length;
+    policiesCountEl.textContent = catCount ? `(${catCount})` : '';
   }
 }
 
