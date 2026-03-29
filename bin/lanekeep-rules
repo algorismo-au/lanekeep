@@ -945,9 +945,12 @@ cmd_whatsnew() {
     rule_ids=$(jq -c '[.rules[] | select(has("id")) | .id]' "$defaults_file" 2>/dev/null) || rule_ids="[]"
     mkdir -p "$PROJECT_DIR/.lanekeep"
     local _tmp; _tmp=$(mktemp "${manifest_file}.XXXXXX")
-    jq -n --arg v "$current_version" --argjson ids "$rule_ids" \
-      '{defaults_version: $v, rule_ids: $ids}' > "$_tmp" 2>/dev/null \
-      && mv "$_tmp" "$manifest_file" || rm -f "$_tmp"
+    if jq -n --arg v "$current_version" --argjson ids "$rule_ids" \
+      '{defaults_version: $v, rule_ids: $ids}' > "$_tmp" 2>/dev/null; then
+      mv "$_tmp" "$manifest_file"
+    else
+      rm -f "$_tmp"
+    fi
     echo "Manifest updated. Future runs will compare against v${current_version}."
   fi
 }
