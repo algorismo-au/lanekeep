@@ -1932,19 +1932,19 @@ function renderActivityLeftWidgets(statusData) {
   }
   latency += '</div>';
 
-  // Widget 3: Active rules by decision
-  var rules = '<div class="activity-widget"><div class="activity-widget-title">Active Rules <span class="widget-scope">· Config</span></div>';
-  var defRules = (cfg.defaults || {}).rules || 0;
-  var userRules = (cfg.user || {}).overrides || 0;
+  // Widget 3: Pipeline overview (Events -> Evaluations -> Decisions -> Actions)
+  // All values are integers from trusted server response — no user data interpolated
   var d = sess.decisions || {};
-  var total = (d.deny || 0) + (d.warn || 0) + (d.ask || 0) + (d.allow || 0);
-  rules += '<div class="aw-stat-row"><span class="aw-stat-label">Default</span><span class="aw-stat-value">' + defRules + '</span></div>'
-    + '<div class="aw-stat-row"><span class="aw-stat-label">Project</span><span class="aw-stat-value">' + userRules + '</span></div>'
-    + '<div style="border-top:1px solid var(--border);margin:4px 0"></div>'
-    + '<div class="aw-stat-row"><span class="aw-stat-label">Decisions</span><span class="aw-stat-value">' + total + '</span></div>';
-  rules += '</div>';
+  var sessDecTotal = (d.deny || 0) + (d.warn || 0) + (d.ask || 0) + (d.allow || 0);
+  var sessEvals = (sess.latency_values || []).length;
+  var pipeline = '<div class="activity-widget"><div class="activity-widget-title">Pipeline <span class="widget-scope">\u00b7 Session</span></div>'
+    + '<div class="aw-stat-row"><span class="aw-stat-label">Events</span><span class="aw-stat-value">' + (b.events || 0) + '</span></div>'
+    + '<div class="aw-stat-row"><span class="aw-stat-label">Evaluations</span><span class="aw-stat-value">' + sessEvals + '</span></div>'
+    + '<div class="aw-stat-row"><span class="aw-stat-label">Decisions</span><span class="aw-stat-value">' + sessDecTotal + '</span></div>'
+    + '<div class="aw-stat-row"><span class="aw-stat-label">Actions</span><span class="aw-stat-value">' + (b.actions || 0) + '</span></div>'
+    + '</div>'; // safe: all values are integers from trusted API response
 
-  el.innerHTML = budget + '<div class="aw-side-by-side">' + latency + rules + '</div>';
+  el.innerHTML = budget + '<div class="aw-side-by-side">' + latency + pipeline + '</div>'; // safe: budget/latency/pipeline built from integer API values only
 
   // File Activity (below trace feed)
   var filesEl = document.getElementById('activity-files');
@@ -2490,31 +2490,37 @@ async function loadGovernance() {
 
     // Session
     const sessDec = s.decisions || {};
+    const sessDecTotal = (sessDec.deny || 0) + (sessDec.warn || 0) + (sessDec.ask || 0) + (sessDec.allow || 0);
+    const sessEvals = (s.latency_values || []).length;
     document.getElementById('gov-session').innerHTML = `<h3>Session</h3>
-      <div class="gov-row"><span class="gov-label">Trace file</span><span class="gov-value">${esc(s.trace_file || 'none')}</span></div>
-      <div style="margin-top:2px;">
-        <div class="gov-row"><span class="gov-label">Events</span><span class="gov-value">${esc(String(b.events ?? 0))}</span></div>
-        <div class="gov-row"><span class="gov-label" style="font-weight:600">Decisions</span></div>
-        <div style="font-size:11px;padding:4px 0">${decHtml(sessDec)}</div>
-      </div>
-      <div class="gov-row"><span class="gov-label">PII (input)</span><span class="gov-value" style="color:var(--color-pii)">${esc(String(s.pii_input ?? 0))}</span></div>
-      <div class="gov-row" style="border-top:1px solid rgba(255,255,255,0.05);margin-top:6px;padding-top:6px;"><span class="gov-label">License tier</span><span class="gov-value">${esc(s.tier || 'community')}</span></div>
-      <div class="gov-row"><span class="gov-label">Platform</span><span class="gov-value">${esc(s.platform || '?')}</span></div>`;
+      <div class="gov-row"><span class="gov-label">Events</span><span class="gov-value">${esc(String(b.events ?? 0))}</span></div>
+      <div class="gov-row"><span class="gov-label">Evaluations</span><span class="gov-value">${esc(String(sessEvals))}</span></div>
+      <div class="gov-row"><span class="gov-label">Decisions</span><span class="gov-value">${esc(String(sessDecTotal))}</span></div>
+      <div style="font-size:11px;padding:2px 0 4px 8px">${decHtml(sessDec)}</div>
+      <div class="gov-row"><span class="gov-label">Actions</span><span class="gov-value">${esc(String(b.actions ?? 0))}</span></div>
+      <div style="border-top:1px solid rgba(255,255,255,0.05);margin-top:6px;padding-top:6px;">
+        <div class="gov-row"><span class="gov-label">PII (input)</span><span class="gov-value" style="color:var(--color-pii)">${esc(String(s.pii_input ?? 0))}</span></div>
+        <div class="gov-row"><span class="gov-label">Trace file</span><span class="gov-value">${esc(s.trace_file || 'none')}</span></div>
+        <div class="gov-row"><span class="gov-label">License tier</span><span class="gov-value">${esc(s.tier || 'community')}</span></div>
+        <div class="gov-row"><span class="gov-label">Platform</span><span class="gov-value">${esc(s.platform || '?')}</span></div>
+      </div>`; // safe: all values sanitized with esc()
 
     // Cumulative (All-Time) — detail card
     const cumDec = cum.decisions || {};
     const cumPii = cum.pii || {};
+    const cumDecTotal = (cumDec.deny || 0) + (cumDec.warn || 0) + (cumDec.ask || 0) + (cumDec.allow || 0);
+    const cumEvals = (cum.latency || {}).count || 0;
     document.getElementById('gov-cumulative').innerHTML = `<h3>All-Time</h3>
-      <div class="gov-row"><span class="gov-label">Trace files</span><span class="gov-value">${esc(String(s.total_trace_files || 0))}</span></div>
-      <div style="margin-top:2px;">
-        <div class="gov-row"><span class="gov-label">Events</span><span class="gov-value">${esc(String(cum.total_events || 0))}</span></div>
-        <div class="gov-row"><span class="gov-label" style="font-weight:600">Decisions</span></div>
-        <div style="font-size:11px;padding:4px 0">${decHtml(cumDec)}</div>
-      </div>
-      <div class="gov-row"><span class="gov-label">PII (input)</span><span class="gov-value" style="color:var(--color-pii)">${esc(String(cumPii.input || 0))}</span></div>
-      <div class="gov-row" style="border-top:1px solid rgba(255,255,255,0.05);margin-top:6px;padding-top:6px;"><span class="gov-label">Sessions</span><span class="gov-value">${esc(String(cum.total_sessions || 0))}</span></div>
-      <div class="gov-row"><span class="gov-label">Evaluations</span><span class="gov-value">${esc(String((cum.latency || {}).count || 0))}</span></div>
-`;
+      <div class="gov-row"><span class="gov-label">Events</span><span class="gov-value">${esc(String(cum.total_events || 0))}</span></div>
+      <div class="gov-row"><span class="gov-label">Evaluations</span><span class="gov-value">${esc(String(cumEvals))}</span></div>
+      <div class="gov-row"><span class="gov-label">Decisions</span><span class="gov-value">${esc(String(cumDecTotal))}</span></div>
+      <div style="font-size:11px;padding:2px 0 4px 8px">${decHtml(cumDec)}</div>
+      <div class="gov-row"><span class="gov-label">Actions</span><span class="gov-value">${esc(String(cum.total_actions || 0))}</span></div>
+      <div style="border-top:1px solid rgba(255,255,255,0.05);margin-top:6px;padding-top:6px;">
+        <div class="gov-row"><span class="gov-label">PII (input)</span><span class="gov-value" style="color:var(--color-pii)">${esc(String(cumPii.input || 0))}</span></div>
+        <div class="gov-row"><span class="gov-label">Sessions</span><span class="gov-value">${esc(String(cum.total_sessions || 0))}</span></div>
+        <div class="gov-row"><span class="gov-label">Trace files</span><span class="gov-value">${esc(String(s.total_trace_files || 0))}</span></div>
+      </div>`; // safe: all values sanitized with esc()
 
     document.getElementById('section-governance').classList.add('no-entrance-anim');
 
