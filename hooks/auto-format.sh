@@ -48,7 +48,7 @@ fi
 
 # Detect formatter: config-file-first, then extension mapping
 FORMATTER=""
-FORMATTER_ARGS=""
+FORMATTER_ARGS=()
 DIR=$(dirname "$FILE_PATH")
 
 detect_formatter() {
@@ -65,7 +65,7 @@ detect_formatter() {
         js|jsx|ts|tsx|css|scss|less|html|json|md|yaml|yml|graphql|vue|svelte)
           if command -v prettier >/dev/null 2>&1; then
             FORMATTER="prettier"
-            FORMATTER_ARGS="--write"
+            FORMATTER_ARGS=("--write")
             return 0
           fi
           ;;
@@ -77,7 +77,7 @@ detect_formatter() {
           py)
             if command -v black >/dev/null 2>&1; then
               FORMATTER="black"
-              FORMATTER_ARGS="--quiet"
+              FORMATTER_ARGS=("--quiet")
               return 0
             fi
             ;;
@@ -88,7 +88,7 @@ detect_formatter() {
           py)
             if command -v ruff >/dev/null 2>&1; then
               FORMATTER="ruff"
-              FORMATTER_ARGS="format --quiet"
+              FORMATTER_ARGS=("format" "--quiet")
               return 0
             fi
             ;;
@@ -100,7 +100,7 @@ detect_formatter() {
         rs)
           if command -v rustfmt >/dev/null 2>&1; then
             FORMATTER="rustfmt"
-            FORMATTER_ARGS=""
+            FORMATTER_ARGS=()
             return 0
           fi
           ;;
@@ -114,46 +114,46 @@ detect_formatter() {
     js|jsx|ts|tsx|css|scss|less|html|json|md|yaml|yml|vue|svelte)
       if command -v prettier >/dev/null 2>&1; then
         FORMATTER="prettier"
-        FORMATTER_ARGS="--write"
+        FORMATTER_ARGS=("--write")
         return 0
       fi
       ;;
     py)
       if command -v black >/dev/null 2>&1; then
         FORMATTER="black"
-        FORMATTER_ARGS="--quiet"
+        FORMATTER_ARGS=("--quiet")
         return 0
       elif command -v ruff >/dev/null 2>&1; then
         FORMATTER="ruff"
-        FORMATTER_ARGS="format --quiet"
+        FORMATTER_ARGS=("format" "--quiet")
         return 0
       fi
       ;;
     go)
       if command -v gofmt >/dev/null 2>&1; then
         FORMATTER="gofmt"
-        FORMATTER_ARGS="-w"
+        FORMATTER_ARGS=("-w")
         return 0
       fi
       ;;
     rs)
       if command -v rustfmt >/dev/null 2>&1; then
         FORMATTER="rustfmt"
-        FORMATTER_ARGS=""
+        FORMATTER_ARGS=()
         return 0
       fi
       ;;
     sh|bash|zsh)
       if command -v shfmt >/dev/null 2>&1; then
         FORMATTER="shfmt"
-        FORMATTER_ARGS="-w"
+        FORMATTER_ARGS=("-w")
         return 0
       fi
       ;;
     rb)
       if command -v rubocop >/dev/null 2>&1; then
         FORMATTER="rubocop"
-        FORMATTER_ARGS="-a --silence-deprecations"
+        FORMATTER_ARGS=("-a" "--silence-deprecations")
         return 0
       fi
       ;;
@@ -164,7 +164,7 @@ detect_formatter() {
 
 if detect_formatter; then
   # Run formatter, suppress all output, never fail
-  $FORMATTER $FORMATTER_ARGS "$FILE_PATH" >/dev/null 2>&1 || true
+  "$FORMATTER" "${FORMATTER_ARGS[@]}" "$FILE_PATH" >/dev/null 2>&1 || true
 fi
 
 exit 0

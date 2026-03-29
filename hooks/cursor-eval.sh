@@ -33,9 +33,7 @@ if [ ! -S "$SOCKET" ]; then
   _lanekeep_fail_policy "LaneKeep sidecar not running."
 fi
 
-RESPONSE=$(printf '%s' "$INPUT" | socat -t "$TIMEOUT" - UNIX-CONNECT:"$SOCKET" 2>/dev/null)
-
-if [ $? -ne 0 ] || [ -z "$RESPONSE" ]; then
+if ! RESPONSE=$(printf '%s' "$INPUT" | socat -t "$TIMEOUT" - UNIX-CONNECT:"$SOCKET" 2>/dev/null) || [ -z "$RESPONSE" ]; then
   _lanekeep_fail_policy "Failed to reach LaneKeep sidecar."
 fi
 

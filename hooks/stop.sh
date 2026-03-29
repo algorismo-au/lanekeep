@@ -72,7 +72,7 @@ fi
 # Count denies from latest trace file
 deny_count=0
 if [ -d "$TRACE_DIR" ]; then
-  latest_trace=$(ls -t "$TRACE_DIR"/*.jsonl 2>/dev/null | head -1)
+  latest_trace=$(find "$TRACE_DIR" -maxdepth 1 -name "*.jsonl" -printf '%T@\t%p\n' 2>/dev/null | sort -rn | cut -f2- | head -1)
   if [ -n "$latest_trace" ]; then
     deny_count=$(grep -c '"deny"' "$latest_trace" 2>/dev/null) || deny_count=0
   fi

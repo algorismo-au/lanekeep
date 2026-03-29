@@ -35,7 +35,7 @@ _write_fallback_trace() {
       --arg reason "$reason" \
       --arg tuid "$tool_use_id" \
       '{timestamp:$ts,source:"lanekeep-hook",session_id:$sid,event_type:"PreToolUse",tool_name:$tn,decision:$dec,reason:$reason,evaluators:[],tool_use_id:$tuid}') || return 0
-    (flock -n 9 && printf '%s\n' "$entry" >> "$trace_file" && chmod 0600 "$trace_file") 9>>"$trace_file" || true
+    (flock -n 9 && printf '%s\n' "$entry" >> "$trace_file" && chmod 0600 "$trace_file") 9>>"${trace_file}.lock" || true
   ) || return 0
 }
 
@@ -77,10 +77,8 @@ if [ ! -S "$SOCKET" ]; then
 fi
 
 # Forward to LaneKeep via socat (already a LaneKeep dependency, unlike nc which varies by distro)
-RESPONSE=$(printf '%s' "$INPUT" | socat -t "$TIMEOUT" - UNIX-CONNECT:"$SOCKET") 2>/dev/null
-
 # Connection failed
-if [ $? -ne 0 ] || [ -z "$RESPONSE" ]; then
+if ! RESPONSE=$(printf '%s' "$INPUT" | socat -t "$TIMEOUT" - UNIX-CONNECT:"$SOCKET" 2>/dev/null) || [ -z "$RESPONSE" ]; then
   _lanekeep_fail_policy "Failed to reach LaneKeep sidecar."
 fi
 

@@ -35,9 +35,7 @@ fi
 # Inject hook_event_name so lanekeep-handler routes to PostToolUse pipeline
 ENRICHED=$(printf '%s' "$INPUT" | jq -c '. + {"hook_event_name": "PostToolUse"}' 2>/dev/null) || ENRICHED="$INPUT"
 
-RESPONSE=$(printf '%s' "$ENRICHED" | socat -t "$TIMEOUT" - UNIX-CONNECT:"$SOCKET" 2>/dev/null)
-
-if [ $? -ne 0 ] || [ -z "$RESPONSE" ]; then
+if ! RESPONSE=$(printf '%s' "$ENRICHED" | socat -t "$TIMEOUT" - UNIX-CONNECT:"$SOCKET" 2>/dev/null) || [ -z "$RESPONSE" ]; then
   _lanekeep_fail_policy "Failed to reach LaneKeep sidecar."
 fi
 
