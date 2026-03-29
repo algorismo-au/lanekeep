@@ -3906,11 +3906,11 @@ async function loadInsights() {
       fetch(traceUrl),
       fetch(API + '/api/status'),
       fetch(API + '/api/trends' + (trendRange !== 'all' ? '?range=' + encodeURIComponent(trendRange) : '')),
-      filterParam ? fetch(timelineUrl) : Promise.resolve(null)
+      fetch(timelineUrl)
     ]);
     if (!res.ok) return;
     const data = await res.json();
-    insightsTimelineEntries = (filterParam && timelineRes && timelineRes.ok) ? (await timelineRes.json()).entries : null;
+    insightsTimelineEntries = (timelineRes && timelineRes.ok) ? (await timelineRes.json()).entries : null;
     insightsTraceData = data;
     insightsStatusData = statusRes.ok ? await statusRes.json() : {};
     const trendsData = trendsRes.ok ? await trendsRes.json() : null;
