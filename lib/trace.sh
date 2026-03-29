@@ -119,7 +119,7 @@ write_trace() {
   fi
 
   # Ensure trace directory exists with restrictive permissions
-  mkdir -p "${LANEKEEP_TRACE_FILE%/*}" && chmod 0700 "${LANEKEEP_TRACE_FILE%/*}"
+  mkdir -p -m 0700 "${LANEKEEP_TRACE_FILE%/*}"
 
   # Validate and append trace entry
   _validate_trace_path "$LANEKEEP_TRACE_FILE" || return 0
@@ -164,7 +164,7 @@ write_policy_event() {
   local user="$4"
   local reason="$5"
 
-  mkdir -p "${LANEKEEP_TRACE_FILE%/*}" && chmod 0700 "${LANEKEEP_TRACE_FILE%/*}"
+  mkdir -p -m 0700 "${LANEKEEP_TRACE_FILE%/*}"
 
   _validate_trace_path "$LANEKEEP_TRACE_FILE" || return 0
 
@@ -188,7 +188,7 @@ write_rule_event() {
   local user="$4"
   local reason="$5"
 
-  mkdir -p "${LANEKEEP_TRACE_FILE%/*}" && chmod 0700 "${LANEKEEP_TRACE_FILE%/*}"
+  mkdir -p -m 0700 "${LANEKEEP_TRACE_FILE%/*}"
   _validate_trace_path "$LANEKEEP_TRACE_FILE" || return 0
 
   local entry

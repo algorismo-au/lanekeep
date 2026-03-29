@@ -26,7 +26,7 @@ hardblock_check() {
         -e 's/\xc2\xad//g' \
         -e 's/\xef\xbc[\x81-\xbe]/\x21/g; s/\xef\xbd[\x80-\x9e]/\x60/g' \
         -e "s/'//g; s/\"//g" \
-    | { if [ "$_LANEKEEP_HAS_UCONV" = "1" ]; then uconv -x "NFC" 2>/dev/null; else cat; fi; } \
+    | { uconv -x "NFC" 2>/dev/null || cat; } \
     | tr '[:upper:]' '[:lower:]')
 
   # Resolve hard_blocks: use pre-extracted var or fall back to jq
