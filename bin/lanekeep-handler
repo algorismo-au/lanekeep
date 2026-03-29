@@ -393,7 +393,6 @@ case "$HOOK_EVENT" in
                 # Find registered eval function
                 for func in $LANEKEEP_PLUGIN_EVALS; do
                   "$func" "$TOOL_NAME" "$TOOL_INPUT" 2>/dev/null
-                  rc=$?
                   prefix="${func%_eval}"
                   prefix_upper=$(printf '%s' "$prefix" | tr '[:lower:]' '[:upper:]')
                   declare -n _p_ref="${prefix_upper}_PASSED" 2>/dev/null || true
