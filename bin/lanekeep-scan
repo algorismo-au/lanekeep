@@ -5,6 +5,7 @@ set -euo pipefail
 # Bash port of trailofbits/skills-curated scan_plugin.py
 
 LANEKEEP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=/dev/null
 source "$LANEKEEP_DIR/lib/scan.sh"
 
 usage() {

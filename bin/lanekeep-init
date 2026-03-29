@@ -118,6 +118,7 @@ if [ -f "$SETTINGS_FILE" ]; then
 fi
 
 # --- Normalize hook format (flat → nested safety net) ---
+# shellcheck source=/dev/null
 source "$LANEKEEP_DIR/lib/hooks.sh"
 if normalize_hook_format "$SETTINGS_FILE"; then
   echo "Repaired hook format in $SETTINGS_FILE (flat → nested)"

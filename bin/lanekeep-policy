@@ -8,7 +8,9 @@ export LANEKEEP_CONFIG_FILE="${LANEKEEP_CONFIG_FILE:-$PROJECT_DIR/.lanekeep/lane
 export LANEKEEP_TRACE_FILE="${LANEKEEP_TRACE_FILE:-$PROJECT_DIR/.lanekeep/traces/$(date +%Y%m%d).jsonl}"
 export LANEKEEP_SESSION_ID="${LANEKEEP_SESSION_ID:-policy-cli}"
 
+# shellcheck source=/dev/null
 source "$LANEKEEP_DIR/lib/trace.sh"
+# shellcheck source=/dev/null
 source "$LANEKEEP_DIR/lib/policy-manage.sh"
 
 usage() {

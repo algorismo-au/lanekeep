@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC1091  # lib paths use $LANEKEEP_DIR — not resolvable statically
 set -euo pipefail
 
-export LANEKEEP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+LANEKEEP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+export LANEKEEP_DIR
 
 # Resolve project directory once — pwd can fail if CWD was deleted/renamed
 export PROJECT_DIR="${PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
@@ -51,8 +53,8 @@ case "${1:-help}" in
     UI_PID=""
     SERVE_PID=""
     cleanup_start() {
-      [ -n "$UI_PID" ] && kill "$UI_PID" 2>/dev/null || true
-      [ -n "$SERVE_PID" ] && kill "$SERVE_PID" 2>/dev/null || true
+      if [ -n "$UI_PID" ]; then kill "$UI_PID" 2>/dev/null; fi
+      if [ -n "$SERVE_PID" ]; then kill "$SERVE_PID" 2>/dev/null; fi
       rm -f "$PROJECT_DIR/.lanekeep/ui-port"
       wait 2>/dev/null || true
     }

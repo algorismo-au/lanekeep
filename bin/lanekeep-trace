@@ -7,6 +7,7 @@ TRACE_DIR="$PROJECT_DIR/.lanekeep/traces"
 
 # --- clear subcommand ---
 if [ "${1:-}" = "clear" ]; then
+  # shellcheck source=/dev/null
   source "$LANEKEEP_DIR/lib/trace.sh"
   shift
 

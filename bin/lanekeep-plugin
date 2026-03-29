@@ -160,6 +160,7 @@ cmd_test() {
     local plugin_result
     plugin_result=$(
       set +e
+      # shellcheck source=/dev/null
       source "$plugin" 2>/dev/null || { echo "CRASHED"; exit 0; }
       for func in $LANEKEEP_PLUGIN_EVALS; do
         "$func" "$tool_name" "$tool_input" 2>/dev/null

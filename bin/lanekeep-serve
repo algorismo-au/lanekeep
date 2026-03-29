@@ -76,6 +76,7 @@ if [ -S "$SOCKET" ]; then
 fi
 
 # --- Load config, parse spec, initialize session ---
+# shellcheck source=/dev/null
 source "$LANEKEEP_DIR/lib/config.sh"
 load_config "$PROJECT_DIR" "$SPEC_FILE"
 

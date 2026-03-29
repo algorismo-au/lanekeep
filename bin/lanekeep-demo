@@ -44,8 +44,8 @@ declare -a SCENARIOS=(
 )
 
 # --- Header ---
-printf "\n${BOLD}  LaneKeep Demo — Governance in Action${RESET}\n"
-printf "  ${DIM}Piping tool calls through the evaluation pipeline${RESET}\n\n"
+printf '\n%s  LaneKeep Demo — Governance in Action%s\n' "$BOLD" "$RESET"
+printf '  %sPiping tool calls through the evaluation pipeline%s\n\n' "$DIM" "$RESET"
 
 denied=0
 allowed=0
@@ -85,9 +85,9 @@ if [ -f "$LANEKEEP_TRACE_FILE" ]; then
   printf "  ${DIM}Trace: %d entries written to %s${RESET}\n" "$trace_count" "$LANEKEEP_TRACE_FILE"
 fi
 
-printf "\n  ${YELLOW}Get started:${RESET}\n"
-printf "    ${DIM}lanekeep init .${RESET}          Install LaneKeep in your project\n"
-printf "    ${DIM}lanekeep start${RESET}           Start sidecar + UI\n"
-printf "    ${DIM}lanekeep trace${RESET}           View the audit trail\n\n"
+printf '\n  %sGet started:%s\n' "$YELLOW" "$RESET"
+printf '    %slanekeep init .%s          Install LaneKeep in your project\n' "$DIM" "$RESET"
+printf '    %slanekeep start%s           Start sidecar + UI\n' "$DIM" "$RESET"
+printf '    %slanekeep trace%s           View the audit trail\n\n' "$DIM" "$RESET"
 
 exit 0

@@ -168,6 +168,7 @@ echo ""
 echo "Hook Format:"
 HOOK_SETTINGS="${PROJECT_DIR}/.claude/settings.local.json"
 if [ -f "$HOOK_SETTINGS" ]; then
+  # shellcheck source=/dev/null
   source "$LANEKEEP_DIR/lib/hooks.sh"
   if validate_hook_format "$HOOK_SETTINGS"; then
     _pass "All hooks use nested format"

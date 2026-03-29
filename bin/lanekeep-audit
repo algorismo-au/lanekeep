@@ -15,9 +15,6 @@ KNOWN_POLICIES="tools extensions paths commands arguments repos branches registr
 # Known evaluator names (from defaults/lanekeep.json)
 KNOWN_EVALUATORS="codediff budget semantic input_pii result_transform hidden_text"
 
-# Security-sensitive policies
-SECURITY_POLICIES="governance_paths shell_configs hidden_chars"
-
 err()  { echo "  ERROR: $1"; ERRORS=$((ERRORS+1)); }
 warn() { echo "  WARN:  $1"; WARNINGS=$((WARNINGS+1)); }
 info() { echo "  INFO:  $1"; INFOS=$((INFOS+1)); }
@@ -573,8 +570,9 @@ main() {
 
   # Set up audit file
   local audit_dir="$PROJECT_DIR/.lanekeep/audits"
-  mkdir -p -m 0700 "$audit_dir"
-  local audit_file="$audit_dir/audit-$(date -u +%Y%m%d-%H%M%S).txt"
+  mkdir -p "$audit_dir" && chmod 0700 "$audit_dir"
+  local audit_file
+  audit_file="$audit_dir/audit-$(date -u +%Y%m%d-%H%M%S).txt"
 
   {
     echo "lanekeep audit"
