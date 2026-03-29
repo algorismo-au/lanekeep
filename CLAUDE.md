@@ -133,6 +133,22 @@ flowchart LR
 - **Allow**: exit 0, no stdout
 - **Deny**: exit 0, JSON with `permissionDecision: "deny"` + reason
 
+## Core Concepts
+
+| Term | What it is |
+|------|------------|
+| **Event** | A raw tool call occurrence — one record per hook fire (`PreToolUse` or `PostToolUse`). `total_events` always increments regardless of outcome. |
+| **Evaluation** | An individual check within the pipeline. Each evaluator module (`eval-hardblock.sh`, `eval-rules.sh`, `eval-budget.sh`, etc.) independently examines the event and sets `EVAL_PASSED`/`EVAL_REASON`. A single event triggers many evaluations; results recorded in the trace `evaluators[]` array with `name`, `tier`, and `passed`. |
+| **Decision** | The final pipeline verdict: `allow`, `deny`, `warn`, or `ask`. Stored in the `decision` field of each trace entry and counted in `decisions.deny / warn / ask / allow` in cumulative metrics. |
+| **Action** | A budget unit — an event that was *not* denied or asked. `eval-budget.sh` increments `action_count` only when `already_blocked != true` and `skip_increment != true`. Currency for `budget.max_actions` enforcement. |
+
+```
+Event (raw hook call)
+  └── Evaluations (N checks run against it)
+        └── Decision (single verdict: allow/deny/warn/ask)
+              └── Action (counted only if allowed/warned — budget currency)
+```
+
 ## Config Merging
 
 Budget limits and rules resolve through three layers (later wins):
