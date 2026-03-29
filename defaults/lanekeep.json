@@ -679,12 +679,12 @@
     {
       "id": "sys-011",
       "match": {
-        "pattern": "\\bchmod\\b\\s+(777|666)"
+        "pattern": "\\bchmod\\b\\s+(777|666)|\\bchmod\\b\\s+-[a-zA-Z]*R\\b"
       },
       "decision": "deny",
       "reason": "Insecure permissions blocked",
       "category": "system",
-      "intent": "World-writable files let any user or process modify them, breaking access control boundaries",
+      "intent": "World-writable permissions (777/666) and recursive chmod let any process modify files across entire directory trees, breaking access control boundaries",
       "compliance": [
         "PCI-DSS 7.1",
         "HIPAA §164.312(a)(1)",
@@ -1171,6 +1171,17 @@
       ]
     },
     {
+      "id": "sys-090",
+      "match": {
+        "pattern": "(?:^|[;&|]\\s*)\\S+\\s+--dangerously-skip-permissions(?:\\s|$)"
+      },
+      "decision": "deny",
+      "reason": "--dangerously-skip-permissions bypasses all Claude Code safety checks",
+      "category": "system",
+      "intent": "Passing --dangerously-skip-permissions to claude disables the entire permission system — never appropriate for an AI agent to invoke another agent with all guardrails removed",
+      "type": "free"
+    },
+    {
       "id": "warn-005",
       "match": {
         "pattern": "\\bchmod\\b.*\\b755\\b"
@@ -1301,6 +1312,51 @@
       ]
     },
     {
+      "id": "sec-020a",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(?i)\\[(END|NEW)\\s*SESSION\\]|ENTERING[_\\s]ADMIN|#\\s*NEW\\s*SESSION|#{5,}\\s*$|\\b(ignore|disregard|forget|override|bypass)\\b.{0,30}\\b(previous|prior|above|all|your|my|the|system|safety)\\b.{0,30}\\b(instructions?|prompts?|rules?|guidelines?|restrictions?|directions?|programming|training)\\b"
+      },
+      "decision": "ask",
+      "reason": "Prompt injection pattern in file content — flag for human review",
+      "category": "security",
+      "intent": "Session reset boundaries and instruction override phrases in files can hijack LLM sessions",
+      "compliance": [
+        "CWE-94"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "sec-020b",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(?i)\\byou are now\\b|\\bfrom now on you\\b|\\bassume the role\\b|\\bimagine you are\\b|\\bpretend you (are|have)\\b|\\bact as if you\\b|\\bjailbreak\\b|\\bdo anything now\\b|\\bignore your safety\\b|\\bact without restrictions\\b|\\bno (ethical |moral )?restrictions\\b"
+      },
+      "decision": "ask",
+      "reason": "Prompt injection pattern in file content — flag for human review",
+      "category": "security",
+      "intent": "Persona injection and jailbreak phrases in files can hijack LLM sessions",
+      "compliance": [
+        "CWE-94"
+      ],
+      "type": "free"
+    },
+    {
+      "id": "sec-020c",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(?i)===\\s*END\\s+(?:SYSTEM )?PROMPT\\s*===|\\brole\\b\\s*[:=]\\s*\\b(system|admin|root|superuser)\\b|(1gn0r3|d1sr3gard|f0rg3t|0v3rr1d3|pr3v10us|1nstruct10ns?|syst3m|pr0mpt|by ?p[a4]ss|j[a4]1lbr[e3][a4]k)"
+      },
+      "decision": "ask",
+      "reason": "Prompt injection pattern in file content — flag for human review",
+      "category": "security",
+      "intent": "Fake role structures and leetspeak-encoded injection phrases in files can hijack LLM sessions",
+      "compliance": [
+        "CWE-94"
+      ],
+      "type": "free"
+    },
+    {
       "id": "sec-020",
       "match": {
         "pattern": "(?:ignore|disregard|forget|override)\\s+(?:previous|all|your|prior|above)\\s+(?:instructions|rules|guidelines|prompts|context)|(?:you\\s+are\\s+now|pretend\\s+(?:to\\s+be|you\\s+are)|assume\\s+the\\s+role|act\\s+as\\s+if)|(?:new\\s+(?:system\\s)?(?:prompt|instructions)|bypass\\s+your\\s+(?:restrictions|safety|rules))|(?:DAN\\s+mode|developer\\s+mode|do\\s+anything\\s+now|jailbreak|no\\s+ethical\\s+restrictions)|(?:forget\\s+(?:everything|your\\s+training)|act\\s+without\\s+restrictions|ignore\\s+your\\s+safety)"
@@ -1361,7 +1417,12 @@
         "PCI-DSS 6.2.4",
         "GDPR Art.32(1)(a)"
       ],
-      "compliance_tags": ["attck:t1552", "atlas:t0055", "cis:3", "nist-ai100-2:privacy"],
+      "compliance_tags": [
+        "attck:t1552",
+        "atlas:t0055",
+        "cis:3",
+        "nist-ai100-2:privacy"
+      ],
       "enabled": true
     },
     {
@@ -1391,59 +1452,25 @@
       ]
     },
     {
-      "id": "sec-020a",
-      "match": {
-        "tool": "Write|Edit",
-        "pattern": "(?i)\\[(END|NEW)\\s*SESSION\\]|ENTERING[_\\s]ADMIN|#\\s*NEW\\s*SESSION|#{5,}\\s*$|\\b(ignore|disregard|forget|override|bypass)\\b.{0,30}\\b(previous|prior|above|all|your|my|the|system|safety)\\b.{0,30}\\b(instructions?|prompts?|rules?|guidelines?|restrictions?|directions?|programming|training)\\b"
-      },
-      "decision": "ask",
-      "reason": "Prompt injection pattern in file content — flag for human review",
-      "category": "security",
-      "intent": "Session reset boundaries and instruction override phrases in files can hijack LLM sessions",
-      "compliance": [
-        "CWE-94"
-      ],
-      "type": "free"
-    },
-    {
-      "id": "sec-020b",
-      "match": {
-        "tool": "Write|Edit",
-        "pattern": "(?i)\\byou are now\\b|\\bfrom now on you\\b|\\bassume the role\\b|\\bimagine you are\\b|\\bpretend you (are|have)\\b|\\bact as if you\\b|\\bjailbreak\\b|\\bdo anything now\\b|\\bignore your safety\\b|\\bact without restrictions\\b|\\bno (ethical |moral )?restrictions\\b"
-      },
-      "decision": "ask",
-      "reason": "Prompt injection pattern in file content — flag for human review",
-      "category": "security",
-      "intent": "Persona injection and jailbreak phrases in files can hijack LLM sessions",
-      "compliance": [
-        "CWE-94"
-      ],
-      "type": "free"
-    },
-    {
-      "id": "sec-020c",
-      "match": {
-        "tool": "Write|Edit",
-        "pattern": "(?i)===\\s*END\\s+(?:SYSTEM )?PROMPT\\s*===|\\brole\\b\\s*[:=]\\s*\\b(system|admin|root|superuser)\\b|(1gn0r3|d1sr3gard|f0rg3t|0v3rr1d3|pr3v10us|1nstruct10ns?|syst3m|pr0mpt|by ?p[a4]ss|j[a4]1lbr[e3][a4]k)"
-      },
-      "decision": "ask",
-      "reason": "Prompt injection pattern in file content — flag for human review",
-      "category": "security",
-      "intent": "Fake role structures and leetspeak-encoded injection phrases in files can hijack LLM sessions",
-      "compliance": [
-        "CWE-94"
-      ],
-      "type": "free"
-    },
-    {
       "id": "git-009",
       "match": {
-        "pattern": "\\bgit\\s+(push\\b(?=.*\\s(--force[\\s\"]|-[a-z]*f[\\s\"]))|reset\\b(?=.*\\s--hard[\\s\"])|clean\\b(?=.*\\s-[a-z]*f[a-z]*[\\s\"])(?=.*\\s-[a-z]*d[a-z]*[\\s\"])|branch\\s+-D)"
+        "pattern": "\\bgit\\s+(push\\b(?=.*\\s(--force(?!-with-lease)\\b|-[a-z]*f\\b))|reset\\b(?=.*\\s--hard\\b)|clean\\b(?=.*\\s-[a-z]*f[a-z]*\\b)(?=.*\\s-[a-z]*d[a-z]*\\b)|branch\\s+-D)"
       },
       "decision": "deny",
       "reason": "Destructive git operation blocked",
       "category": "git",
       "intent": "Force push, hard reset, clean -fd, and branch -D destroy history or untracked work with no recovery path",
+      "type": "free"
+    },
+    {
+      "id": "git-025",
+      "match": {
+        "pattern": "\\bgit\\s+push\\b.*--force-with-lease\\b"
+      },
+      "decision": "warn",
+      "reason": "Force-with-lease rewrites remote history — verify no concurrent collaborators",
+      "category": "git",
+      "intent": "--force-with-lease is safer than --force but still rewrites published history; warn so the developer confirms no other committers will be disrupted",
       "type": "free"
     },
     {
@@ -2009,7 +2036,7 @@
     {
       "id": "inf-034",
       "match": {
-        "pattern": "\\b(npm\\s+publish|cargo\\s+publish|gem\\s+push|twine\\s+upload|python\\s+setup\\.py\\s+upload)\\b"
+        "pattern": "\\b(npm\\s+publish|yarn\\s+publish|cargo\\s+publish|gem\\s+push|twine\\s+upload|python\\s+setup\\.py\\s+upload)\\b"
       },
       "decision": "deny",
       "reason": "Package publishing blocked",
@@ -2091,6 +2118,17 @@
       "type": "free"
     },
     {
+      "id": "inf-064",
+      "match": {
+        "pattern": "\\bdocker\\b.*\\s-v\\s+/:/|\\bdocker\\b.*--mount\\s.*\\bsource=/,|\\bdocker\\b.*--mount\\s.*\\bsrc=/,"
+      },
+      "decision": "deny",
+      "reason": "Docker host root mount blocked",
+      "category": "infrastructure",
+      "intent": "Mounting the host root filesystem into a container gives the container read/write access to all host files — equivalent to running as root on the host",
+      "type": "free"
+    },
+    {
       "id": "inf-001",
       "match": {
         "target": ".devcontainer/",
@@ -2156,12 +2194,12 @@
     {
       "id": "csec-020",
       "match": {
-        "pattern": "\\|\\s*(bash|sh)\\b|eval\\s+\"\\$\\(curl|source\\s+<\\(curl"
+        "pattern": "\\|\\s*(bash|sh)\\b|eval\\s+[\"'`]?\\$|eval\\s+`|source\\s+<\\(curl"
       },
       "decision": "deny",
       "reason": "Remote code execution via pipe or eval blocked",
       "category": "code-security",
-      "intent": "Piping to shell, eval of curl output, or sourcing remote content executes arbitrary code without review — primary supply-chain attack vector",
+      "intent": "Piping to shell, eval with command substitution ($(...) or backticks), or sourcing remote content executes arbitrary code without review — primary supply-chain attack vector",
       "type": "free",
       "compliance_tags": [
         "attck:t1059",
