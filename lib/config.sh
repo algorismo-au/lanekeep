@@ -187,17 +187,23 @@ load_config() {
         echo "[LaneKeep] Run 'lanekeep rules whatsnew' to review. Your customizations are preserved." >&2
         # Update version so this notice doesn't repeat for the same version bump
         local _dv_tmp; _dv_tmp=$(mktemp "${_dv_file}.XXXXXX")
-        jq --arg v "$_dv_current" '.defaults_version = $v' "$_dv_file" > "$_dv_tmp" 2>/dev/null \
-          && mv "$_dv_tmp" "$_dv_file" || rm -f "$_dv_tmp"
+        if jq --arg v "$_dv_current" '.defaults_version = $v' "$_dv_file" > "$_dv_tmp" 2>/dev/null; then
+          mv "$_dv_tmp" "$_dv_file"
+        else
+          rm -f "$_dv_tmp"
+        fi
       fi
     else
       # First run: create manifest silently (baseline for future comparisons)
       local _dv_ids
       _dv_ids=$(jq -c '[.rules[] | select(has("id")) | .id]' "$LANEKEEP_DIR/defaults/lanekeep.json" 2>/dev/null) || _dv_ids="[]"
       local _dv_tmp; _dv_tmp=$(mktemp "${_dv_file}.XXXXXX")
-      jq -n --arg v "$_dv_current" --argjson ids "$_dv_ids" \
-        '{defaults_version: $v, rule_ids: $ids}' > "$_dv_tmp" 2>/dev/null \
-        && mv "$_dv_tmp" "$_dv_file" || rm -f "$_dv_tmp"
+      if jq -n --arg v "$_dv_current" --argjson ids "$_dv_ids" \
+        '{defaults_version: $v, rule_ids: $ids}' > "$_dv_tmp" 2>/dev/null; then
+        mv "$_dv_tmp" "$_dv_file"
+      else
+        rm -f "$_dv_tmp"
+      fi
     fi
   fi
 

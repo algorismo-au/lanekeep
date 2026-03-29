@@ -50,7 +50,7 @@ _rt_scan_patterns() {
 
     local matched=false
     if [[ "$grep_flags" == *P* ]]; then
-      if timeout 1 grep -q${grep_flags} -- "$pattern" <<< "$transformed" 2>/dev/null; then
+      if timeout 1 grep "-q${grep_flags}" -- "$pattern" <<< "$transformed" 2>/dev/null; then
         matched=true
       fi
     else
