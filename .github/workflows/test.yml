@@ -30,7 +30,7 @@ jobs:
 
       - name: shellcheck
         run: |
-          find bin -type f | xargs shellcheck --shell=bash
+          find bin -type f -exec shellcheck --shell=bash {} +
           shellcheck lib/*.sh hooks/*.sh
 
   secret-scan:

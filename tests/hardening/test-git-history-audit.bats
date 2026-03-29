@@ -141,6 +141,7 @@ setup_file() {
   local -a allowed_emails=(
     "moabbas.tech@gmail.com"
     "noreply@anthropic.com"
+    "49699333+dependabot[bot]@users.noreply.github.com"
   )
 
   local unexpected=0
