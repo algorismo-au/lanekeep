@@ -2659,6 +2659,18 @@
       "compliance_tags": [
         "attck:t1190"
       ]
+    },
+    {
+      "id": "sh-001",
+      "match": {
+        "tool": "^(Write|Edit)$",
+        "pattern": "\\$\\(pwd\\)"
+      },
+      "decision": "ask",
+      "reason": "Bare $(pwd) is unreliable in shell scripts — use ${PROJECT_DIR:-$PWD} or $(pwd 2>/dev/null || echo \"$PWD\") instead",
+      "category": "code-security",
+      "intent": "$(pwd) can fail or return unexpected results in subshells, symlinked directories, and certain CI environments; the safe form provides a fallback",
+      "type": "free"
     }
   ],
   "signing": {
