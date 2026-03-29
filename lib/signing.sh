@@ -25,7 +25,7 @@ verify_inline_sig() {
   local hash_file sig_file
   hash_file=$(umask 077 && mktemp "${TMPDIR:-/tmp}/lanekeep-XXXXXX")
   sig_file=$(umask 077 && mktemp "${TMPDIR:-/tmp}/lanekeep-XXXXXX")
-  trap "rm -f '$hash_file' '$sig_file'" RETURN
+  trap 'rm -f "$hash_file" "$sig_file"' RETURN
 
   printf '%s' "$canonical" | sha256sum | cut -d' ' -f1 | tr -d '\n' > "$hash_file"
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034  # CODEDIFF_PASSED, CODEDIFF_DECISION, CODEDIFF_REASON set here, read externally via indirection
 # Tier 2: Static analysis on mutation tools (Bash, Write, Edit, Read)
 
 CODEDIFF_PASSED=true

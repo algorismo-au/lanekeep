@@ -119,7 +119,7 @@ write_trace() {
   fi
 
   # Ensure trace directory exists with restrictive permissions
-  mkdir -p -m 0700 "${LANEKEEP_TRACE_FILE%/*}"
+  mkdir -p "${LANEKEEP_TRACE_FILE%/*}" && chmod 0700 "${LANEKEEP_TRACE_FILE%/*}"
 
   # Validate and append trace entry
   _validate_trace_path "$LANEKEEP_TRACE_FILE" || return 0
@@ -164,7 +164,7 @@ write_policy_event() {
   local user="$4"
   local reason="$5"
 
-  mkdir -p -m 0700 "${LANEKEEP_TRACE_FILE%/*}"
+  mkdir -p "${LANEKEEP_TRACE_FILE%/*}" && chmod 0700 "${LANEKEEP_TRACE_FILE%/*}"
 
   _validate_trace_path "$LANEKEEP_TRACE_FILE" || return 0
 
@@ -188,7 +188,7 @@ write_rule_event() {
   local user="$4"
   local reason="$5"
 
-  mkdir -p -m 0700 "${LANEKEEP_TRACE_FILE%/*}"
+  mkdir -p "${LANEKEEP_TRACE_FILE%/*}" && chmod 0700 "${LANEKEEP_TRACE_FILE%/*}"
   _validate_trace_path "$LANEKEEP_TRACE_FILE" || return 0
 
   local entry
@@ -270,7 +270,7 @@ prune_traces() {
       local -a sorted=()
       while IFS= read -r -d '' f; do
         sorted+=("$f")
-      done < <(printf '%s\0' "${candidates[@]}" | xargs -0 ls -t 2>/dev/null | tac | tr '\n' '\0')
+      done < <(printf '%s\0' "${candidates[@]}" | xargs -0 stat --printf='%Y\t%n\0' 2>/dev/null | sort -z -t$'\t' -k1,1n | cut -z -f2-)
       local to_delete=$((count - max_sessions))
       local i=0
       for f in "${sorted[@]}"; do

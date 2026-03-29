@@ -98,10 +98,6 @@ _build_md_code_ranges() {
       local close="${stripped%%[! "$fence_char"]*}"
       # Verify close is only fence chars and long enough
       if [ -n "$close" ] && [ "${#close}" -ge "$fence_len" ]; then
-        local pure=true
-        local trimmed="${stripped%% *}"
-        # stripped should only contain fence_char (after trimming trailing whitespace)
-        local no_ws="${stripped%%[[:space:]]*}"
         # Simpler: check if stripped (after removing trailing ws) is all fence_char
         local clean
         clean=$(printf '%s' "$stripped" | sed 's/[[:space:]]*$//')
@@ -268,6 +264,7 @@ _check_credential_access() {
   local line="$1" line_idx="$2" rel_path="$3" suffix="$4"
   _is_code_context "$line_idx" "$suffix" || return 0
 
+  # shellcheck disable=SC2088  # tilde is a literal regex char here, not a path expansion
   if printf '%s' "$line" | grep -qP '~/\.ssh\b|~/\.aws\b|~/\.gnupg\b|~/\.config/gh\b|~/\.netrc\b|/etc/shadow\b|\bid_rsa\b|\bid_ed25519\b'; then
     local lineno=$((line_idx + 1))
     local detail="${line:0:120}"
@@ -424,6 +421,7 @@ format_markdown() {
       [ "$level" = "BLOCK" ] || continue
       detail="${detail:0:80}"
       detail=$(_escape_md_pipe "$detail")
+      # shellcheck disable=SC2016  # backticks in format string are markdown literal chars, not expansions
       printf '| %s | %s | %s | `%s` |\n' "$category" "$path" "$lineno" "$detail"
     done <<< "$SCAN_FINDINGS"
   fi
@@ -437,6 +435,7 @@ format_markdown() {
       [ "$level" = "WARN" ] || continue
       detail="${detail:0:80}"
       detail=$(_escape_md_pipe "$detail")
+      # shellcheck disable=SC2016  # backticks in format string are markdown literal chars, not expansions
       printf '| %s | %s | %s | `%s` |\n' "$category" "$path" "$lineno" "$detail"
     done <<< "$SCAN_FINDINGS"
   fi

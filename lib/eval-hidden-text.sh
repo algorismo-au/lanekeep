@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034  # HIDDEN_TEXT_PASSED, HIDDEN_TEXT_DECISION, HIDDEN_TEXT_REASON set here, read externally via indirection
 # Tier 3: HiddenText evaluator — detects CSS-hidden text, ANSI escapes, HTML injection markers
 # Complements eval-codediff.sh (which handles invisible Unicode chars)
 

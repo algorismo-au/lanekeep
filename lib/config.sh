@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034  # INTEGRITY_PASSED, INTEGRITY_REASON set here, read externally via indirection
 # Config loader: resolves lanekeep.json, sets up session directories, parses TaskSpec
 
 # M2: Validate security-critical env var overrides.

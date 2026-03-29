@@ -11,6 +11,7 @@ export LANEKEEP_API_VERSION
 #
 # Usage: verify_license_key [key_file [pubkey_pem]]
 # Returns: 0 and prints tier on success; non-zero on failure.
+# shellcheck disable=SC2120  # arguments are optional — function has defaults for $1 and $2
 verify_license_key() {
   local key_file="${1:-${HOME}/.config/lanekeep/license.key}"
   local pubkey_pem="${2:-${LANEKEEP_DIR:-}/keys/license-signing.pub}"
@@ -72,6 +73,7 @@ resolve_license_tier() {
 
   # 2. Try Ed25519-verified license key file (no network)
   local _verified_tier
+  # shellcheck disable=SC2119  # no args is intentional — function uses defaults for key_file and pubkey_pem
   _verified_tier=$(verify_license_key 2>/dev/null) && {
     LANEKEEP_LICENSE_TIER="$_verified_tier"
     export LANEKEEP_LICENSE_TIER

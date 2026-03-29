@@ -26,12 +26,12 @@ _ralph_update_from_line() {
   topic=$(printf '%s' "$line" | jq -r '.topic // empty' 2>/dev/null)
 
   # Only update fields that are present in this event
-  local updates=""
-  [ -n "$iteration" ] && updates="${updates} --argjson i $iteration"
-  [ -n "$hat" ] && updates="${updates} --arg h $hat"
-  [ -n "$topic" ] && updates="${updates} --arg t $topic"
+  local -a updates=()
+  [ -n "$iteration" ] && updates+=(--argjson i "$iteration")
+  [ -n "$hat" ] && updates+=(--arg h "$hat")
+  [ -n "$topic" ] && updates+=(--arg t "$topic")
 
-  [ -z "$updates" ] && return 0
+  [ "${#updates[@]}" -eq 0 ] && return 0
 
   # Build jq filter based on which fields are present
   local filter=""
@@ -40,7 +40,7 @@ _ralph_update_from_line() {
   [ -n "$topic" ] && filter="${filter} | .topic = \$t"
   filter="${filter# | }"  # remove leading " | "
 
-  jq -c $updates "$filter" "$RALPH_STATE_FILE" > "${RALPH_STATE_FILE}.tmp" \
+  jq -c "${updates[@]}" "$filter" "$RALPH_STATE_FILE" > "${RALPH_STATE_FILE}.tmp" \
     && mv "${RALPH_STATE_FILE}.tmp" "$RALPH_STATE_FILE"
 }
 

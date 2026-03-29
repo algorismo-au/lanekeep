@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034  # SEMANTIC_PASSED, SEMANTIC_REASON set here, read externally via indirection
 # Tier 7: LLM-based semantic evaluation
 # Calls an LLM API to evaluate whether a tool call aligns with the task goal
 # and is safe to execute. Opt-in (disabled by default), fail-open on errors.

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034  # PACK_URL, PACK_VERSION set here, read externally via indirection
 # pack.sh — Community pack download and local store management
 #
 # Local store: ~/.local/share/lanekeep/community/<pack-name>/

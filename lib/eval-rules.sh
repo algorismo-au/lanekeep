@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034  # RULES_* globals set here, read externally via indirection
 # Rule engine evaluator: processes unified decision table from lanekeep.json .rules[]
 # First-match-wins, replaces hardblock + codediff when rules are present.
 
@@ -82,6 +83,7 @@ validate_patterns() {
   local config="${1:-$LANEKEEP_CONFIG_FILE}"
   [ -f "$config" ] || return 0
   local issues
+  # shellcheck disable=SC2016  # single-quoted jq program — $ is jq syntax, not shell expansion
   issues=$(timeout 3 jq -r '
     def safe_test(pat; flags): try test(pat; flags) catch "invalid";
 
@@ -128,6 +130,7 @@ policies_check() {
   [ "$has_policies" = "true" ] || return 0
 
   local result
+  # shellcheck disable=SC2016  # single-quoted jq program — $ is jq syntax, not shell expansion
   result=$(timeout 5 jq -c --arg tool "$tool_name" --arg input "$tool_input" '
     # VULN-07: safe_test wraps test() in try-catch to prevent regex injection crashes
     def safe_test(pat; flags): try test(pat; flags) catch false;
@@ -638,6 +641,7 @@ rules_eval() {
 
   # Single jq call: find first matching enabled rule (first-match-wins)
   local result
+  # shellcheck disable=SC2016  # single-quoted jq program — $ is jq syntax, not shell expansion
   result=$(timeout 5 jq -c --arg tool "$tool_name" --arg input "$tool_input" --arg env "${LANEKEEP_ENV:-}" --arg tier "${LANEKEEP_LICENSE_TIER:-community}" '
     # VULN-07: safe_test wraps test() in try-catch to prevent regex injection crashes
     def safe_test(pat; flags): try test(pat; flags) catch false;

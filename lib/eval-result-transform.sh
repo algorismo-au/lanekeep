@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034  # RESULT_TRANSFORM_* globals set here, read externally via indirection
 # Tier 5: ResultTransform evaluator — scans tool output for injection and secrets
 #
 # Patterns support two formats:
@@ -49,11 +50,11 @@ _rt_scan_patterns() {
 
     local matched=false
     if [[ "$grep_flags" == *P* ]]; then
-      if timeout 1 grep -q${grep_flags} -- "$pattern" <<< "$transformed" 2>/dev/null; then
+      if timeout 1 grep "-q${grep_flags}" -- "$pattern" <<< "$transformed" 2>/dev/null; then
         matched=true
       fi
     else
-      if grep -q${grep_flags} -- "$pattern" <<< "$transformed"; then
+      if grep "-q${grep_flags}" -- "$pattern" <<< "$transformed"; then
         matched=true
       fi
     fi
@@ -71,8 +72,8 @@ _rt_scan_patterns() {
       local p_decision
       p_decision=$(printf '%s' "$_entry" | jq -r '.d // empty')
       if [ -n "$p_decision" ]; then
-        local sev=$(_rt_severity "$p_decision")
-        local cur=$(_rt_severity "$_rt_max_decision")
+        local sev; sev=$(_rt_severity "$p_decision")
+        local cur; cur=$(_rt_severity "$_rt_max_decision")
         if [ "$sev" -gt "$cur" ]; then
           _rt_max_decision="$p_decision"
         fi
@@ -245,8 +246,8 @@ result_transform_eval() {
   # Per-pattern decisions can only escalate, never de-escalate
   local effective_action="$on_detect"
   if [ -n "$_rt_max_decision" ]; then
-    local on_sev=$(_rt_severity "$on_detect")
-    local max_sev=$(_rt_severity "$_rt_max_decision")
+    local on_sev; on_sev=$(_rt_severity "$on_detect")
+    local max_sev; max_sev=$(_rt_severity "$_rt_max_decision")
     if [ "$max_sev" -gt "$on_sev" ]; then
       effective_action="$_rt_max_decision"
     fi

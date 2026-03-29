@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034  # HARDBLOCK_REASON set here, read externally via indirection
 # Hard-block: fast substring match before evaluation pipeline
 
 HARDBLOCK_REASON=""
@@ -25,7 +26,7 @@ hardblock_check() {
         -e 's/\xc2\xad//g' \
         -e 's/\xef\xbc[\x81-\xbe]/\x21/g; s/\xef\xbd[\x80-\x9e]/\x60/g' \
         -e "s/'//g; s/\"//g" \
-    | { [ "$_LANEKEEP_HAS_UCONV" = "1" ] && uconv -x "NFC" 2>/dev/null || cat; } \
+    | { if [ "$_LANEKEEP_HAS_UCONV" = "1" ]; then uconv -x "NFC" 2>/dev/null; else cat; fi; } \
     | tr '[:upper:]' '[:lower:]')
 
   # Resolve hard_blocks: use pre-extracted var or fall back to jq

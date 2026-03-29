@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034  # SCHEMA_PASSED, SCHEMA_REASON set here, read externally via indirection
 # Tier 0.5: Check tool against TaskSpec allowlist/denylist (access control)
 
 SCHEMA_PASSED=true

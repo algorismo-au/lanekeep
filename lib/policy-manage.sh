@@ -21,7 +21,11 @@ policy_disable() {
   # Set enabled=false
   local tmp
   tmp=$(mktemp "${config}.tmp.XXXXXX")
-  jq --arg cat "$category" '.policies[$cat].enabled = false' "$config" > "$tmp" && mv "$tmp" "$config" || { rm -f "$tmp"; return 1; }
+  if jq --arg cat "$category" '.policies[$cat].enabled = false' "$config" > "$tmp"; then
+    mv "$tmp" "$config"
+  else
+    rm -f "$tmp"; return 1
+  fi
 
   # Write audit trail
   write_policy_event "policy_disabled" "$category" "$type" "$user" "$reason"
@@ -47,7 +51,11 @@ policy_enable() {
   # Remove enabled field (defaults to true)
   local tmp
   tmp=$(mktemp "${config}.tmp.XXXXXX")
-  jq --arg cat "$category" '.policies[$cat] |= del(.enabled)' "$config" > "$tmp" && mv "$tmp" "$config" || { rm -f "$tmp"; return 1; }
+  if jq --arg cat "$category" '.policies[$cat] |= del(.enabled)' "$config" > "$tmp"; then
+    mv "$tmp" "$config"
+  else
+    rm -f "$tmp"; return 1
+  fi
 
   # Write audit trail
   write_policy_event "policy_enabled" "$category" "$type" "$user" "$reason"
@@ -71,7 +79,9 @@ rule_disable() {
   # Verify index is valid
   local count
   count=$(jq '.rules | length' "$config" 2>/dev/null)
-  [ "$index" -ge 0 ] && [ "$index" -lt "$count" ] 2>/dev/null || { echo "Rule index out of range: $index (have $count rules)" >&2; return 1; }
+  if ! { [ "$index" -ge 0 ] && [ "$index" -lt "$count" ]; } 2>/dev/null; then
+    echo "Rule index out of range: $index (have $count rules)" >&2; return 1
+  fi
 
   # Read type for audit trail
   local type
@@ -80,7 +90,11 @@ rule_disable() {
   # Set enabled=false
   local tmp
   tmp=$(mktemp "${config}.tmp.XXXXXX")
-  jq --argjson idx "$index" '.rules[$idx].enabled = false' "$config" > "$tmp" && mv "$tmp" "$config" || { rm -f "$tmp"; return 1; }
+  if jq --argjson idx "$index" '.rules[$idx].enabled = false' "$config" > "$tmp"; then
+    mv "$tmp" "$config"
+  else
+    rm -f "$tmp"; return 1
+  fi
 
   # Write audit trail
   write_rule_event "rule_disabled" "$index" "$type" "$user" "$reason"
@@ -97,7 +111,9 @@ rule_enable() {
   # Verify index is valid
   local count
   count=$(jq '.rules | length' "$config" 2>/dev/null)
-  [ "$index" -ge 0 ] && [ "$index" -lt "$count" ] 2>/dev/null || { echo "Rule index out of range: $index (have $count rules)" >&2; return 1; }
+  if ! { [ "$index" -ge 0 ] && [ "$index" -lt "$count" ]; } 2>/dev/null; then
+    echo "Rule index out of range: $index (have $count rules)" >&2; return 1
+  fi
 
   # Read type for audit trail
   local type
@@ -106,7 +122,11 @@ rule_enable() {
   # Remove enabled field (defaults to true)
   local tmp
   tmp=$(mktemp "${config}.tmp.XXXXXX")
-  jq --argjson idx "$index" '.rules[$idx] |= del(.enabled)' "$config" > "$tmp" && mv "$tmp" "$config" || { rm -f "$tmp"; return 1; }
+  if jq --argjson idx "$index" '.rules[$idx] |= del(.enabled)' "$config" > "$tmp"; then
+    mv "$tmp" "$config"
+  else
+    rm -f "$tmp"; return 1
+  fi
 
   # Write audit trail
   write_rule_event "rule_enabled" "$index" "$type" "$user" "$reason"

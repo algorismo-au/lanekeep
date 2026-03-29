@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034  # BUDGET_PASSED, BUDGET_REASON set here, read externally via indirection
 # Tier 5: Budget tracking (action count, wall-clock time, token tracking)
 
 BUDGET_PASSED=true

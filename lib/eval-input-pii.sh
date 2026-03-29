@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034  # INPUT_PII_* globals set here, read externally via indirection
 # Tier 4: Input PII evaluator — scans tool input for PII patterns
 
 INPUT_PII_PASSED=true

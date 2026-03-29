@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034  # WORKFLOW_INJECT_* globals set here, read externally via indirection
 # Tier 2.5: GitHub Actions workflow expression injection detector
 #
 # Detects ${{ github.event.* }} used directly in run: steps — a well-known
