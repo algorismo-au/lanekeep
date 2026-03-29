@@ -17,7 +17,7 @@
 
 # LaneKeep
 
-Stop your AI agent before it does something you didn't ask for. LaneKeep allows you to define your own boundaries.
+LaneKeep allows your agent to run within boundaries that you control.
 
 > Works with **Claude Code CLI** (including incremental and multi-agent setups). **No data leaves your machine.**
 
