@@ -1173,7 +1173,7 @@
     {
       "id": "sys-090",
       "match": {
-        "pattern": "(?:^|[;&|]\\s*)\\S+\\s+--dangerously-skip-permissions(?:\\s|$)"
+        "pattern": "\\bclaude\\b.*--dangerously-skip-permissions"
       },
       "decision": "deny",
       "reason": "--dangerously-skip-permissions bypasses all Claude Code safety checks",
