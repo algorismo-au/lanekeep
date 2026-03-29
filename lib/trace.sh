@@ -15,13 +15,24 @@ _redact_secrets() {
     printf '%s' "$input"
     return 0
   fi
-  printf '%s' "$input" | sed -E \
-    -e 's/AKIA[0-9A-Z]{16}/[REDACTED:aws-key]/g' \
-    -e 's/gh[pousr]_[A-Za-z0-9]{36}/[REDACTED:github-token]/g' \
-    -e 's/sk-ant-[A-Za-z0-9_-]{20,}/[REDACTED:api-key]/g' \
-    -e 's/sk-[A-Za-z0-9]{20,}/[REDACTED:api-key]/g' \
-    -e 's/Bearer [A-Za-z0-9._-]+/Bearer [REDACTED]/g' \
-    -e 's/("(api[_-]?key|secret[_-]?key|access[_-]?token|auth[_-]?token|password|credential|secret)"\s*:\s*")[A-Za-z0-9+\/=]{32,}"/\1[REDACTED:secret]"/gI'
+  # Fast pre-check: skip sed subprocess when no redactable patterns are present
+  # (covers the common case — Read/Glob/Grep inputs with no secrets)
+  case "$input" in
+    *AKIA[0-9A-Z]*|*"gh[pousr]_"*|*"sk-ant-"*|*"sk-"*|*"Bearer "*|\
+    *"api_key"*|*"api-key"*|*"secret_key"*|*"secret-key"*|\
+    *"access_token"*|*"auth_token"*|*"password"*|*"credential"*|*"secret"*)
+      printf '%s' "$input" | sed -E \
+        -e 's/AKIA[0-9A-Z]{16}/[REDACTED:aws-key]/g' \
+        -e 's/gh[pousr]_[A-Za-z0-9]{36}/[REDACTED:github-token]/g' \
+        -e 's/sk-ant-[A-Za-z0-9_-]{20,}/[REDACTED:api-key]/g' \
+        -e 's/sk-[A-Za-z0-9]{20,}/[REDACTED:api-key]/g' \
+        -e 's/Bearer [A-Za-z0-9._-]+/Bearer [REDACTED]/g' \
+        -e 's/("(api[_-]?key|secret[_-]?key|access[_-]?token|auth[_-]?token|password|credential|secret)"\s*:\s*")[A-Za-z0-9+\/=]{32,}"/\1[REDACTED:secret]"/gI'
+      ;;
+    *)
+      printf '%s' "$input"
+      ;;
+  esac
 }
 
 # VULN-14: Validate trace path is within expected .lanekeep/ directory
@@ -30,11 +41,11 @@ _validate_trace_path() {
   local resolved
   # Resolve parent dir (file may not exist yet)
   local dir_resolved base_name
-  dir_resolved="$(cd "$(dirname "$trace_path")" 2>/dev/null && pwd)" || {
-    echo "[LaneKeep] ERROR: Trace directory does not exist: $(dirname "$trace_path")" >&2
+  base_name="${trace_path##*/}"
+  dir_resolved="$(cd "${trace_path%/*}" 2>/dev/null && pwd)" || {
+    echo "[LaneKeep] ERROR: Trace directory does not exist: ${trace_path%/*}" >&2
     return 1
   }
-  base_name="$(basename "$trace_path")"
   resolved="${dir_resolved}/${base_name}"
   # Use realpath for canonical path and compare against known-good suffix
   local canonical
@@ -108,7 +119,7 @@ write_trace() {
   fi
 
   # Ensure trace directory exists with restrictive permissions
-  mkdir -p -m 0700 "$(dirname "$LANEKEEP_TRACE_FILE")"
+  mkdir -p -m 0700 "${LANEKEEP_TRACE_FILE%/*}"
 
   # Validate and append trace entry
   _validate_trace_path "$LANEKEEP_TRACE_FILE" || return 0
@@ -153,7 +164,7 @@ write_policy_event() {
   local user="$4"
   local reason="$5"
 
-  mkdir -p -m 0700 "$(dirname "$LANEKEEP_TRACE_FILE")"
+  mkdir -p -m 0700 "${LANEKEEP_TRACE_FILE%/*}"
 
   _validate_trace_path "$LANEKEEP_TRACE_FILE" || return 0
 
@@ -177,7 +188,7 @@ write_rule_event() {
   local user="$4"
   local reason="$5"
 
-  mkdir -p -m 0700 "$(dirname "$LANEKEEP_TRACE_FILE")"
+  mkdir -p -m 0700 "${LANEKEEP_TRACE_FILE%/*}"
   _validate_trace_path "$LANEKEEP_TRACE_FILE" || return 0
 
   local entry

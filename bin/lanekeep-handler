@@ -169,10 +169,16 @@ if [ "${LANEKEEP_LICENSE_TIER:-community}" = "enterprise" ]; then
 fi
 
 # Phase 4: Capture all timestamp forms at once (1B — one date per request)
-_NOW_NS=$(date +%s%N)
-_NOW_EPOCH=${_NOW_NS:0:10}
-_NOW_ISO=$(date -u -d "@$_NOW_EPOCH" +%Y-%m-%dT%H:%M:%S.%3NZ 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%S.000Z)
+# Use EPOCHREALTIME (bash 5.0+ builtin) for nanosecond precision — no subprocess
+_epoch_real=$EPOCHREALTIME              # e.g. "1774741621.904575"
+_NOW_EPOCH=${_epoch_real%.*}            # integer seconds
+_usec=${_epoch_real#*.}                 # microseconds (6 digits)
+_NOW_NS="${_NOW_EPOCH}${_usec}000"      # nanoseconds (pad to 9 digits)
 START_NS=$_NOW_NS
+TZ=UTC printf -v _NOW_ISO '%(%Y-%m-%dT%H:%M:%S)T' "$_NOW_EPOCH"
+_ms_part=$(( 10#$_usec / 1000 ))
+printf -v _ms3 '%03d' "$_ms_part"
+_NOW_ISO="${_NOW_ISO}.${_ms3}Z"
 
 case "$HOOK_EVENT" in
   PreToolUse)
@@ -479,7 +485,8 @@ case "$HOOK_EVENT" in
     fi
 
     # --- Dispatch decision ---
-    END_NS=$(date +%s%N)
+    _end_real=$EPOCHREALTIME; _end_sec=${_end_real%.*}; _end_usec=${_end_real#*.}
+    END_NS="${_end_sec}${_end_usec}000"
     LATENCY_MS=$(( (END_NS - START_NS) / 1000000 ))
 
     if [ "$BLOCKED" = true ]; then
@@ -563,7 +570,8 @@ case "$HOOK_EVENT" in
     RESULTS+=("$(printf '{"name":"ResultTransform","tier":9,"score":%d,"passed":%s,"action":"%s","detail":"%s","compliance":%s,"detections":%s}' \
       "$_rt_score" "$RESULT_TRANSFORM_PASSED" "$(_json_escape "$RESULT_TRANSFORM_ACTION")" "$(_json_escape "$RESULT_TRANSFORM_REASON")" "$RESULT_TRANSFORM_COMPLIANCE" "$RESULT_TRANSFORM_DETECTIONS")")
 
-    END_NS=$(date +%s%N)
+    _end_real=$EPOCHREALTIME; _end_sec=${_end_real%.*}; _end_usec=${_end_real#*.}
+    END_NS="${_end_sec}${_end_usec}000"
     LATENCY_MS=$(( (END_NS - START_NS) / 1000000 ))
 
     if [ "$RESULT_TRANSFORM_PASSED" = true ]; then
