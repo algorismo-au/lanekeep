@@ -73,14 +73,16 @@ semantic_eval() {
     fi
   fi
 
-  # Get provider config
+  # Get provider config (fallbacks read from defaults — no hardcoded model names)
+  local _defaults_file="${LANEKEEP_DIR:-}/defaults/lanekeep.json"
   local provider model api_key_env timeout_s on_error
-  eval "$(jq -r '
-    "provider=" + (.evaluators.semantic.provider // "anthropic" | @sh),
-    "model=" + (.evaluators.semantic.model // "claude-haiku-4-5-20251001" | @sh),
-    "api_key_env=" + (.evaluators.semantic.api_key_env // "ANTHROPIC_API_KEY" | @sh),
-    "timeout_s=" + (.evaluators.semantic.timeout // 5 | tostring | @sh),
-    "on_error=" + (.evaluators.semantic.on_error // "deny" | @sh)
+  eval "$(jq -r --slurpfile defs "$_defaults_file" '
+    ($defs[0].evaluators.semantic) as $d |
+    "provider=" + (.evaluators.semantic.provider // $d.provider // "anthropic" | @sh),
+    "model=" + (.evaluators.semantic.model // $d.model | @sh),
+    "api_key_env=" + (.evaluators.semantic.api_key_env // $d.api_key_env // "ANTHROPIC_API_KEY" | @sh),
+    "timeout_s=" + (.evaluators.semantic.timeout // $d.timeout // 10 | tostring | @sh),
+    "on_error=" + (.evaluators.semantic.on_error // $d.on_error // "deny" | @sh)
   ' "$config")"
 
   # Validate api_key_env against allowlist (VULN-04/05: prevent env var exfiltration)
@@ -141,7 +143,7 @@ semantic_eval() {
 
   # Parse LLM response
   local safe reason
-  safe=$(printf '%s' "$response" | jq -r 'if has("safe") then .safe else true end' 2>/dev/null)
+  safe=$(printf '%s' "$response" | jq -r 'if has("safe") then .safe else false end' 2>/dev/null)
   reason=$(printf '%s' "$response" | jq -r '.reason // "No reason provided"' 2>/dev/null)
 
   if [ "$safe" = "false" ]; then
