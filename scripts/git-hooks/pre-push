@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# LaneKeep pre-push hook — runs targeted bats tests before pushing.
+# Install via: bash scripts/setup-dev-hooks.sh
+#
+# Skip entirely:  SKIP_TESTS=1 git push
+# Full suite:     FULL_TESTS=1 git push
+set -euo pipefail
+
+if [[ "${SKIP_TESTS:-0}" == "1" ]]; then
+  echo "[pre-push] SKIP_TESTS=1 — skipping tests." >&2
+  exit 0
+fi
+
+# Dependency check
+if ! command -v bats >/dev/null 2>&1; then
+  echo "[pre-push] bats not found. Install: https://github.com/bats-core/bats-core" >&2
+  echo "[pre-push] Or skip with: SKIP_TESTS=1 git push" >&2
+  exit 1
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Collect changed files between upstream and HEAD (falls back to all tracked
+# files when there is no upstream, e.g. first push of a new branch)
+if git rev-parse --verify @{u} >/dev/null 2>&1; then
+  changed=$(git diff --name-only @{u}..HEAD)
+else
+  changed=$(git diff --name-only HEAD~1..HEAD 2>/dev/null || git ls-files)
+fi
+
+if [[ "${FULL_TESTS:-0}" == "1" ]]; then
+  changed="FORCE_FULL"
+fi
+
+# Path → test directory mapping
+declare -A suite_map=(
+  ["defaults/"]="tests/rules/"
+  ["lib/eval-"]="tests/evaluators/ tests/pipeline/"
+  ["lib/config.sh"]="tests/config/"
+  ["lib/cumulative.sh"]="tests/pipeline/"
+  ["lib/dispatcher.sh"]="tests/pipeline/"
+  ["lib/hooks.sh"]="tests/hooks/"
+  ["bin/"]="tests/cli/ tests/hooks/"
+  ["hooks/"]="tests/hooks/"
+  ["plugins.d/"]="tests/plugins/"
+  ["lib/"]="tests/pipeline/ tests/evaluators/"
+  ["tests/"]="SELF"
+)
+
+selected_suites=""
+
+for pattern in "${!suite_map[@]}"; do
+  if echo "$changed" | grep -q "$pattern"; then
+    suite="${suite_map[$pattern]}"
+    if [[ "$suite" == "SELF" ]]; then
+      # Test files changed — run only the specific changed test files
+      for f in $(echo "$changed" | grep '^tests/.*\.bats$'); do
+        [[ -f "$f" ]] && selected_suites="$selected_suites $f"
+      done
+    else
+      selected_suites="$selected_suites $suite"
+    fi
+  fi
+done
+
+# Deduplicate and clean up
+if [[ -n "$selected_suites" && "$changed" != "FORCE_FULL" ]]; then
+  # Build unique list of test dirs/files
+  unique_suites=$(echo "$selected_suites" | tr ' ' '\n' | sort -u | tr '\n' ' ')
+  echo "[pre-push] Running targeted tests: $unique_suites" >&2
+  # shellcheck disable=SC2086
+  exec bats $unique_suites
+else
+  echo "[pre-push] Running full test suite..." >&2
+  exec bats --recursive tests/
+fi
