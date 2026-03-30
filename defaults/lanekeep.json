@@ -484,7 +484,9 @@
     "rm -rf *",
     "badblocks -w",
     "hdparm --security-erase",
-    "/dev/mem"
+    "/dev/mem",
+    "fsck -y",
+    "fsck --yes"
   ],
   "hard_blocks_regex": [
     "\\brm\\b(?=.*(\\s-[a-z]*r[a-z]*[\\s\"]|\\s--recursive[\\s\"]))(?=.*(\\s-[a-z]*f[a-z]*[\\s\"]|\\s--force[\\s\"])).*\\s/",
@@ -668,12 +670,12 @@
     {
       "id": "sys-008",
       "match": {
-        "pattern": "\\b(mkfs)\\b|>\\s*/dev/sd|\\bdd\\b.*\\b(if=|of=/dev/(sd|nvme|vd|hd|xvd))"
+        "pattern": "\\b(mkfs)\\b|>\\s*/dev/sd|\\\\?\\bdd\\b.*\\b(if=|of=/dev/(sd|nvme|vd|hd|xvd))|\\bfsck\\b(?=.*(-y|--yes))(?=.*\\/dev\\/)"
       },
       "decision": "deny",
       "reason": "Disk format or raw device write blocked",
       "category": "system",
-      "intent": "Formatting disks or writing directly to block devices destroys all data — never appropriate in a dev context",
+      "intent": "Formatting disks, writing directly to block devices, or running fsck -y on a mounted device destroys all data — never appropriate in a dev context",
       "type": "free"
     },
     {
@@ -1180,6 +1182,20 @@
       "category": "system",
       "intent": "Passing --dangerously-skip-permissions to claude disables the entire permission system — never appropriate for an AI agent to invoke another agent with all guardrails removed",
       "type": "free"
+    },
+    {
+      "id": "sys-091",
+      "match": {
+        "pattern": "\\brm\\b(?!.*\\s-[a-z]*[rf]).*\\s['\"]?[^\\s]*[*?][^\\s]*['\"]?"
+      },
+      "decision": "ask",
+      "reason": "Wildcard rm without -r/-f — confirm target files in non-interactive context",
+      "category": "system",
+      "intent": "rm with glob patterns (e.g. rm -i *) deletes all matching files. The -i flag is ineffective when stdin is not a TTY, as in AI agent contexts — the shell expands the glob before rm runs and there is no prompt to protect against accidental mass deletion",
+      "type": "free",
+      "compliance_tags": [
+        "atlas:t0081"
+      ]
     },
     {
       "id": "warn-005",
