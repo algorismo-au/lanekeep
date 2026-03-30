@@ -614,6 +614,11 @@ tbody tr.selected { background: var(--bg-hover); }
 .gov-card h3 { font-size: 13px; font-weight: 600; color: var(--text-bright); margin-bottom: 10px; text-transform: none; letter-spacing: 0.5px; font-family: var(--font-heading); }
 .gov-card .gov-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 12px; }
 .gov-card .gov-row .gov-label { color: var(--text-secondary); }
+.gov-tip { position: relative; display: inline-flex; align-items: center; margin-left: 4px; }
+.gov-tip svg { width: 11px; height: 11px; opacity: 0.3; transition: opacity 0.15s; pointer-events: none; }
+.gov-tip:hover svg { opacity: 0.7; }
+.gov-tip .gov-tip-text { position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); background: var(--bg-panel); color: var(--text-body); font-size: 11px; font-weight: 400; line-height: 1.35; white-space: nowrap; padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border-strong); pointer-events: none; opacity: 0; transition: opacity 0.12s; z-index: 10; }
+.gov-tip:hover .gov-tip-text { opacity: 1; }
 .gov-card .gov-row .gov-value { color: var(--text-body); font-weight: 600; }
 .gov-progress { width: 100%; height: 6px; background: var(--bg-hover); border-radius: 3px; margin-top: 4px; overflow: hidden; }
 .gov-progress-bar { height: 100%; border-radius: 3px; transition: width 0.3s; }
@@ -2487,17 +2492,19 @@ async function loadGovernance() {
         `<span style="color:${decColors[k]};font-weight:600;margin-right:8px">${k}: ${dec[k] || 0}</span>`
       ).join('');
     }
+    const tipIcon = '<svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="8" y="12" text-anchor="middle" font-size="10" font-family="sans-serif">?</text></svg>';
+    function tip(text) { return `<span class="gov-tip">${tipIcon}<span class="gov-tip-text">${text}</span></span>`; }
 
     // Session
     const sessDec = s.decisions || {};
     const sessDecTotal = (sessDec.deny || 0) + (sessDec.warn || 0) + (sessDec.ask || 0) + (sessDec.allow || 0);
     const sessEvals = (s.latency_values || []).length;
     document.getElementById('gov-session').innerHTML = `<h3>Session</h3>
-      <div class="gov-row"><span class="gov-label">Events</span><span class="gov-value">${esc(String(b.events ?? 0))}</span></div>
-      <div class="gov-row"><span class="gov-label">Evaluations</span><span class="gov-value">${esc(String(sessEvals))}</span></div>
-      <div class="gov-row"><span class="gov-label">Decisions</span><span class="gov-value">${esc(String(sessDecTotal))}</span></div>
+      <div class="gov-row"><span class="gov-label">Events${tip('Hook invocations (pre + post-evaluate)')}</span><span class="gov-value">${esc(String(b.events ?? 0))}</span></div>
+      <div class="gov-row"><span class="gov-label">Evaluations${tip('Rule checks run against events')}</span><span class="gov-value">${esc(String(sessEvals))}</span></div>
+      <div class="gov-row"><span class="gov-label">Decisions${tip('Verdicts: deny, warn, ask, or allow')}</span><span class="gov-value">${esc(String(sessDecTotal))}</span></div>
       <div style="font-size:11px;padding:2px 0 4px 8px">${decHtml(sessDec)}</div>
-      <div class="gov-row"><span class="gov-label">Actions</span><span class="gov-value">${esc(String(b.actions ?? 0))}</span></div>
+      <div class="gov-row"><span class="gov-label">Actions${tip('Tools that actually executed (not denied)')}</span><span class="gov-value">${esc(String(b.actions ?? 0))}</span></div>
       <div style="border-top:1px solid rgba(255,255,255,0.05);margin-top:6px;padding-top:6px;">
         <div class="gov-row"><span class="gov-label">PII (input)</span><span class="gov-value" style="color:var(--color-pii)">${esc(String(s.pii_input ?? 0))}</span></div>
         <div class="gov-row"><span class="gov-label">Trace file</span><span class="gov-value">${esc(s.trace_file || 'none')}</span></div>
@@ -2511,11 +2518,11 @@ async function loadGovernance() {
     const cumDecTotal = (cumDec.deny || 0) + (cumDec.warn || 0) + (cumDec.ask || 0) + (cumDec.allow || 0);
     const cumEvals = (cum.latency || {}).count || 0;
     document.getElementById('gov-cumulative').innerHTML = `<h3>All-Time</h3>
-      <div class="gov-row"><span class="gov-label">Events</span><span class="gov-value">${esc(String(cum.total_events || 0))}</span></div>
-      <div class="gov-row"><span class="gov-label">Evaluations</span><span class="gov-value">${esc(String(cumEvals))}</span></div>
-      <div class="gov-row"><span class="gov-label">Decisions</span><span class="gov-value">${esc(String(cumDecTotal))}</span></div>
+      <div class="gov-row"><span class="gov-label">Events${tip('Hook invocations (pre + post-evaluate)')}</span><span class="gov-value">${esc(String(cum.total_events || 0))}</span></div>
+      <div class="gov-row"><span class="gov-label">Evaluations${tip('Rule checks run against events')}</span><span class="gov-value">${esc(String(cumEvals))}</span></div>
+      <div class="gov-row"><span class="gov-label">Decisions${tip('Verdicts: deny, warn, ask, or allow')}</span><span class="gov-value">${esc(String(cumDecTotal))}</span></div>
       <div style="font-size:11px;padding:2px 0 4px 8px">${decHtml(cumDec)}</div>
-      <div class="gov-row"><span class="gov-label">Actions</span><span class="gov-value">${esc(String(cum.total_actions || 0))}</span></div>
+      <div class="gov-row"><span class="gov-label">Actions${tip('Tools that actually executed (not denied)')}</span><span class="gov-value">${esc(String(cum.total_actions || 0))}</span></div>
       <div style="border-top:1px solid rgba(255,255,255,0.05);margin-top:6px;padding-top:6px;">
         <div class="gov-row"><span class="gov-label">PII (input)</span><span class="gov-value" style="color:var(--color-pii)">${esc(String(cumPii.input || 0))}</span></div>
         <div class="gov-row"><span class="gov-label">Sessions</span><span class="gov-value">${esc(String(cum.total_sessions || 0))}</span></div>
@@ -3530,23 +3537,36 @@ function updateInsightCards() {
 }
 
 function _buildAnalyticsCards(src, sliceLimit, fileIdPrefix) {
+  const VISIBLE_LIMIT = 3;
+
+  // Overflow helper — shows first VISIBLE_LIMIT items, rest behind "Show more..."
+  function _overflow(allItems, emptyMsg, prefix) {
+    if (!allItems || !allItems.length) return emptyMsg;
+    if (allItems.length <= VISIBLE_LIMIT) return allItems.join('');
+    const ovId = fileIdPrefix + '-' + prefix + '-overflow';
+    const togId = fileIdPrefix + '-' + prefix + '-toggle';
+    return allItems.slice(0, VISIBLE_LIMIT).join('') + `<div id="${ovId}" class="ranked-list-overflow">${allItems.slice(VISIBLE_LIMIT).join('')}</div><div data-action="toggleFileList" data-overflow="${ovId}" data-toggle="${togId}" id="${togId}" class="ranked-list-toggle">Show more...</div>`;
+  }
+
   // Top denied tools
   const toolDenyCounts = src.top_denied_tools || {};
   const topDenied = Object.entries(toolDenyCounts).sort((a, b) => b[1] - a[1]).slice(0, sliceLimit);
   const maxDeny = topDenied.length > 0 ? topDenied[0][1] : 1;
-  const deniedItems = topDenied.length > 0 ? topDenied.map(([tool, count]) => {
+  const deniedItemsAll = topDenied.length > 0 ? topDenied.map(([tool, count]) => {
     const pct = Math.round(count / maxDeny * 100);
     return `<div class="ranked-item"><span class="rank-label" title="${esc(tool)}">${esc(tool)}</span><div class="rank-bar-row"><div class="rank-bar-wrap"><div class="rank-bar" style="width:${pct}%" title="${count} denial${count !== 1 ? 's' : ''}"></div></div><span class="rank-count">${count}</span></div></div>`;
-  }).join('') : '<div class="metrics-empty">No denials recorded</div>';
+  }) : null;
+  const deniedItems = _overflow(deniedItemsAll, '<div class="metrics-empty">No denials recorded</div>', 'deny');
 
   // Top triggered evaluators
   const evalCounts = src.top_evaluators || {};
   const topEvals = Object.entries(evalCounts).sort((a, b) => b[1] - a[1]).slice(0, sliceLimit);
   const maxEval = topEvals.length > 0 ? topEvals[0][1] : 1;
-  const evalItems = topEvals.length > 0 ? topEvals.map(([name, count]) => {
+  const evalItemsAll = topEvals.length > 0 ? topEvals.map(([name, count]) => {
     const pct = Math.round(count / maxEval * 100);
     return `<div class="ranked-item"><span class="rank-label" title="${esc(name)}">${esc(name)}</span><div class="rank-bar-row"><div class="rank-bar-wrap"><div class="rank-bar" style="width:${pct}%;background:var(--color-warn)" title="${count} denial${count !== 1 ? 's' : ''}"></div></div><span class="rank-count">${count}</span></div></div>`;
-  }).join('') : '<div class="metrics-empty">No evaluator denials</div>';
+  }) : null;
+  const evalItems = _overflow(evalItemsAll, '<div class="metrics-empty">No evaluator denials</div>', 'eval');
 
   // Files touched
   const filesData = src.files_touched || {};
@@ -3565,12 +3585,7 @@ function _buildAnalyticsCards(src, sliceLimit, fileIdPrefix) {
     const barTitle = f.ops + ' operation' + (f.ops !== 1 ? 's' : '') + ' (' + pct + '% of max)';
     return `<div class="ranked-item"><span class="rank-label ins-file-link" data-action="openInsightsFile" data-path="${esc(f.path)}" title="${esc(f.path)}">${fileIcon(base)}${esc(base)}${fileTag}${extraMeta}${deniedTag}</span><div class="rank-bar-row"><div class="rank-bar-wrap"><div class="rank-bar" style="width:${pct}%;background:${f.written ? '#d2a08a' : '#92d4cd'}" title="${esc(barTitle)}"></div></div><span class="rank-count">${f.ops}</span></div></div>`;
   }) : null;
-  let fileItems;
-  const ovId = fileIdPrefix + '-file-overflow';
-  const togId = fileIdPrefix + '-file-toggle';
-  if (!fileItemsAll) { fileItems = '<div class="metrics-empty">No file operations</div>'; }
-  else if (fileItemsAll.length <= 5) { fileItems = fileItemsAll.join(''); }
-  else { fileItems = fileItemsAll.slice(0, 5).join('') + `<div id="${ovId}" class="ranked-list-overflow">${fileItemsAll.slice(5).join('')}</div><div data-action="toggleFileList" data-overflow="${ovId}" data-toggle="${togId}" id="${togId}" class="ranked-list-toggle">Show more...</div>`; }
+  const fileItems = _overflow(fileItemsAll, '<div class="metrics-empty">No file operations</div>', 'file');
 
   // Latency stats
   const fmtMs = v => v != null ? v + 'ms' : '--';
