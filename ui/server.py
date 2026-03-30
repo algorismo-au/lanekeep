@@ -294,15 +294,23 @@ def _md_to_html(text):
     img_blocks = []
     def _replace_html_img(m):
         tag = m.group(1)
-        # Rewrite relative src to absolute /images/ path
-        tag = re.sub(r'src="(images/)', r'src="/\1', tag)
-        # Extract width attribute if present, use as max-width for responsive sizing
+        # MED-05: Rebuild img tag from only safe attributes to prevent event handler injection
+        # (e.g. <img src=x onerror=alert(1)> would execute JS without this sanitization)
+        src_match = re.search(r'src="([^"]*)"', tag) or re.search(r"src='([^']*)'", tag)
+        alt_match = re.search(r'alt="([^"]*)"', tag) or re.search(r"alt='([^']*)'", tag)
         w_match = re.search(r'width="(\d+)"', tag)
-        tag = re.sub(r'\s*width="\d+"', '', tag)
+        src = html_mod.escape(src_match.group(1)) if src_match else ''
+        alt = html_mod.escape(alt_match.group(1)) if alt_match else ''
+        # Block javascript: URIs
+        if re.match(r'\s*javascript:', src, re.IGNORECASE):
+            src = ''
+        # Rewrite relative src to absolute /images/ path
+        if src.startswith('images/'):
+            src = '/' + src
         max_w = f'max-width:{w_match.group(1)}px' if w_match else 'max-width:100%'
-        tag = re.sub(r'/?\s*>$', f' style="{max_w};width:100%;border-radius:8px" />', tag.strip())
+        safe_tag = f'<img src="{src}" alt="{alt}" style="{max_w};width:100%;border-radius:8px" />'
         idx = len(img_blocks)
-        img_blocks.append(f'<div style="text-align:center;margin:1em 0">{tag}</div>')
+        img_blocks.append(f'<div style="text-align:center;margin:1em 0">{safe_tag}</div>')
         return f'\x00IMGBLOCK{idx}\x00'
     # Match <p>...<img .../>...</p> wrappers or bare <img> tags
     text = re.sub(r'<p[^>]*>\s*(<img\s[^>]+/?>)\s*</p>', _replace_html_img, text)
@@ -728,6 +736,8 @@ class Handler(BaseHTTPRequestHandler):
     def _serve_trace(self, qs):
         try:
             limit = int(qs.get('limit', ['500'])[0])
+            # MED-03: Cap limit to prevent memory exhaustion
+            limit = max(1, min(limit, 10000))
         except (ValueError, TypeError):
             self._respond(400, json.dumps({'error': 'Invalid limit parameter'}), 'application/json')
             return
@@ -1726,11 +1736,21 @@ class Handler(BaseHTTPRequestHandler):
         """Return context files (markdown, config, etc.) visible in the project."""
         try:
             files = []
+            project_real = os.path.realpath(str(PROJECT_DIR))
             skip_dirs = {'.git', '.lanekeep', '.claude', 'node_modules', '__pycache__', '.venv', '.svn', '.hg'}
             for root, dirs, filenames in os.walk(str(PROJECT_DIR)):
-                dirs[:] = [d for d in dirs if d not in skip_dirs and not d.startswith('.')]
+                # MED-06: Filter symlinked directories to prevent traversal outside project
+                dirs[:] = [d for d in dirs
+                           if d not in skip_dirs and not d.startswith('.')
+                           and not os.path.islink(os.path.join(root, d))]
                 rel_root = os.path.relpath(root, str(PROJECT_DIR))
                 for fn in sorted(filenames):
+                    full_path = os.path.join(root, fn)
+                    # MED-06: Skip symlinked files and files resolving outside project
+                    if os.path.islink(full_path):
+                        continue
+                    if not os.path.realpath(full_path).startswith(project_real + os.sep):
+                        continue
                     if fn.endswith(('.md', '.json', '.yaml', '.yml', '.toml', '.txt', '.cfg', '.ini', '.conf')):
                         if rel_root == '.':
                             files.append(fn)

@@ -104,6 +104,7 @@ if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
     "_CFG_MAX_TOTAL_TOKENS=" + (.budget.max_total_tokens // "" | tostring | @sh),
     "_CFG_MAX_TOTAL_TIME=" + (.budget.max_total_time_seconds // "" | tostring | @sh),
     "_CFG_PLUGIN_HASHES=" + ((.plugins.allowed_hashes // {} | to_entries | map("\(.key)=\(.value)") | join(";")) | @sh),
+    "_CFG_PLUGIN_CRASH_POLICY=" + ((.plugins.crash_policy // "deny") | @sh),
     "_CFG_HIDDEN_TEXT_ENABLED=" + (if .evaluators.hidden_text.enabled == false then "false" else "true" end | @sh),
     "_CFG_INPUT_PII_ENABLED=" + (if .evaluators.input_pii.enabled == false then "false" else "true" end | @sh),
     "_CFG_RESULT_TRANSFORM_ENABLED=" + (if .evaluators.result_transform.enabled == false then "false" else "true" end | @sh),
@@ -429,8 +430,18 @@ case "$HOOK_EVENT" in
           esac
 
           if [ "$plugin_result" = "CRASHED" ] || [ -z "$plugin_result" ]; then
-            RESULTS+=("$(printf '{"name":"Plugin:%s","tier":6,"score":0,"passed":true,"detail":"Plugin crashed, skipped"}' \
-              "$(_json_escape "$(basename "$plugin")")")")
+            # MED-04: Fail-closed on plugin crash (configurable via plugins.crash_policy)
+            if [ "${_CFG_PLUGIN_CRASH_POLICY:-deny}" = "allow" ]; then
+              RESULTS+=("$(printf '{"name":"Plugin:%s","tier":6,"score":0,"passed":true,"detail":"Plugin crashed, skipped (crash_policy=allow)"}' \
+                "$(_json_escape "$(basename "$plugin")")")")
+            else
+              BLOCKED=true
+              BLOCK_REASON="[LaneKeep] DENIED: Plugin crashed or timed out: $(basename "$plugin")"
+              BLOCK_DECISION="deny"
+              RESULTS+=("$(printf '{"name":"Plugin:%s","tier":6,"score":0.9,"passed":false,"detail":"Plugin crashed, denied (fail-closed)"}' \
+                "$(_json_escape "$(basename "$plugin")")")")
+              break
+            fi
             continue
           fi
 
