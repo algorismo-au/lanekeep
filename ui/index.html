@@ -1916,7 +1916,7 @@ function renderActivityLeftWidgets(statusData) {
   var budget = '<div class="activity-widget"><div class="activity-widget-title">Budget <span class="widget-scope">· Session</span></div>'
     + '<div class="aw-meter"><div class="aw-meter-row"><span class="aw-meter-label">Actions</span><span class="aw-meter-value">' + (b.actions || 0) + ' / ' + (b.max_actions || '–') + '</span></div>'
     + '<div class="aw-meter-track"><div class="aw-meter-fill ' + meterCls(actPct) + '" style="width:' + actPct + '%"></div></div></div>'
-    + '<div class="aw-meter"><div class="aw-meter-row"><span class="aw-meter-label">Time</span><span class="aw-meter-value">' + (b.elapsed_min || 0) + 'm / ' + (b.max_minutes || '–') + 'm</span></div>'
+    + '<div class="aw-meter"><div class="aw-meter-row"><span class="aw-meter-label">Time</span><span class="aw-meter-value">' + Math.round(b.elapsed_min || 0) + 'm / ' + (b.max_minutes || '–') + 'm</span></div>'
     + '<div class="aw-meter-track"><div class="aw-meter-fill ' + meterCls(timePct) + '" style="width:' + timePct + '%"></div></div></div>'
     + '</div>';
 
@@ -2436,7 +2436,7 @@ async function loadGovernance() {
       ${sessOutTokBar}
       <div class="gov-row" style="margin-top:8px"><span class="gov-label">Tokens (Input + Output)</span><span class="gov-value">${esc(String(b.tokens ?? 0))} / ${sessTokLabel}</span></div>
       ${sessTokBar}
-      <div class="gov-row" style="margin-top:8px"><span class="gov-label">Time</span><span class="gov-value">${esc(String(b.elapsed_min ?? 0))}m / ${esc(String(b.max_minutes || '?'))}m</span></div>
+      <div class="gov-row" style="margin-top:8px"><span class="gov-label">Time</span><span class="gov-value">${esc(String(Math.round(b.elapsed_min ?? 0)))}m / ${esc(String(b.max_minutes || '?'))}m</span></div>
       <div class="gov-progress"><div class="gov-progress-bar ${barClass(sessTimePct)}" style="width:${sessTimePct}%"></div></div>
       ${ctxWindowHtml ? '<div style="margin-top:8px">' + ctxWindowHtml + '</div>' : ''}`;
 
