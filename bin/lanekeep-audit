@@ -221,7 +221,9 @@ _validate_rules_in_file() {
     while IFS=$'\t' read -r idx rid rsrc pat; do
       [ -z "$pat" ] && continue
       local rlbl
-      rlbl="Rule #$idx$([ -n "$rid" ] && printf ' (%s)' "$rid" || true)$([ "$rsrc" = "custom" ] && printf ' [custom]' || true)"
+      rlbl="Rule #$idx"
+      if [ -n "$rid" ]; then rlbl+=" ($rid)"; fi
+      if [ "$rsrc" = "custom" ]; then rlbl+=" [custom]"; fi
       if printf '%s' "$pat" | grep -qP '\([^)]*[+*]\)[+*?]|\(\?[^)]*[+*]\)[+*?]' 2>/dev/null; then
         warn "$rlbl — regex '$pat' has nested quantifiers (ReDoS risk)"
       fi
