@@ -225,7 +225,7 @@ teardown() {
   local port
   port=$((RANDOM % 10000 + 20000))
   [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null; wait "$SERVER_PID" 2>/dev/null || true
-  "$LANEKEEP_DIR/ui/server.py" --port "$port" --config "$LANEKEEP_CONFIG_FILE" --project-dir "$TEST_TMP" >/dev/null 2>&1 &
+  "$LANEKEEP_DIR/ui/server.py" --port "$port" --config "$LANEKEEP_CONFIG_FILE" --project-dir "$TEST_TMP" </dev/null >/dev/null 2>&1 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&- &
   SERVER_PID=$!
   local retries=30
   while [ $retries -gt 0 ]; do

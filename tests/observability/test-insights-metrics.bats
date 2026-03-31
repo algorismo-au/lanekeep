@@ -25,7 +25,7 @@ teardown() {
 # Helper: start server and wait for it to be ready
 start_server() {
   local port="$1"
-  "$LANEKEEP_DIR/ui/server.py" --port "$port" --config "$LANEKEEP_CONFIG_FILE" --project-dir "$TEST_TMP" >/dev/null 2>&1 &
+  "$LANEKEEP_DIR/ui/server.py" --port "$port" --config "$LANEKEEP_CONFIG_FILE" --project-dir "$TEST_TMP" </dev/null >/dev/null 2>&1 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&- &
   SERVER_PID=$!
   # Wait for server to start (up to 3 seconds)
   local retries=30

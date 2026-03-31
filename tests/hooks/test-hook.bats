@@ -26,7 +26,7 @@ teardown() {
 
 start_server() {
   cd "$PROJECT_DIR"
-  "$LANEKEEP_DIR/bin/lanekeep-serve" "$@" >/dev/null 2>&1 &
+  "$LANEKEEP_DIR/bin/lanekeep-serve" "$@" </dev/null >/dev/null 2>&1 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&- &
   SERVER_PID=$!
   local tries=0
   while [ ! -S "$LANEKEEP_SOCKET" ] && [ $tries -lt 20 ]; do

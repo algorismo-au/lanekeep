@@ -34,7 +34,7 @@ with open(sys.argv[2], 'w') as f:
 for _ in range(3):
     srv.handle_request()
 EOF
-  python3 "$script" "$response" "$portfile" </dev/null >/dev/null 2>&1 &
+  python3 "$script" "$response" "$portfile" </dev/null >/dev/null 2>&1 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&- &
   echo "$!" > "$TEST_TMP/mock.pid"
   local i=0
   while [ ! -f "$portfile" ] && [ $i -lt 50 ]; do

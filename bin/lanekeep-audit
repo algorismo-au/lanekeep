@@ -155,78 +155,79 @@ _validate_rules_in_file() {
   count=$(jq ".$key | length" "$file" 2>/dev/null) || return 0
   [ "$count" -gt 0 ] || return 0
 
-  local i=0
-  while [ "$i" -lt "$count" ]; do
-    local rule
-    rule=$(jq -c ".${key}[$i]" "$file")
-    local rule_id
-    rule_id=$(printf '%s' "$rule" | jq -r '.id // empty')
-    local label="Rule #$((i+1))"
-    [ -n "$rule_id" ] && label="Rule #$((i+1)) ($rule_id)"
-    [ "$source_label" = "custom" ] && label="$label [custom]"
+  # Single jq pass: all per-rule checks + duplicate IDs.
+  # Outputs lines of the form "err:<msg>" or "warn:<msg>".
+  local issues
+  issues=$(jq -r --arg key "$key" --arg src "$source_label" '
+    def rlbl($i; $id; $s):
+      "Rule #\($i+1)" +
+      (if $id != "" then " (\($id))" else "" end) +
+      (if $s == "custom" then " [custom]" else "" end);
 
-    # ERROR: missing required fields
-    for field in match decision reason; do
-      if ! printf '%s' "$rule" | jq -e "has(\"$field\")" >/dev/null 2>&1; then
-        err "$label — missing '$field' field"
-      fi
-    done
+    # Per-rule checks
+    (.[$key] // [] | to_entries[] |
+      .key as $i | .value as $r |
+      ($r.id // "") as $id |
+      rlbl($i; $id; $src) as $lbl |
+      (
+        # Missing required fields
+        (["match","decision","reason"][] as $f |
+          if ($r | has($f)) | not then "err:\($lbl) — missing '"'"'\($f)'"'"' field"
+          else empty end),
+        # Invalid decision
+        (if (($r.decision // "") != "") and
+            (["allow","deny","ask","warn"] | index($r.decision) == null)
+         then "err:\($lbl) — invalid decision '"'"'\($r.decision)'"'"' (must be allow/deny/ask/warn)"
+         else empty end),
+        # Missing id
+        (if $id == "" then "warn:\($lbl) — missing '"'"'id'"'"' field" else empty end),
+        # Broad match
+        (if (($r.match // {} | to_entries | map(select(.value != "")) | length) == 0)
+         then "warn:\($lbl) — broad match (empty or no match conditions)"
+         else empty end),
+        # Single-char command
+        (if (($r.match.command // "" | length) == 1)
+         then "warn:\($lbl) — very short command match (1 char)"
+         else empty end)
+      )
+    ),
+    # Duplicate IDs
+    ([.[$key][] | .id // empty] | group_by(.) |
+      map(select(length > 1) | .[0])[] |
+      "warn:Duplicate id '"'"'\(.)'"'"' in \($src) rules")
+  ' "$file" 2>/dev/null) || issues=""
 
-    # ERROR: invalid decision value
-    local decision
-    decision=$(printf '%s' "$rule" | jq -r '.decision // empty')
-    if [ -n "$decision" ]; then
-      case "$decision" in
-        allow|deny|ask|warn) ;;
-        *) err "$label — invalid decision '$decision' (must be allow/deny/ask/warn)" ;;
+  if [ -n "$issues" ]; then
+    while IFS= read -r issue; do
+      case "$issue" in
+        err:*)  err  "${issue#err:}"  ;;
+        warn:*) warn "${issue#warn:}" ;;
       esac
-    fi
+    done <<< "$issues"
+  fi
 
-    # WARN: missing id
-    if [ -z "$rule_id" ]; then
-      warn "$label — missing 'id' field"
-    fi
+  # ReDoS check: single jq call to extract patterns, then grep per pattern.
+  # Most rules have no .match.pattern/.match.tool, so this is usually a no-op.
+  local redos_data
+  redos_data=$(jq -r --arg key "$key" --arg src "$source_label" '
+    .[$key] // [] | to_entries[] |
+    .key as $i | .value as $r |
+    ($r.id // "") as $id |
+    ($r.match // {} | [.pattern, .tool] | map(select(. != null and . != "")) | .[]) |
+    "\($i+1)\t\($id)\t\($src)\t\(.)"
+  ' "$file" 2>/dev/null) || redos_data=""
 
-    # WARN: broad match
-    local match_fields
-    match_fields=$(printf '%s' "$rule" | jq '.match // {} | to_entries | map(select(.value != "")) | length' 2>/dev/null) || match_fields="0"
-    if [ "$match_fields" = "0" ]; then
-      warn "$label — broad match (empty or no match conditions)"
-    fi
-
-    # WARN: single-char command match
-    local cmd_len
-    cmd_len=$(printf '%s' "$rule" | jq -r '.match.command // "" | length' 2>/dev/null) || cmd_len="0"
-    if [ "$cmd_len" -eq 1 ]; then
-      warn "$label — very short command match (1 char)"
-    fi
-
-    # WARN: ReDoS patterns
-    local regex_fields
-    regex_fields=$(printf '%s' "$rule" | jq -r '.match // {} | [.pattern, .tool] | map(select(. != null and . != "")) | .[]' 2>/dev/null)
-    if [ -n "$regex_fields" ]; then
-      while IFS= read -r pat; do
-        [ -z "$pat" ] && continue
-        if printf '%s' "$pat" | grep -qP '\([^)]*[+*]\)[+*?]|\(\?[^)]*[+*]\)[+*?]' 2>/dev/null; then
-          warn "$label — regex '$pat' has nested quantifiers (ReDoS risk)"
-        fi
-        if [ ${#pat} -gt 500 ]; then
-          warn "$label — regex pattern exceeds 500 chars"
-        fi
-      done <<< "$regex_fields"
-    fi
-
-    i=$((i+1))
-  done
-
-  # Check duplicate IDs
-  local dups
-  dups=$(jq -r "[.${key}[] | .id // empty] | group_by(.) | map(select(length > 1) | .[0]) | .[]" "$file" 2>/dev/null) || dups=""
-  if [ -n "$dups" ]; then
-    while IFS= read -r dup_id; do
-      [ -z "$dup_id" ] && continue
-      warn "Duplicate id '$dup_id' in $source_label rules"
-    done <<< "$dups"
+  if [ -n "$redos_data" ]; then
+    while IFS=$'\t' read -r idx rid rsrc pat; do
+      [ -z "$pat" ] && continue
+      local rlbl="Rule #$idx$([ -n "$rid" ] && printf ' (%s)' "$rid")$([ "$rsrc" = "custom" ] && printf ' [custom]')"
+      if printf '%s' "$pat" | grep -qP '\([^)]*[+*]\)[+*?]|\(\?[^)]*[+*]\)[+*?]' 2>/dev/null; then
+        warn "$rlbl — regex '$pat' has nested quantifiers (ReDoS risk)"
+      fi
+      if [ ${#pat} -gt 500 ]; then
+        warn "$rlbl — regex pattern exceeds 500 chars"
+      fi
+    done <<< "$redos_data"
   fi
 }
 

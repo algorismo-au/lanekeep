@@ -372,6 +372,8 @@ beyond pattern matching. The goal is read from [TaskSpec](#budget--taskspec)
 | `LANEKEEP_HOOK_TIMEOUT` | Hook response timeout | `5` |
 | `LANEKEEP_UI_PORT` | Web dashboard port | `8111` |
 | `LANEKEEP_UI_TLS` | Enable TLS for dashboard | unset |
+| `LANEKEEP_NO_WATCHDOG` | Disable sidecar auto-restart on crash | unset |
+| `LANEKEEP_WATCHDOG_MAX_RESTARTS` | Max consecutive rapid restarts before giving up | `5` |
 | `PROJECT_DIR` | Project directory | cwd |
 | `LANEKEEP_CONFIG_FILE` | Resolved config file path | auto |
 | `LANEKEEP_TASKSPEC_FILE` | Resolved TaskSpec file path | auto |

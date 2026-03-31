@@ -29,6 +29,7 @@
   --color-warn: #c49a2a;
   --color-ask: #5a9cc5;
   --color-pii: #a371f7;
+  --color-evaluator: #e0789e;
   --color-allow-bg: #1a2618;
   --color-deny-bg: #2a1614;
   --color-warn-bg: #2a2010;
@@ -3564,7 +3565,7 @@ function _buildAnalyticsCards(src, sliceLimit, fileIdPrefix) {
   const maxEval = topEvals.length > 0 ? topEvals[0][1] : 1;
   const evalItemsAll = topEvals.length > 0 ? topEvals.map(([name, count]) => {
     const pct = Math.round(count / maxEval * 100);
-    return `<div class="ranked-item"><span class="rank-label" title="${esc(name)}">${esc(name)}</span><div class="rank-bar-row"><div class="rank-bar-wrap"><div class="rank-bar" style="width:${pct}%;background:var(--color-warn)" title="${count} denial${count !== 1 ? 's' : ''}"></div></div><span class="rank-count">${count}</span></div></div>`;
+    return `<div class="ranked-item"><span class="rank-label" title="${esc(name)}">${esc(name)}</span><div class="rank-bar-row"><div class="rank-bar-wrap"><div class="rank-bar" style="width:${pct}%;background:var(--color-evaluator)" title="${count} denial${count !== 1 ? 's' : ''}"></div></div><span class="rank-count">${count}</span></div></div>`;
   }) : null;
   const evalItems = _overflow(evalItemsAll, '<div class="metrics-empty">No evaluator denials</div>', 'eval');
 

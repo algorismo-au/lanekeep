@@ -25,7 +25,7 @@ LaneKeep allows your agent to run within boundaries that you control.
 - **Token visibility** — track input/output tokens, context window usage %, and per-file token sizes so you know exactly where tokens are going and can keep your agent efficient
 - **Budget limits** — set hard caps on actions, tokens, and wall-clock time; auto-deny when limits are hit so runaway sessions don't burn your budget
 - **Full audit trail** — every tool call logged with matched rule and reason
-- **Defense in depth** — 9-tier pipeline, config integrity, PII detection, injection detection
+- **Defense in depth** — Extendable policy layers: 9+ deterministic evaluators and an optional semantic layer (another LLM) as an evaluator; plus PII detection and blocking, config integrity checks, and injection detection
 - **Config audit** — one-click health check for rules, policies, and security posture
 - **Compliance-ready** — built-in coverage for NIST, OWASP, CWE, ATT&CK, and more; Pro packs for EU AI Act, SOC2, HIPAA, PCI-DSS
 
