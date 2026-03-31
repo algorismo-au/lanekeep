@@ -686,7 +686,7 @@ rules_eval() {
           else ($env | safe_test($e; "i"))
           end)
       ) |
-      {index: $idx, decision: ($r.decision // "allow"),
+      {index: $idx, decision: ($r.decision // "deny"),
        reason: ($r.reason // "Matched rule"),
        intent: ($r.intent // ""),
        category: ($r.category // ""),
@@ -762,5 +762,8 @@ rules_eval() {
       ;;
   esac
 
-  return 0
+  # Unrecognized decision value — fail-closed
+  RULES_PASSED=false; RULES_DECISION="deny"
+  RULES_REASON="[LaneKeep] DENIED by RuleEngine: unrecognized decision '$decision'"
+  return 1
 }

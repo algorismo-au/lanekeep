@@ -39,7 +39,7 @@ if ! RESPONSE=$(printf '%s' "$ENRICHED" | socat -t "$TIMEOUT" - UNIX-CONNECT:"$S
   _lanekeep_fail_policy "Failed to reach LaneKeep sidecar."
 fi
 
-DECISION=$(printf '%s' "$RESPONSE" | jq -r '.decision // "allow"')
+DECISION=$(printf '%s' "$RESPONSE" | jq -r '.decision // "deny"')
 
 case "$DECISION" in
   deny)
@@ -54,6 +54,11 @@ case "$DECISION" in
     fi
     exit 0
     ;;
+  *)
+    # Unrecognized decision — fail-closed
+    echo "[LaneKeep] DENIED (post): unrecognized decision '$DECISION'" >&2
+    exit 2
+    ;;
 esac
 
-exit 0
+exit 2

@@ -18,7 +18,7 @@ _write_fallback_trace() {
   local decision="$1" reason="$2"
   (
     local trace_dir="$PWD/.lanekeep/traces"
-    mkdir -p "$trace_dir" && chmod 0700 "$trace_dir"
+    (umask 077; mkdir -p "$trace_dir")
     local fields
     fields=$(printf '%s' "$INPUT" | jq -r '[.tool_name // "unknown", .tool_use_id // "unknown", .session_id // "unknown"] | @tsv' 2>/dev/null) || return 0
     local tool_name tool_use_id session_id
@@ -83,7 +83,7 @@ if ! RESPONSE=$(printf '%s' "$INPUT" | socat -t "$TIMEOUT" - UNIX-CONNECT:"$SOCK
 fi
 
 # Extract decision
-DECISION=$(printf '%s' "$RESPONSE" | jq -r '.decision // "allow"')
+DECISION=$(printf '%s' "$RESPONSE" | jq -r '.decision // "deny"')
 WARN=$(printf '%s' "$RESPONSE" | jq -r '.warn // empty')
 
 case "$DECISION" in
@@ -118,6 +118,16 @@ case "$DECISION" in
         }
       }' 2>/dev/null
     fi
+    ;;
+  *)
+    # Unrecognized decision — fail-closed
+    jq -n -c --arg reason "[LaneKeep] DENIED: unrecognized decision '$DECISION'" '{
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+        permissionDecisionReason: $reason
+      }
+    }' 2>/dev/null
     ;;
 esac
 

@@ -13,7 +13,7 @@ cumulative_init() {
   local state="${LANEKEEP_STATE_FILE:-}"
   local lockfile="${cumfile}.lock"
 
-  mkdir -p "$(dirname "$cumfile")"
+  (umask 077; mkdir -p "$(dirname "$cumfile")")
 
   # If no prior state.json, just ensure cumulative exists
   if [ -z "$state" ] || [ ! -f "$state" ]; then
@@ -105,7 +105,7 @@ cumulative_record() {
   local lockfile="${cumfile}.lock"
 
   if [ ! -f "$cumfile" ]; then
-    mkdir -p "$(dirname "$cumfile")"
+    (umask 077; mkdir -p "$(dirname "$cumfile")")
     _cumulative_empty > "$cumfile"
   fi
 

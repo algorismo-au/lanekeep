@@ -99,7 +99,7 @@ load_config() {
   fi
 
   if [ ! -f "$LANEKEEP_CONFIG_FILE" ]; then
-    mkdir -p "$project_dir/.lanekeep"
+    (umask 077; mkdir -p "$project_dir/.lanekeep")
     cp "$LANEKEEP_DIR/defaults/lanekeep.json" "$project_dir/.lanekeep/resolved-config.json"
     LANEKEEP_CONFIG_FILE="$project_dir/.lanekeep/resolved-config.json"
   fi
@@ -137,7 +137,7 @@ load_config() {
   LANEKEEP_SESSION_ID="$(date +%Y%m%d-%H%M%S)-$$"
 
   # --- Create directories ---
-  mkdir -p "$project_dir/.lanekeep/traces"
+  (umask 077; mkdir -p "$project_dir/.lanekeep/traces")
 
   # --- Auto-prune old trace files (best-effort, non-blocking) ---
   source "$LANEKEEP_DIR/lib/trace.sh"
