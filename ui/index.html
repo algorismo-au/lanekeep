@@ -1919,9 +1919,9 @@ function renderActivityLeftWidgets(statusData) {
   var actPct = b.max_actions ? Math.min(100, Math.round(b.actions / b.max_actions * 100)) : 0;
   var timePct = b.max_minutes ? Math.min(100, Math.round(b.elapsed_min / b.max_minutes * 100)) : 0;
   function meterCls(pct) { return pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : ''; }
+  var costStr = b.cost != null ? ('$' + (b.cost < 0.01 ? b.cost.toFixed(4) : b.cost.toFixed(2))) : '–';
   var budget = '<div class="activity-widget"><div class="activity-widget-title">Budget <span class="widget-scope">· Session</span></div>'
-    + '<div class="aw-meter"><div class="aw-meter-row"><span class="aw-meter-label">Actions</span><span class="aw-meter-value">' + (b.actions || 0) + ' / ' + (b.max_actions || '–') + '</span></div>'
-    + '<div class="aw-meter-track"><div class="aw-meter-fill ' + meterCls(actPct) + '" style="width:' + actPct + '%"></div></div></div>'
+    + '<div class="aw-meter"><div class="aw-meter-row"><span class="aw-meter-label">Cost</span><span class="aw-meter-value">' + costStr + '</span></div></div>'
     + '<div class="aw-meter"><div class="aw-meter-row"><span class="aw-meter-label">Time</span><span class="aw-meter-value">' + Math.round(b.elapsed_min || 0) + 'm / ' + (b.max_minutes || '–') + 'm</span></div>'
     + '<div class="aw-meter-track"><div class="aw-meter-fill ' + meterCls(timePct) + '" style="width:' + timePct + '%"></div></div></div>'
     + '</div>';
