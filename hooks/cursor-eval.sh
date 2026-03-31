@@ -63,4 +63,5 @@ case "$DECISION" in
     ;;
 esac
 
+# shellcheck disable=SC2317  # defensive fail-closed — unreachable unless case branches change
 exit 2
