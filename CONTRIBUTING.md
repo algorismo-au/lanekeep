@@ -19,7 +19,25 @@ to contribute. For a full project overview, see [README.md](README.md).
 ```bash
 git clone https://github.com/algorismo-au/lanekeep.git
 cd lanekeep
+```
+
+Add `bin/` to your PATH permanently:
+
+```bash
+bash scripts/add-to-path.sh
+```
+
+Detects your shell and writes to your rc file. Idempotent.
+
+Or for the current session only:
+
+```bash
 export PATH="$PWD/bin:$PATH"
+```
+
+Verify everything works:
+
+```bash
 lanekeep selftest
 ```
 
