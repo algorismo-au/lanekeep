@@ -59,7 +59,17 @@ teardown() {
   [ "$decision" = "allow" ]
 }
 
-@test "crashing python plugin is skipped (fail-open)" {
+@test "crashing python plugin is denied by default (fail-closed)" {
+  cp "$LANEKEEP_DIR/tests/fixtures/crash-plugin.py" "$REAL_PLUGIN_DIR/crash-test.plugin.py"
+  chmod +x "$REAL_PLUGIN_DIR/crash-test.plugin.py"
+  output=$(echo '{"tool_name":"Read","tool_input":{"file_path":"x"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "deny" ]
+}
+
+@test "crashing python plugin is skipped when crash_policy=allow" {
+  jq '.plugins = {"crash_policy": "allow"}' "$LANEKEEP_CONFIG_FILE" > "$LANEKEEP_CONFIG_FILE.tmp" \
+    && mv "$LANEKEEP_CONFIG_FILE.tmp" "$LANEKEEP_CONFIG_FILE"
   cp "$LANEKEEP_DIR/tests/fixtures/crash-plugin.py" "$REAL_PLUGIN_DIR/crash-test.plugin.py"
   chmod +x "$REAL_PLUGIN_DIR/crash-test.plugin.py"
   output=$(echo '{"tool_name":"Read","tool_input":{"file_path":"x"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
