@@ -5038,9 +5038,11 @@ function testRule() {
     }
   }
 
-  // Tier 2 (legacy): CodeDiff
-  const cdResults = testCodeDiff(tool, rawInput);
-  allResults.push(...cdResults);
+  // Tier 2 (legacy): CodeDiff — only when rules array is empty (mirrors backend)
+  if (!rules.length) {
+    const cdResults = testCodeDiff(tool, rawInput);
+    allResults.push(...cdResults);
+  }
 
   // Tier 4: Input PII
   const piiInResults = testInputPII(tool, rawInput);
