@@ -48,6 +48,47 @@ def _infer_context_window(model_name: str) -> int:
         return _MODEL_CONTEXT_WINDOWS[stripped]
     return _DEFAULT_CONTEXT_WINDOW
 
+# Pricing table for cost calculation
+_pricing_cache = {'mtime': 0, 'data': None}
+
+
+def _load_pricing():
+    """Load bundled pricing.json with mtime-based caching."""
+    pricing_path = Path(__file__).parent.parent / 'data' / 'pricing.json'
+    try:
+        mt = pricing_path.stat().st_mtime
+        if mt == _pricing_cache['mtime'] and _pricing_cache['data'] is not None:
+            return _pricing_cache['data']
+        data = json.loads(pricing_path.read_text(encoding='utf-8'))
+        _pricing_cache['mtime'] = mt
+        _pricing_cache['data'] = data.get('models', {})
+        return _pricing_cache['data']
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _compute_cost(model: str, input_toks: int, cache_create_toks: int,
+                  cache_read_toks: int, output_toks: int):
+    """Compute session cost and cache savings. Returns (cost, savings) or (None, None)."""
+    models = _load_pricing()
+    if not model or not models:
+        return None, None
+    pricing = models.get(model)
+    if not pricing:
+        # Strip date suffix: "claude-sonnet-4-5-20250514" → "claude-sonnet-4-5"
+        stripped = re.sub(r'-\d{8}$', '', model)
+        pricing = models.get(stripped)
+    if not pricing:
+        return None, None
+    non_cached = max(0, input_toks - cache_create_toks - cache_read_toks)
+    cost = (non_cached * pricing['input_per_mtok']
+            + cache_create_toks * pricing['cache_write_per_mtok']
+            + cache_read_toks * pricing['cache_read_per_mtok']
+            + output_toks * pricing['output_per_mtok']) / 1_000_000
+    savings = cache_read_toks * (pricing['input_per_mtok'] - pricing['cache_read_per_mtok']) / 1_000_000
+    return round(cost, 6), round(savings, 6)
+
+
 # Cache sidecar probe result to avoid repeated blocking socket connects
 _sidecar_cache = {'running': False, 'ts': 0}
 
@@ -1033,6 +1074,7 @@ class Handler(BaseHTTPRequestHandler):
             state_path = PROJECT_DIR / '.lanekeep' / 'state.json'
             budget = {'actions': 0, 'max_actions': 500, 'elapsed_min': 0, 'max_minutes': 1440,
                       'tokens': 0, 'input_tokens': 0, 'output_tokens': 0,
+                      'cache_creation_input_tokens': 0, 'cache_read_input_tokens': 0,
                       'max_tokens': None, 'max_input_tokens': None, 'max_output_tokens': None}
             if state_path.exists():
                 try:
@@ -1048,6 +1090,8 @@ class Handler(BaseHTTPRequestHandler):
                     budget['tokens'] = st.get('token_count', 0)
                     budget['input_tokens'] = st.get('input_tokens', 0)
                     budget['output_tokens'] = st.get('output_tokens', 0)
+                    budget['cache_creation_input_tokens'] = st.get('cache_creation_input_tokens', 0)
+                    budget['cache_read_input_tokens'] = st.get('cache_read_input_tokens', 0)
                 except (json.JSONDecodeError, OSError):
                     pass
             # Layer 0: defaults file budget
@@ -1155,6 +1199,17 @@ class Handler(BaseHTTPRequestHandler):
                     budget['context_source'] = 'model'
                 budget['context_model'] = context_model
 
+            # Cost calculation
+            cost, cache_savings = _compute_cost(
+                context_model,
+                budget.get('input_tokens', 0),
+                budget.get('cache_creation_input_tokens', 0),
+                budget.get('cache_read_input_tokens', 0),
+                budget.get('output_tokens', 0))
+            if cost is not None:
+                budget['cost'] = cost
+                budget['cache_savings'] = cache_savings
+
             result['budget'] = budget
 
             # --- Session ---
@@ -1258,6 +1313,8 @@ class Handler(BaseHTTPRequestHandler):
             cumulative['total_tokens'] = cumulative.get('total_tokens', 0) + budget.get('tokens', 0)
             cumulative['total_input_tokens'] = cumulative.get('total_input_tokens', 0) + budget.get('input_tokens', 0)
             cumulative['total_output_tokens'] = cumulative.get('total_output_tokens', 0) + budget.get('output_tokens', 0)
+            cumulative['total_cache_creation_input_tokens'] = cumulative.get('total_cache_creation_input_tokens', 0) + budget.get('cache_creation_input_tokens', 0)
+            cumulative['total_cache_read_input_tokens'] = cumulative.get('total_cache_read_input_tokens', 0) + budget.get('cache_read_input_tokens', 0)
             elapsed_secs = round((budget.get('elapsed_min', 0) or 0) * 60)
             cumulative['total_time_seconds'] = cumulative.get('total_time_seconds', 0) + elapsed_secs
             cumulative['total_sessions'] = cumulative.get('total_sessions', 0) + 1

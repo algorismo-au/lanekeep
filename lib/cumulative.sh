@@ -3,7 +3,7 @@
 
 # Initialize empty cumulative file
 _cumulative_empty() {
-  printf '{"version":1,"updated_at":"","total_sessions":0,"total_events":0,"total_actions":0,"total_tokens":0,"total_input_tokens":0,"total_output_tokens":0,"total_time_seconds":0}\n'
+  printf '{"version":1,"updated_at":"","total_sessions":0,"total_events":0,"total_actions":0,"total_tokens":0,"total_input_tokens":0,"total_output_tokens":0,"total_cache_creation_input_tokens":0,"total_cache_read_input_tokens":0,"total_time_seconds":0}\n'
 }
 
 # Called at session start, before state.json resets.
@@ -25,12 +25,15 @@ cumulative_init() {
 
   # Read previous session's final counters
   local prev_actions=0 prev_events=0 prev_tokens=0 prev_input_tokens=0 prev_output_tokens=0 prev_start=0
+  local prev_cache_creation=0 prev_cache_read=0
   eval "$(jq -r '
     "prev_actions=" + (.action_count // 0 | tostring | @sh),
     "prev_events=" + (.total_events // 0 | tostring | @sh),
     "prev_tokens=" + (.token_count // 0 | tostring | @sh),
     "prev_input_tokens=" + (.input_tokens // 0 | tostring | @sh),
     "prev_output_tokens=" + (.output_tokens // 0 | tostring | @sh),
+    "prev_cache_creation=" + (.cache_creation_input_tokens // 0 | tostring | @sh),
+    "prev_cache_read=" + (.cache_read_input_tokens // 0 | tostring | @sh),
     "prev_start=" + (.start_epoch // 0 | tostring | @sh)
   ' "$state" 2>/dev/null)" || true
   [[ "$prev_actions" =~ ^[0-9]+$ ]] || prev_actions=0
@@ -38,6 +41,8 @@ cumulative_init() {
   [[ "$prev_tokens" =~ ^[0-9]+$ ]] || prev_tokens=0
   [[ "$prev_input_tokens" =~ ^[0-9]+$ ]] || prev_input_tokens=0
   [[ "$prev_output_tokens" =~ ^[0-9]+$ ]] || prev_output_tokens=0
+  [[ "$prev_cache_creation" =~ ^[0-9]+$ ]] || prev_cache_creation=0
+  [[ "$prev_cache_read" =~ ^[0-9]+$ ]] || prev_cache_read=0
   [[ "$prev_start" =~ ^[0-9]+$ ]] || prev_start=0
 
   # Compute elapsed time
@@ -74,6 +79,8 @@ cumulative_init() {
     --argjson toks "$prev_tokens" \
     --argjson itoks "$prev_input_tokens" \
     --argjson otoks "$prev_output_tokens" \
+    --argjson cctoks "$prev_cache_creation" \
+    --argjson crtoks "$prev_cache_read" \
     --argjson secs "$elapsed" \
     --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
     .updated_at = $now |
@@ -83,6 +90,8 @@ cumulative_init() {
     .total_tokens += $toks |
     .total_input_tokens = ((.total_input_tokens // 0) + $itoks) |
     .total_output_tokens = ((.total_output_tokens // 0) + $otoks) |
+    .total_cache_creation_input_tokens = ((.total_cache_creation_input_tokens // 0) + $cctoks) |
+    .total_cache_read_input_tokens = ((.total_cache_read_input_tokens // 0) + $crtoks) |
     .total_time_seconds += $secs
   ' "$cumfile" 2>/dev/null) || { exec 8>&-; return 0; }
 

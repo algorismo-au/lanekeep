@@ -2432,13 +2432,18 @@ async function loadGovernance() {
       <div class="gov-progress"><div class="gov-progress-bar ${barClass(sessActPct)}" style="width:${sessActPct}%"></div></div>
       <div class="gov-row" style="margin-top:8px"><span class="gov-label">Tokens (Input)</span><span class="gov-value">${esc(String(b.input_tokens ?? 0))} / ${sessInTokLabel}</span></div>
       ${sessInTokBar}
+      ${((b.cache_creation_input_tokens || 0) > 0 || (b.cache_read_input_tokens || 0) > 0) ? `
+      <div class="gov-row" style="margin-left:16px"><span class="gov-label" style="font-size:11px;color:var(--text-muted)">Non-cached</span><span class="gov-value" style="font-size:11px">${fmtTokens((b.input_tokens || 0) - (b.cache_creation_input_tokens || 0) - (b.cache_read_input_tokens || 0))}</span></div>
+      <div class="gov-row" style="margin-left:16px"><span class="gov-label" style="font-size:11px;color:var(--text-muted)">Cache Write</span><span class="gov-value" style="font-size:11px">${fmtTokens(b.cache_creation_input_tokens || 0)}</span></div>
+      <div class="gov-row" style="margin-left:16px"><span class="gov-label" style="font-size:11px;color:var(--text-muted)">Cache Read</span><span class="gov-value" style="font-size:11px">${fmtTokens(b.cache_read_input_tokens || 0)}</span></div>` : ''}
       <div class="gov-row" style="margin-top:8px"><span class="gov-label">Tokens (Output)</span><span class="gov-value">${esc(String(b.output_tokens ?? 0))} / ${sessOutTokLabel}</span></div>
       ${sessOutTokBar}
       <div class="gov-row" style="margin-top:8px"><span class="gov-label">Tokens (Input + Output)</span><span class="gov-value">${esc(String(b.tokens ?? 0))} / ${sessTokLabel}</span></div>
       ${sessTokBar}
       <div class="gov-row" style="margin-top:8px"><span class="gov-label">Time</span><span class="gov-value">${esc(String(Math.round(b.elapsed_min ?? 0)))}m / ${esc(String(b.max_minutes || '?'))}m</span></div>
       <div class="gov-progress"><div class="gov-progress-bar ${barClass(sessTimePct)}" style="width:${sessTimePct}%"></div></div>
-      ${ctxWindowHtml ? '<div style="margin-top:8px">' + ctxWindowHtml + '</div>' : ''}`;
+      ${ctxWindowHtml ? '<div style="margin-top:8px">' + ctxWindowHtml + '</div>' : ''}
+      ${b.cost != null ? `<div class="gov-row" style="margin-top:8px"><span class="gov-label">Cost</span><span class="gov-value">$${b.cost < 0.01 ? b.cost.toFixed(4) : b.cost.toFixed(2)}${b.cache_savings > 0 ? ' <span style="font-size:11px;color:var(--text-muted)">(saved $' + (b.cache_savings < 0.01 ? b.cache_savings.toFixed(4) : b.cache_savings.toFixed(2)) + ' via caching)</span>' : ''}</span></div>` : ''}`;
 
     // Budget Progress - All-Time
     const cum = d.cumulative || {};
@@ -2478,6 +2483,10 @@ async function loadGovernance() {
       ${atActBar}
       <div class="gov-row" style="margin-top:8px"><span class="gov-label">Tokens (Input)</span><span class="gov-value">${esc(String(cum.total_input_tokens || 0))} / ${atInTokLabel}</span></div>
       ${atInTokBar}
+      ${((cum.total_cache_creation_input_tokens || 0) > 0 || (cum.total_cache_read_input_tokens || 0) > 0) ? `
+      <div class="gov-row" style="margin-left:16px"><span class="gov-label" style="font-size:11px;color:var(--text-muted)">Non-cached</span><span class="gov-value" style="font-size:11px">${fmtTokens((cum.total_input_tokens || 0) - (cum.total_cache_creation_input_tokens || 0) - (cum.total_cache_read_input_tokens || 0))}</span></div>
+      <div class="gov-row" style="margin-left:16px"><span class="gov-label" style="font-size:11px;color:var(--text-muted)">Cache Write</span><span class="gov-value" style="font-size:11px">${fmtTokens(cum.total_cache_creation_input_tokens || 0)}</span></div>
+      <div class="gov-row" style="margin-left:16px"><span class="gov-label" style="font-size:11px;color:var(--text-muted)">Cache Read</span><span class="gov-value" style="font-size:11px">${fmtTokens(cum.total_cache_read_input_tokens || 0)}</span></div>` : ''}
       <div class="gov-row" style="margin-top:8px"><span class="gov-label">Tokens (Output)</span><span class="gov-value">${esc(String(cum.total_output_tokens || 0))} / ${atOutTokLabel}</span></div>
       ${atOutTokBar}
       <div class="gov-row" style="margin-top:8px"><span class="gov-label">Tokens (Input + Output)</span><span class="gov-value">${esc(String(cum.total_tokens || 0))} / ${atTokLabel}</span></div>
@@ -5427,7 +5436,7 @@ async function checkLaneKeepStatus() {
       hbFill.style.width = pct + '%';
       hbFill.className = 'header-budget-fill' + (pct >= 90 ? ' danger' : pct >= 70 ? ' warn' : '');
       hbLabel.textContent = pct + '% tkn';
-      hbBar.title = 'Input tokens: ' + fmtTokens(b.input_tokens || 0) + ' / ' + fmtTokens(b.max_input_tokens);
+      hbBar.title = 'Input tokens: ' + fmtTokens(b.input_tokens || 0) + ' / ' + fmtTokens(b.max_input_tokens) + ((b.cache_read_input_tokens || 0) > 0 ? ' (cache read: ' + fmtTokens(b.cache_read_input_tokens) + ', cache write: ' + fmtTokens(b.cache_creation_input_tokens || 0) + ')' : '');
       hbSep.style.display = '';
       hbBar.style.display = '';
     } else {

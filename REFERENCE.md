@@ -290,6 +290,32 @@ values always take precedence over profile defaults.
 Token counts use Claude Code transcript JSONL when available, with estimation
 fallback. TaskSpec constrains tools and budget; immutable after startup.
 
+**State file fields** (`.lanekeep/state.json`):
+
+| Field | Description |
+|-------|-------------|
+| `input_tokens` | Total input tokens (non-cached + cache_creation + cache_read) |
+| `output_tokens` | Output tokens (always estimated) |
+| `cache_creation_input_tokens` | Tokens written to prompt cache this turn |
+| `cache_read_input_tokens` | Tokens served from prompt cache this turn |
+| `token_count` | `input_tokens + output_tokens` |
+| `token_source` | `"transcript"` or `"estimate"` |
+| `model` | Model name from transcript (e.g. `claude-opus-4-6`) |
+
+Cache fields are only populated when `token_source` is `"transcript"` (0 in estimation mode).
+
+**Cumulative file fields** (`.lanekeep/cumulative.json`):
+
+| Field | Description |
+|-------|-------------|
+| `total_cache_creation_input_tokens` | Sum of cache write tokens across all sessions |
+| `total_cache_read_input_tokens` | Sum of cache read tokens across all sessions |
+
+**Cost calculation**: Session cost is computed from token counts using a bundled
+pricing table (`lanekeep/data/pricing.json`). The `/api/status` response includes
+`budget.cost` (USD) and `budget.cache_savings` (USD saved via prompt caching).
+Cost is `null` when the model is not in the pricing table.
+
 **Setting a goal** (used by the [semantic evaluator](#semantic-evaluator) to
 judge intent alignment):
 

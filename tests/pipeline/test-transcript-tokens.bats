@@ -141,6 +141,63 @@ teardown() {
   [ "$input_after" -eq 6100 ]
 }
 
+@test "Cache token fields stored separately in state.json" {
+  # Last assistant entry: input=15, cache_creation=800, cache_read=2000
+  echo "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"x\"},\"session_id\":\"test-transcript\",\"transcript_path\":\"$TEST_TRANSCRIPT\"}" \
+    | "$LANEKEEP_DIR/bin/lanekeep-handler" > /dev/null
+
+  cache_creation=$(jq -r '.cache_creation_input_tokens' "$LANEKEEP_STATE_FILE")
+  cache_read=$(jq -r '.cache_read_input_tokens' "$LANEKEEP_STATE_FILE")
+  [ "$cache_creation" -eq 800 ]
+  [ "$cache_read" -eq 2000 ]
+}
+
+@test "Cache fields default to 0 in estimation mode" {
+  echo '{"tool_name":"Read","tool_input":{"file_path":"x"},"session_id":"test-transcript"}' \
+    | "$LANEKEEP_DIR/bin/lanekeep-handler" > /dev/null
+
+  cache_creation=$(jq -r '.cache_creation_input_tokens' "$LANEKEEP_STATE_FILE")
+  cache_read=$(jq -r '.cache_read_input_tokens' "$LANEKEEP_STATE_FILE")
+  [ "$cache_creation" -eq 0 ]
+  [ "$cache_read" -eq 0 ]
+}
+
+@test "Cache fields update with growing context" {
+  echo "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"x\"},\"session_id\":\"test-transcript\",\"transcript_path\":\"$TEST_TRANSCRIPT\"}" \
+    | "$LANEKEEP_DIR/bin/lanekeep-handler" > /dev/null
+
+  # Append entry with different cache values
+  printf '{"type":"assistant","message":{"model":"claude-opus-4-6","role":"assistant","content":[{"type":"text","text":"More"}],"usage":{"input_tokens":100,"cache_creation_input_tokens":1500,"cache_read_input_tokens":3000,"output_tokens":200}},"sessionId":"test-session","uuid":"a3","timestamp":"2026-03-20T00:00:04.000Z"}\n' \
+    >> "$TEST_TRANSCRIPT"
+
+  echo "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"y\"},\"session_id\":\"test-transcript\",\"transcript_path\":\"$TEST_TRANSCRIPT\"}" \
+    | "$LANEKEEP_DIR/bin/lanekeep-handler" > /dev/null
+
+  cache_creation=$(jq -r '.cache_creation_input_tokens' "$LANEKEEP_STATE_FILE")
+  cache_read=$(jq -r '.cache_read_input_tokens' "$LANEKEEP_STATE_FILE")
+  [ "$cache_creation" -eq 1500 ]
+  [ "$cache_read" -eq 3000 ]
+}
+
+@test "PostToolUse preserves cache fields from preceding PreToolUse" {
+  echo "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"x\"},\"session_id\":\"test-transcript\",\"transcript_path\":\"$TEST_TRANSCRIPT\"}" \
+    | "$LANEKEEP_DIR/bin/lanekeep-handler" > /dev/null
+
+  cc_pre=$(jq -r '.cache_creation_input_tokens' "$LANEKEEP_STATE_FILE")
+  cr_pre=$(jq -r '.cache_read_input_tokens' "$LANEKEEP_STATE_FILE")
+  [ "$cc_pre" -eq 800 ]
+  [ "$cr_pre" -eq 2000 ]
+
+  # PostToolUse: should preserve cache fields
+  echo "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"x\"},\"hook_event_name\":\"PostToolUse\",\"tool_response\":{\"output\":\"result\"},\"session_id\":\"test-transcript\",\"transcript_path\":\"$TEST_TRANSCRIPT\"}" \
+    | "$LANEKEEP_DIR/bin/lanekeep-handler" > /dev/null
+
+  cc_post=$(jq -r '.cache_creation_input_tokens' "$LANEKEEP_STATE_FILE")
+  cr_post=$(jq -r '.cache_read_input_tokens' "$LANEKEEP_STATE_FILE")
+  [ "$cc_post" -eq 800 ]
+  [ "$cr_post" -eq 2000 ]
+}
+
 @test "PostToolUse preserves token_source and model from preceding PreToolUse" {
   # PreToolUse: reads transcript, sets token_source=transcript and model
   echo "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"x\"},\"session_id\":\"test-transcript\",\"transcript_path\":\"$TEST_TRANSCRIPT\"}" \

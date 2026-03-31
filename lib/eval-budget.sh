@@ -14,14 +14,19 @@ estimate_tokens() {
 
 # Read real input token count from Claude Code transcript JSONL.
 # The last assistant entry's usage contains the current context window size.
-# Sets: _TRANSCRIPT_INPUT_TOKENS, _TRANSCRIPT_AVAILABLE, _TRANSCRIPT_MODEL
+# Sets: _TRANSCRIPT_INPUT_TOKENS, _TRANSCRIPT_AVAILABLE, _TRANSCRIPT_MODEL,
+#       _TRANSCRIPT_CACHE_CREATION_TOKENS, _TRANSCRIPT_CACHE_READ_TOKENS
 _TRANSCRIPT_INPUT_TOKENS=0
 _TRANSCRIPT_AVAILABLE=false
 _TRANSCRIPT_MODEL=""
+_TRANSCRIPT_CACHE_CREATION_TOKENS=0
+_TRANSCRIPT_CACHE_READ_TOKENS=0
 read_transcript_tokens() {
   _TRANSCRIPT_INPUT_TOKENS=0
   _TRANSCRIPT_AVAILABLE=false
   _TRANSCRIPT_MODEL=""
+  _TRANSCRIPT_CACHE_CREATION_TOKENS=0
+  _TRANSCRIPT_CACHE_READ_TOKENS=0
 
   local path="${TRANSCRIPT_PATH:-}"
   [ -n "$path" ] && [ -f "$path" ] && [ -r "$path" ] || return 0
@@ -31,19 +36,28 @@ read_transcript_tokens() {
   last_assistant=$(tail -c 65536 "$path" 2>/dev/null | tac 2>/dev/null | grep -m1 '"type":"assistant"' 2>/dev/null) || return 0
   [ -n "$last_assistant" ] || return 0
 
-  # Extract total input tokens and model name in one jq call
+  # Extract input tokens (total + cache breakdown) and model name in one jq call
   local _jq_out
   _jq_out=$(printf '%s' "$last_assistant" | jq -r '
     [(.message.usage // {} |
       ((.input_tokens // 0) + (.cache_creation_input_tokens // 0) + (.cache_read_input_tokens // 0))),
+     (.message.usage // {} | .cache_creation_input_tokens // 0),
+     (.message.usage // {} | .cache_read_input_tokens // 0),
      (.message.model // "")]
     | @tsv
   ' 2>/dev/null) || return 0
 
-  _TRANSCRIPT_INPUT_TOKENS="${_jq_out%%	*}"
-  _TRANSCRIPT_MODEL="${_jq_out#*	}"
+  # Parse 4 tab-separated fields: total_input, cache_creation, cache_read, model
+  local _f1 _f2 _f3 _f4
+  IFS=$'\t' read -r _f1 _f2 _f3 _f4 <<< "$_jq_out"
+  _TRANSCRIPT_INPUT_TOKENS="${_f1:-0}"
+  _TRANSCRIPT_CACHE_CREATION_TOKENS="${_f2:-0}"
+  _TRANSCRIPT_CACHE_READ_TOKENS="${_f3:-0}"
+  _TRANSCRIPT_MODEL="${_f4:-}"
 
-  [[ "$_TRANSCRIPT_INPUT_TOKENS" =~ ^[0-9]+$ ]] || { _TRANSCRIPT_INPUT_TOKENS=0; return 0; }
+  [[ "$_TRANSCRIPT_INPUT_TOKENS" =~ ^[0-9]+$ ]] || _TRANSCRIPT_INPUT_TOKENS=0
+  [[ "$_TRANSCRIPT_CACHE_CREATION_TOKENS" =~ ^[0-9]+$ ]] || _TRANSCRIPT_CACHE_CREATION_TOKENS=0
+  [[ "$_TRANSCRIPT_CACHE_READ_TOKENS" =~ ^[0-9]+$ ]] || _TRANSCRIPT_CACHE_READ_TOKENS=0
   [ "$_TRANSCRIPT_INPUT_TOKENS" -gt 0 ] && _TRANSCRIPT_AVAILABLE=true
 }
 
@@ -61,7 +75,7 @@ budget_eval() {
 
   # Initialize state file if missing
   if [ ! -f "$state" ]; then
-    printf '{"action_count":0,"token_count":0,"input_tokens":0,"output_tokens":0,"total_events":0,"start_epoch":%s}\n' "$now_epoch" > "$state"
+    printf '{"action_count":0,"token_count":0,"input_tokens":0,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"total_events":0,"start_epoch":%s}\n' "$now_epoch" > "$state"
   fi
 
   # Resolve token count: use real transcript data when available, fall back to estimation.
@@ -151,35 +165,40 @@ budget_eval() {
 
   # Read current state under lock
   local action_count start_epoch token_count total_events session_id input_tokens_st output_tokens_st
+  local cache_creation_st cache_read_st
   eval "$(jq -r '
     "action_count=" + (.action_count // 0 | tostring | @sh),
     "start_epoch=" + (.start_epoch // 0 | tostring | @sh),
     "token_count=" + (.token_count // 0 | tostring | @sh),
     "input_tokens_st=" + (.input_tokens // 0 | tostring | @sh),
     "output_tokens_st=" + (.output_tokens // 0 | tostring | @sh),
+    "cache_creation_st=" + (.cache_creation_input_tokens // 0 | tostring | @sh),
+    "cache_read_st=" + (.cache_read_input_tokens // 0 | tostring | @sh),
     "total_events=" + (.total_events // 0 | tostring | @sh),
     "session_id=" + (.session_id // "" | @sh),
     "_prev_token_source=" + (.token_source // "" | @sh),
     "_prev_model=" + (.model // "" | @sh)
-  ' "$state" 2>/dev/null)" || { action_count=0; start_epoch=$now_epoch; token_count=0; input_tokens_st=0; output_tokens_st=0; total_events=0; session_id=""; _prev_token_source=""; _prev_model=""; }
+  ' "$state" 2>/dev/null)" || { action_count=0; start_epoch=$now_epoch; token_count=0; input_tokens_st=0; output_tokens_st=0; cache_creation_st=0; cache_read_st=0; total_events=0; session_id=""; _prev_token_source=""; _prev_model=""; }
   # Guard against non-numeric values from corrupted state
   [[ "$action_count" =~ ^[0-9]+$ ]] || action_count=0
   [[ "$start_epoch" =~ ^[0-9]+$ ]] || start_epoch=$now_epoch
   [[ "$token_count" =~ ^[0-9]+$ ]] || token_count=0
   [[ "$input_tokens_st" =~ ^[0-9]+$ ]] || input_tokens_st=0
   [[ "$output_tokens_st" =~ ^[0-9]+$ ]] || output_tokens_st=0
+  [[ "$cache_creation_st" =~ ^[0-9]+$ ]] || cache_creation_st=0
+  [[ "$cache_read_st" =~ ^[0-9]+$ ]] || cache_read_st=0
   [[ "$total_events" =~ ^[0-9]+$ ]] || total_events=0
 
   # Session boundary: detect when Claude Code session_id changes
   if [ -n "$cc_session_id" ] && [ "$cc_session_id" != "$session_id" ]; then
     if [ -n "$session_id" ] && [ "$action_count" -gt 0 ]; then
       # Finalize old session into cumulative.json before resetting
-      printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"total_events":%d,"start_epoch":%d,"session_id":"%s"}\n' \
-        "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$total_events" "$start_epoch" "$session_id" > "${state}.tmp" \
+      printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"cache_creation_input_tokens":%d,"cache_read_input_tokens":%d,"total_events":%d,"start_epoch":%d,"session_id":"%s"}\n' \
+        "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$session_id" > "${state}.tmp" \
         && mv "${state}.tmp" "$state"
       cumulative_init
       # Reset counters for new session
-      action_count=0; token_count=0; input_tokens_st=0; output_tokens_st=0; total_events=0; start_epoch=$now_epoch
+      action_count=0; token_count=0; input_tokens_st=0; output_tokens_st=0; cache_creation_st=0; cache_read_st=0; total_events=0; start_epoch=$now_epoch
     fi
     session_id="$cc_session_id"
   fi
@@ -197,6 +216,8 @@ budget_eval() {
   elif [ "$_use_transcript" = true ]; then
     # Transcript mode: input_tokens = context window size (snapshot, not cumulative)
     input_tokens_st=$_TRANSCRIPT_INPUT_TOKENS
+    cache_creation_st=$_TRANSCRIPT_CACHE_CREATION_TOKENS
+    cache_read_st=$_TRANSCRIPT_CACHE_READ_TOKENS
     token_count=$((input_tokens_st + output_tokens_st))
     if [ "$already_blocked" != "true" ] && [ "$skip_increment" != "true" ]; then
       action_count=$((action_count + 1))
@@ -226,8 +247,8 @@ budget_eval() {
   if [ -z "$_model_field" ] && [ -n "${_prev_model:-}" ]; then
     _model_field="$(printf ',"model":"%s"' "$_prev_model")"
   fi
-  printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"total_events":%d,"start_epoch":%d,"elapsed_seconds":%d,"session_id":"%s","token_source":"%s"%s}\n' \
-    "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$total_events" "$start_epoch" "$elapsed_seconds" "$session_id" "$_token_source" "$_model_field" > "${state}.tmp" \
+  printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"cache_creation_input_tokens":%d,"cache_read_input_tokens":%d,"total_events":%d,"start_epoch":%d,"elapsed_seconds":%d,"session_id":"%s","token_source":"%s"%s}\n' \
+    "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$elapsed_seconds" "$session_id" "$_token_source" "$_model_field" > "${state}.tmp" \
     && mv "${state}.tmp" "$state"
   exec 9>&-
 
