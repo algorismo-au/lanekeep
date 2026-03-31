@@ -220,7 +220,8 @@ _validate_rules_in_file() {
   if [ -n "$redos_data" ]; then
     while IFS=$'\t' read -r idx rid rsrc pat; do
       [ -z "$pat" ] && continue
-      local rlbl="Rule #$idx$([ -n "$rid" ] && printf ' (%s)' "$rid")$([ "$rsrc" = "custom" ] && printf ' [custom]')"
+      local rlbl
+      rlbl="Rule #$idx$([ -n "$rid" ] && printf ' (%s)' "$rid")$([ "$rsrc" = "custom" ] && printf ' [custom]')"
       if printf '%s' "$pat" | grep -qP '\([^)]*[+*]\)[+*?]|\(\?[^)]*[+*]\)[+*?]' 2>/dev/null; then
         warn "$rlbl — regex '$pat' has nested quantifiers (ReDoS risk)"
       fi
