@@ -9,3 +9,8 @@ __pycache__/
 *.pem
 *.key
 lanekeep.json
+# Prevent test-leaked plugins from being committed (plugins.d/examples/ is tracked)
+plugins.d/*.plugin.py
+plugins.d/*.plugin.js
+plugins.d/*.plugin.sh
+plugins.d/*.plugin
