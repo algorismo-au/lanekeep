@@ -1328,6 +1328,26 @@
       ]
     },
     {
+      "id": "sec-019a",
+      "match": {
+        "pattern": "(?i)<\\s*/?\\s*(IMPORTANT|CRITICAL|MANDATORY|REQUIRED|URGENT|PRIORITY|AUTHORIZED|CONFIDENTIAL|SYSTEM[_-]?INSTRUCTION|INTERNAL[_-]?INSTRUCTION|TOOL[_-]?INSTRUCTION|HIDDEN[_-]?INSTRUCTION|ADMIN[_-]?(?:NOTE|INSTRUCTION|OVERRIDE))\\s*>"
+      },
+      "decision": "ask",
+      "reason": "Fake XML authority tag detected — common prompt injection wrapper",
+      "category": "security",
+      "intent": "XML-style authority tags like <IMPORTANT>, <CRITICAL>, <MANDATORY> are used to wrap injected instructions with false urgency or privilege — the Shai-Hulud pattern and variants use these to trick agents into treating attacker text as system-level directives",
+      "compliance": [
+        "CWE-94",
+        "CWE-1007"
+      ],
+      "type": "free",
+      "compliance_tags": [
+        "atlas:t0051",
+        "atlas:t0054",
+        "nist-ai100-2:prompt-injection"
+      ]
+    },
+    {
       "id": "sec-020a",
       "match": {
         "tool": "Write|Edit",
