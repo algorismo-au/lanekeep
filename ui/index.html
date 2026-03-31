@@ -491,6 +491,8 @@ tbody tr.selected { background: var(--bg-hover); }
 .trend-range-btn:hover { background: var(--btn-hover); color: var(--text-body); }
 .trend-range-btn.active { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; font-weight: 600; }
 .trend-legend-swatch { width: 10px; height: 3px; border-radius: 1px; }
+.trend-row-divider { grid-column: 1 / -1; height: 0; border-top: 1px solid var(--border); margin: 4px 0 2px; }
+.trend-card .trend-metric { font-size: 10px; color: var(--text-secondary); margin-top: 4px; font-variant-numeric: tabular-nums; }
 
 .insights-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .insights-table th { background: var(--bg-panel); padding: 8px 12px; text-align: left; font-size: 11px; text-transform: none; letter-spacing: 0.8px; color: var(--text-secondary); border-bottom: 2px solid var(--border); position: relative; white-space: nowrap; font-family: var(--font-heading); overflow: hidden; text-overflow: ellipsis; }
@@ -1677,6 +1679,13 @@ function fmtTokens(n) {
   if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
   if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'k';
   return String(n);
+}
+function fmtCost(v) {
+  if (v == null || v === 0) return '$0.00';
+  if (v < 0.001) return '$' + v.toFixed(5);
+  if (v < 0.01) return '$' + v.toFixed(4);
+  if (v < 1) return '$' + v.toFixed(3);
+  return '$' + v.toFixed(2);
 }
 function fmtSize(bytes) {
   if (bytes >= 1048576) return (bytes / 1048576).toFixed(1).replace(/\.0$/, '') + ' MB';
@@ -3266,7 +3275,7 @@ function renderImpactGraph(data, selectedRuleId) {
   var cg = document.createElementNS(NS, 'g');
   cg.setAttribute('class', 'graphs-impact-center');
   cg.dataset.nodeId = 'center';
-  var cw = 52, ch = 14;
+  var cw = 62, ch = 14;
   var cr = document.createElementNS(NS, 'rect');
   cr.setAttribute('x', centerX - cw / 2); cr.setAttribute('y', centerY - ch / 2);
   cr.setAttribute('width', cw); cr.setAttribute('height', ch);
@@ -3810,6 +3819,11 @@ function renderTrendCharts(data) {
       + '<div class="trend-card"><h4>Actions</h4><div style="font-size:28px;font-weight:700;padding:12px 0">' + esc(actionsText) + '</div></div>'
       + '<div class="trend-card"><h4>Decisions</h4><div style="font-size:14px;padding:12px 0">' + (decItems || '<span style="color:var(--text-muted)">none</span>') + '</div></div>'
       + '<div class="trend-card"><h4>Latency (ms)</h4><div style="font-size:14px;padding:12px 0">' + esc(latText) + '</div></div>'
+      + '<div class="trend-row-divider"></div>'
+      + '<div class="trend-card"><h4>Token Usage (Est)</h4><div style="font-size:14px;padding:12px 0">'
+        + '<span style="color:var(--color-evaluator)">In: ' + fmtTokens(b.tokens_in || 0) + '</span> · <span style="color:var(--color-ask)">Out: ' + fmtTokens(b.tokens_out || 0) + '</span></div></div>'
+      + '<div class="trend-card"><h4>Cost (Est)</h4><div style="font-size:28px;font-weight:700;padding:12px 0">' + fmtCost(b.cost || 0) + '</div></div>'
+      + '<div class="trend-card"><h4>Burn Rate</h4><div style="font-size:14px;padding:12px 0;color:var(--text-secondary)">Insufficient data</div></div>'
       + '</div></div>';
     return;
   }
@@ -3916,20 +3930,94 @@ function renderTrendCharts(data) {
   </svg>`;
   const latLegend = `<span class="trend-legend-item"><span class="trend-legend-swatch" style="background:var(--color-ask)"></span>P50</span><span class="trend-legend-item"><span class="trend-legend-swatch" style="background:var(--color-warn);border-top:1px dashed var(--color-warn)"></span>P95</span>`;
 
+  // --- Token Usage stacked area (input + output) ---
+  const tokIn = buckets.map(b => b.tokens_in || 0);
+  const tokOut = buckets.map(b => b.tokens_out || 0);
+  const tokTotal = buckets.map((b, i) => tokIn[i] + tokOut[i]);
+  const tokMax = Math.max(...tokTotal, 1);
+  const tokDx = buckets.length > 1 ? (W - PAD * 2) / (buckets.length - 1) : 0;
+  // Output area (full stack)
+  let tokOutPath = '';
+  for (let i = 0; i < buckets.length; i++) {
+    const x = PAD + i * tokDx;
+    const y = H - PAD - (tokTotal[i] / tokMax) * (H - PAD * 2);
+    tokOutPath += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+  }
+  const tokOutArea = tokOutPath + ` L${(PAD + (buckets.length - 1) * tokDx).toFixed(1)},${(H - PAD).toFixed(1)} L${PAD},${(H - PAD).toFixed(1)} Z`;
+  // Input area (bottom layer)
+  let tokInPath = '';
+  for (let i = 0; i < buckets.length; i++) {
+    const x = PAD + i * tokDx;
+    const y = H - PAD - (tokIn[i] / tokMax) * (H - PAD * 2);
+    tokInPath += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+  }
+  const tokInArea = tokInPath + ` L${(PAD + (buckets.length - 1) * tokDx).toFixed(1)},${(H - PAD).toFixed(1)} L${PAD},${(H - PAD).toFixed(1)} Z`;
+  const tokTips = svgTooltips(buckets.map((b, i) => b.t + ': In=' + fmtTokens(tokIn[i]) + ', Out=' + fmtTokens(tokOut[i])), W, H, buckets.length);
+  const tokSvg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <path d="${tokOutArea}" fill="var(--color-ask)" opacity="0.2"/>
+    <path d="${tokInArea}" fill="var(--color-evaluator)" opacity="0.3"/>
+    <path d="${tokOutPath}" fill="none" stroke="var(--color-ask)" stroke-width="1.2"/>
+    <path d="${tokInPath}" fill="none" stroke="var(--color-evaluator)" stroke-width="1.5"/>
+    ${tokTips}
+  </svg>`;
+  const tokLegend = '<span class="trend-legend-item"><span class="trend-legend-swatch" style="background:var(--color-evaluator)"></span>Input</span><span class="trend-legend-item"><span class="trend-legend-swatch" style="background:var(--color-ask)"></span>Output</span>';
+  const tokTotalSum = tokTotal.reduce((s, v) => s + v, 0);
+  const tokMetric = '<div class="trend-metric">Total: ' + fmtTokens(tokTotalSum) + ' tokens</div>';
+
+  // --- Cost per bucket (with cumulative overlay) ---
+  const costVals = buckets.map(b => b.cost || 0);
+  const costLine = svgPath(costVals, W, H);
+  const costArea = svgArea(costVals, W, H);
+  const costCum = buckets.map(b => b.cost_cumulative || 0);
+  const costCumLine = svgPath(costCum, W, H);
+  const costTips = svgTooltips(buckets.map(b => b.t + ': ' + fmtCost(b.cost || 0) + ' (total: ' + fmtCost(b.cost_cumulative || 0) + ')'), W, H, buckets.length);
+  const costSvg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <path d="${costArea}" fill="var(--color-warn)" opacity="0.12"/>
+    <path d="${costLine}" fill="none" stroke="var(--color-warn)" stroke-width="1.5"/>
+    <path d="${costCumLine}" fill="none" stroke="var(--color-allow)" stroke-width="1" opacity="0.5"/>
+    ${costTips}
+  </svg>`;
+  const costSum = costVals.reduce((s, v) => s + v, 0);
+  const costLegend = '<span class="trend-legend-item"><span class="trend-legend-swatch" style="background:var(--color-warn)"></span>Per bucket</span><span class="trend-legend-item"><span class="trend-legend-swatch" style="background:var(--color-allow);opacity:0.5"></span>Cumulative</span>';
+  const costMetric = '<div class="trend-metric">Total: ' + fmtCost(costSum) + '</div>';
+
+  // --- Burn Rate (cost projected to daily / weekly) ---
+  // Compute span in seconds from granularity
+  const granSpan = {'5min': 300, 'hourly': 3600, 'daily': 86400, 'weekly': 604800}[data.granularity] || 86400;
+  const periodSecs = buckets.length * granSpan;
+  const dailyRate = periodSecs > 0 ? (costSum / periodSecs) * 86400 : 0;
+  const weeklyRate = dailyRate * 7;
+  const monthlyRate = dailyRate * 30;
+  // Per-bucket daily rate trend (smoothed: each bucket's cost scaled to daily)
+  const burnVals = buckets.map(b => granSpan > 0 ? ((b.cost || 0) / granSpan) * 86400 : 0);
+  const burnLine = svgPath(burnVals, W, H);
+  const burnArea = svgArea(burnVals, W, H);
+  const burnTips = svgTooltips(buckets.map((b, i) => b.t + ': ' + fmtCost(burnVals[i]) + '/day'), W, H, buckets.length);
+  const burnSvg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <path d="${burnArea}" fill="var(--color-pii)" opacity="0.1"/>
+    <path d="${burnLine}" fill="none" stroke="var(--color-pii)" stroke-width="1.5"/>
+    ${burnTips}
+  </svg>`;
+  const burnMetric = '<div class="trend-metric">' + fmtCost(dailyRate) + '/day · ' + fmtCost(weeklyRate) + '/wk · ' + fmtCost(monthlyRate) + '/mo</div>';
+
   const first = buckets[0].t, last = buckets[buckets.length - 1].t;
-  const labels = `<div class="trend-labels"><span>${esc(first)}</span><span>${esc(last)}</span></div>`;
+  const labels = '<div class="trend-labels"><span>' + esc(first) + '</span><span>' + esc(last) + '</span></div>';
 
   var staleClass = data._stale ? ' trend-section-stale' : '';
   var staleHint = data._stale ? '<div class="trend-stale-hint">Showing last known data \u2014 latest entry was ' + esc(last) + '</div>' : '';
-  el.innerHTML = `<div class="trend-section${staleClass}">
-    <div class="trend-header"><h3 class="trend-title">Trends</h3>${rangeBar}</div>
-    ${staleHint}
-    <div class="trend-grid">
-      <div class="trend-card"><h4>Actions</h4>${actSvg}${labels}</div>
-      <div class="trend-card"><h4>Decisions</h4>${decSvg}${labels}<div class="trend-legend">${decLegend}</div></div>
-      <div class="trend-card"><h4>Latency (ms)</h4>${latSvg}${labels}<div class="trend-legend">${latLegend}</div></div>
-    </div>
-  </div>`;
+  // All values are derived from server-side aggregation of trace data — no user-supplied strings interpolated
+  el.innerHTML = '<div class="trend-section' + staleClass + '">'
+    + '<div class="trend-header"><h3 class="trend-title">Trends</h3>' + rangeBar + '</div>'
+    + staleHint
+    + '<div class="trend-grid">'
+    + '<div class="trend-card"><h4>Actions</h4>' + actSvg + labels + '</div>'
+    + '<div class="trend-card"><h4>Decisions</h4>' + decSvg + labels + '<div class="trend-legend">' + decLegend + '</div></div>'
+    + '<div class="trend-card"><h4>Latency (ms)</h4>' + latSvg + labels + '<div class="trend-legend">' + latLegend + '</div></div>'
+    + '<div class="trend-row-divider"></div>'
+    + '<div class="trend-card"><h4>Token Usage (Est)</h4>' + tokSvg + labels + '<div class="trend-legend">' + tokLegend + '</div>' + tokMetric + '</div>'
+    + '<div class="trend-card"><h4>Cost (Est)</h4>' + costSvg + labels + '<div class="trend-legend">' + costLegend + '</div>' + costMetric + '</div>'
+    + '<div class="trend-card"><h4>Burn Rate</h4>' + burnSvg + labels + burnMetric + '</div>'
+    + '</div></div>';
 }
 
 async function loadInsights() {

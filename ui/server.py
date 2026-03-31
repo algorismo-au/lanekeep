@@ -952,7 +952,7 @@ class Handler(BaseHTTPRequestHandler):
                 if key not in buckets_map:
                     buckets_map[key] = {'t': key, 'actions': 0,
                         'decisions': {'deny': 0, 'warn': 0, 'ask': 0, 'allow': 0},
-                        '_latencies': []}
+                        '_latencies': [], '_token_bytes': 0}
                 b = buckets_map[key]
                 b['actions'] += 1
                 dec = obj.get('decision', '')
@@ -964,6 +964,13 @@ class Handler(BaseHTTPRequestHandler):
                         b['_latencies'].append(float(lat))
                     except (ValueError, TypeError):
                         pass
+                # Estimate token usage from tool_input payload size
+                ti = obj.get('tool_input')
+                if ti is not None:
+                    try:
+                        b['_token_bytes'] += len(json.dumps(ti, separators=(',', ':')))
+                    except (TypeError, ValueError):
+                        pass
             # Compute percentiles and build output
             def percentile(vals, p):
                 if not vals:
@@ -973,14 +980,48 @@ class Handler(BaseHTTPRequestHandler):
                 f = int(k)
                 c = f + 1 if f + 1 < len(vals) else f
                 return round(vals[f] + (vals[c] - vals[f]) * (k - f), 1)
+            # Load pricing for cost estimation
+            _pricing_models = _load_pricing()
+            # Try to get current model from state.json for pricing
+            _trend_model = ''
+            _state_path = PROJECT_DIR / '.lanekeep' / 'state.json'
+            if _state_path.exists():
+                try:
+                    _st = json.loads(_state_path.read_text(encoding='utf-8'))
+                    _trend_model = _st.get('model', '')
+                except (json.JSONDecodeError, OSError):
+                    pass
+            # Resolve pricing rates (per-token, not per-MTok)
+            _input_rate = 0.0  # $/token
+            _output_rate = 0.0
+            if _trend_model and _pricing_models:
+                _pr = _pricing_models.get(_trend_model) or _pricing_models.get(re.sub(r'-\d{8}$', '', _trend_model)) or {}
+                if _pr.get('input_per_mtok'):
+                    _input_rate = _pr['input_per_mtok'] / 1_000_000
+                if _pr.get('output_per_mtok'):
+                    _output_rate = _pr['output_per_mtok'] / 1_000_000
             bucket_list = []
+            running_cost = 0.0
             for key in sorted(buckets_map):
                 b = buckets_map[key]
                 lats = b.pop('_latencies')
                 b['latency_p50'] = percentile(lats, 50)
                 b['latency_p95'] = percentile(lats, 95)
+                # Token estimates: ~4 chars per token for tool_input (input side)
+                # Output estimated as ~1.5x input for typical LLM tool responses
+                raw_bytes = b.pop('_token_bytes')
+                tokens_in = round(raw_bytes / 4)
+                tokens_out = round(tokens_in * 1.5)
+                b['tokens_in'] = tokens_in
+                b['tokens_out'] = tokens_out
+                # Cost estimate from pricing
+                bucket_cost = round(tokens_in * _input_rate + tokens_out * _output_rate, 6)
+                running_cost = round(running_cost + bucket_cost, 6)
+                b['cost'] = bucket_cost
+                b['cost_cumulative'] = running_cost
                 bucket_list.append(b)
-            result = {'granularity': granularity, 'buckets': bucket_list, 'range': time_range}
+            result = {'granularity': granularity, 'buckets': bucket_list, 'range': time_range,
+                      'model': _trend_model}
             response_body = json.dumps(result)
             _trends_cache['key'] = cache_key
             _trends_cache['data'] = response_body
