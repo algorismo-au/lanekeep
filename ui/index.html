@@ -2492,7 +2492,8 @@ async function loadGovernance() {
       <div class="gov-row" style="margin-top:8px"><span class="gov-label">Tokens (Input + Output)</span><span class="gov-value">${fmtTokens(cum.total_tokens || 0)} / ${atTokLabel}</span></div>
       ${atTokBar}
       <div class="gov-row" style="margin-top:8px"><span class="gov-label">Time</span><span class="gov-value">${esc(String(cumTimeMins))}m / ${atTimeLabel}</span></div>
-      ${atTimeBar}`;
+      ${atTimeBar}
+      ${cum.total_cost != null && cum.total_cost > 0 ? `<div class="gov-row" style="margin-top:8px"><span class="gov-label">Cost</span><span class="gov-value">$${cum.total_cost < 0.01 ? cum.total_cost.toFixed(4) : cum.total_cost.toFixed(2)}${cum.total_cache_savings > 0 ? ' <span style="font-size:11px;color:var(--text-muted)">(saved $' + (cum.total_cache_savings < 0.01 ? cum.total_cache_savings.toFixed(4) : cum.total_cache_savings.toFixed(2)) + ' via caching)</span>' : ''}</span></div>` : ''}`;
 
     // Shared decision rendering
     const decItems = ['deny', 'warn', 'ask', 'allow'];

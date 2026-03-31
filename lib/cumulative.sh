@@ -3,7 +3,7 @@
 
 # Initialize empty cumulative file
 _cumulative_empty() {
-  printf '{"version":1,"updated_at":"","total_sessions":0,"total_events":0,"total_actions":0,"total_tokens":0,"total_input_tokens":0,"total_output_tokens":0,"total_cache_creation_input_tokens":0,"total_cache_read_input_tokens":0,"total_time_seconds":0}\n'
+  printf '{"version":1,"updated_at":"","total_sessions":0,"total_events":0,"total_actions":0,"total_tokens":0,"total_input_tokens":0,"total_output_tokens":0,"total_cache_creation_input_tokens":0,"total_cache_read_input_tokens":0,"total_time_seconds":0,"total_cost":0,"total_cache_savings":0}\n'
 }
 
 # Called at session start, before state.json resets.
@@ -25,7 +25,7 @@ cumulative_init() {
 
   # Read previous session's final counters
   local prev_actions=0 prev_events=0 prev_tokens=0 prev_input_tokens=0 prev_output_tokens=0 prev_start=0
-  local prev_cache_creation=0 prev_cache_read=0
+  local prev_cache_creation=0 prev_cache_read=0 prev_model=""
   eval "$(jq -r '
     "prev_actions=" + (.action_count // 0 | tostring | @sh),
     "prev_events=" + (.total_events // 0 | tostring | @sh),
@@ -34,7 +34,8 @@ cumulative_init() {
     "prev_output_tokens=" + (.output_tokens // 0 | tostring | @sh),
     "prev_cache_creation=" + (.cache_creation_input_tokens // 0 | tostring | @sh),
     "prev_cache_read=" + (.cache_read_input_tokens // 0 | tostring | @sh),
-    "prev_start=" + (.start_epoch // 0 | tostring | @sh)
+    "prev_start=" + (.start_epoch // 0 | tostring | @sh),
+    "prev_model=" + (.model // "" | @sh)
   ' "$state" 2>/dev/null)" || true
   [[ "$prev_actions" =~ ^[0-9]+$ ]] || prev_actions=0
   [[ "$prev_events" =~ ^[0-9]+$ ]] || prev_events=0
@@ -44,6 +45,30 @@ cumulative_init() {
   [[ "$prev_cache_creation" =~ ^[0-9]+$ ]] || prev_cache_creation=0
   [[ "$prev_cache_read" =~ ^[0-9]+$ ]] || prev_cache_read=0
   [[ "$prev_start" =~ ^[0-9]+$ ]] || prev_start=0
+
+  # Compute session cost from pricing table
+  local session_cost=0 session_savings=0
+  local pricing_file="${LANEKEEP_DIR:-}/data/pricing.json"
+  if [ -n "$prev_model" ] && [ -f "$pricing_file" ]; then
+    eval "$(jq -r --arg model "$prev_model" \
+      --argjson itoks "$prev_input_tokens" \
+      --argjson cctoks "$prev_cache_creation" \
+      --argjson crtoks "$prev_cache_read" \
+      --argjson otoks "$prev_output_tokens" '
+      (.models[$model] // .models[($model | gsub("-[0-9]{8}$";""))]) as $p |
+      if $p then
+        ((([0, ($itoks - $cctoks - $crtoks)] | max) * $p.input_per_mtok
+          + $cctoks * $p.cache_write_per_mtok
+          + $crtoks * $p.cache_read_per_mtok
+          + $otoks * $p.output_per_mtok) / 1000000) as $cost_raw |
+        (($crtoks * ($p.input_per_mtok - $p.cache_read_per_mtok)) / 1000000) as $sav_raw |
+        "session_cost=\($cost_raw * 1000000 | round / 1000000)",
+        "session_savings=\($sav_raw * 1000000 | round / 1000000)"
+      else
+        "session_cost=0", "session_savings=0"
+      end
+    ' "$pricing_file" 2>/dev/null)" || true
+  fi
 
   # Compute elapsed time
   local now elapsed=0
@@ -82,6 +107,8 @@ cumulative_init() {
     --argjson cctoks "$prev_cache_creation" \
     --argjson crtoks "$prev_cache_read" \
     --argjson secs "$elapsed" \
+    --argjson cost "$session_cost" \
+    --argjson savings "$session_savings" \
     --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
     .updated_at = $now |
     .total_sessions += 1 |
@@ -92,7 +119,9 @@ cumulative_init() {
     .total_output_tokens = ((.total_output_tokens // 0) + $otoks) |
     .total_cache_creation_input_tokens = ((.total_cache_creation_input_tokens // 0) + $cctoks) |
     .total_cache_read_input_tokens = ((.total_cache_read_input_tokens // 0) + $crtoks) |
-    .total_time_seconds += $secs
+    .total_time_seconds += $secs |
+    .total_cost = ((.total_cost // 0) + $cost) |
+    .total_cache_savings = ((.total_cache_savings // 0) + $savings)
   ' "$cumfile" 2>/dev/null) || { exec 8>&-; return 0; }
 
   printf '%s\n' "$updated" > "${cumfile}.tmp" && mv "${cumfile}.tmp" "$cumfile"

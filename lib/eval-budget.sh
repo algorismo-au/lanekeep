@@ -193,8 +193,10 @@ budget_eval() {
   if [ -n "$cc_session_id" ] && [ "$cc_session_id" != "$session_id" ]; then
     if [ -n "$session_id" ] && [ "$action_count" -gt 0 ]; then
       # Finalize old session into cumulative.json before resetting
-      printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"cache_creation_input_tokens":%d,"cache_read_input_tokens":%d,"total_events":%d,"start_epoch":%d,"session_id":"%s"}\n' \
-        "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$session_id" > "${state}.tmp" \
+      local _sb_model=""
+      [ -n "${_prev_model:-}" ] && _sb_model="$(printf ',"model":"%s"' "$_prev_model")"
+      printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"cache_creation_input_tokens":%d,"cache_read_input_tokens":%d,"total_events":%d,"start_epoch":%d,"session_id":"%s"%s}\n' \
+        "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$session_id" "$_sb_model" > "${state}.tmp" \
         && mv "${state}.tmp" "$state"
       cumulative_init
       # Reset counters for new session

@@ -1318,6 +1318,9 @@ class Handler(BaseHTTPRequestHandler):
             elapsed_secs = round((budget.get('elapsed_min', 0) or 0) * 60)
             cumulative['total_time_seconds'] = cumulative.get('total_time_seconds', 0) + elapsed_secs
             cumulative['total_sessions'] = cumulative.get('total_sessions', 0) + 1
+            # Cumulative cost: stored historical + current session
+            cumulative['total_cost'] = cumulative.get('total_cost', 0) + (budget.get('cost') or 0)
+            cumulative['total_cache_savings'] = cumulative.get('total_cache_savings', 0) + (budget.get('cache_savings') or 0)
             # Replace lossy cumulative.json qualitative fields with trace-derived data
             alltime = _compute_alltime_from_traces(trace_dir)
             cumulative['decisions'] = alltime['decisions']
