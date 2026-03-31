@@ -95,6 +95,16 @@ if [ -d "$PLUGIN_DIR" ]; then
   export LANEKEEP_PLUGIN_HASHES="$_cached"
 fi
 
+# --- Watchdog configuration ---
+_WATCHDOG_ENABLED=1
+if [ "${LANEKEEP_NO_WATCHDOG:-}" = "1" ]; then
+  _WATCHDOG_ENABLED=0
+fi
+_WATCHDOG_MAX_RESTARTS=${LANEKEEP_WATCHDOG_MAX_RESTARTS:-5}
+_WATCHDOG_BACKOFF_CAP=30
+_WATCHDOG_STABLE_THRESHOLD=60
+_SHUTTING_DOWN=0
+
 # --- Prepare socket (VULN-10: restrict permissions to owner only) ---
 rm -f "$SOCKET"
 
@@ -110,6 +120,7 @@ fi
 # --- Cleanup trap ---
 SOCAT_PID=""
 cleanup() {
+  _SHUTTING_DOWN=1
   if [ -n "$SOCAT_PID" ] && kill -0 "$SOCAT_PID" 2>/dev/null; then
     kill "$SOCAT_PID" 2>/dev/null || true
     wait "$SOCAT_PID" 2>/dev/null || true
@@ -128,22 +139,105 @@ echo "[LaneKeep] Trace:   $LANEKEEP_TRACE_FILE"
 
 # VULN-10: Set umask before socat creates socket to restrict to owner-only
 SOCAT_T=$(( ${LANEKEEP_HOOK_TIMEOUT:-2} + 1 ))
-(umask 077 && exec socat -t "$SOCAT_T" UNIX-LISTEN:"$SOCKET",fork,unlink-early,backlog=128 \
-  EXEC:"$LANEKEEP_DIR/bin/lanekeep-handler",pipes) &
-SOCAT_PID=$!
-printf '%s\n%s\n' "$$" "$SOCAT_PID" > "$PIDFILE"
 
-# Verify socat started (brief check before blocking wait)
-sleep 0.1
+_start_socat() {
+  rm -f "$SOCKET"
+  (umask 077 && exec socat -t "$SOCAT_T" UNIX-LISTEN:"$SOCKET",fork,unlink-early,backlog=128 \
+    EXEC:"$LANEKEEP_DIR/bin/lanekeep-handler",pipes) &
+  SOCAT_PID=$!
+  printf '%s\n%s\n' "$$" "$SOCAT_PID" > "$PIDFILE"
+}
+
+_start_socat
+
+# Verify socat started
+for _v in 1 2 3 4 5; do
+  kill -0 "$SOCAT_PID" 2>/dev/null && break
+  sleep 0.1
+done
 if ! kill -0 "$SOCAT_PID" 2>/dev/null; then
   echo "[LaneKeep] ERROR: socat failed to start" >&2
   exit 1
 fi
 
-wait "$SOCAT_PID"
-EXIT_CODE=$?
-if [ $EXIT_CODE -ne 0 ]; then
-  echo "[LaneKeep] Sidecar stopped unexpectedly (exit code $EXIT_CODE)" >&2
-else
-  echo "[LaneKeep] Sidecar stopped." >&2
+if [ "$_WATCHDOG_ENABLED" -eq 0 ]; then
+  EXIT_CODE=0
+  wait "$SOCAT_PID" || EXIT_CODE=$?
+  if [ $EXIT_CODE -ne 0 ]; then
+    echo "[LaneKeep] Sidecar stopped unexpectedly (exit code $EXIT_CODE)" >&2
+  else
+    echo "[LaneKeep] Sidecar stopped." >&2
+  fi
+  exit 0
 fi
+
+# --- Watchdog loop ---
+_restart_count=0
+_backoff=1
+
+while true; do
+  _start_time=$SECONDS
+
+  EXIT_CODE=0
+  wait "$SOCAT_PID" 2>/dev/null || EXIT_CODE=$?
+
+  # Clean shutdown — do not restart
+  if [ "$_SHUTTING_DOWN" -eq 1 ]; then
+    echo "[LaneKeep] Sidecar stopped." >&2
+    break
+  fi
+
+  # Exit code 0 means socat exited normally (not a crash)
+  if [ $EXIT_CODE -eq 0 ]; then
+    echo "[LaneKeep] Sidecar stopped." >&2
+    break
+  fi
+
+  # --- Unexpected crash: attempt restart ---
+  _runtime=$(( SECONDS - _start_time ))
+
+  # If socat ran long enough, reset backoff and restart count
+  if [ "$_runtime" -ge "$_WATCHDOG_STABLE_THRESHOLD" ]; then
+    _restart_count=0
+    _backoff=1
+  fi
+
+  _restart_count=$(( _restart_count + 1 ))
+  if [ "$_restart_count" -gt "$_WATCHDOG_MAX_RESTARTS" ]; then
+    echo "[LaneKeep] ERROR: socat crashed $_restart_count times — giving up" >&2
+    echo "[LaneKeep] Last exit code: $EXIT_CODE" >&2
+    exit 1
+  fi
+
+  echo "[LaneKeep] WARNING: socat crashed (exit $EXIT_CODE, uptime ${_runtime}s). Restarting in ${_backoff}s... ($_restart_count/$_WATCHDOG_MAX_RESTARTS)" >&2
+
+  # Interruptible sleep — if SIGTERM arrives during backoff, cleanup trap fires
+  sleep "$_backoff" &
+  wait $! 2>/dev/null || true  # exit code doesn't matter for sleep
+
+  # Signal may have arrived during backoff
+  if [ "$_SHUTTING_DOWN" -eq 1 ]; then
+    echo "[LaneKeep] Sidecar stopped." >&2
+    break
+  fi
+
+  _start_socat
+
+  # Verify restart succeeded
+  for _v in 1 2 3 4 5; do
+    kill -0 "$SOCAT_PID" 2>/dev/null && break
+    sleep 0.1
+  done
+  if ! kill -0 "$SOCAT_PID" 2>/dev/null; then
+    echo "[LaneKeep] ERROR: socat failed to restart" >&2
+    continue
+  fi
+
+  echo "[LaneKeep] Socat restarted (pid $SOCAT_PID)." >&2
+
+  # Exponential backoff with cap
+  _backoff=$(( _backoff * 2 ))
+  if [ "$_backoff" -gt "$_WATCHDOG_BACKOFF_CAP" ]; then
+    _backoff=$_WATCHDOG_BACKOFF_CAP
+  fi
+done
