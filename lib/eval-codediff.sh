@@ -38,6 +38,7 @@ codediff_eval() {
   local _CD_HIDDEN_CHARS_ENABLED="true"
   local _CD_DESTRUCTIVE_REGEX="" _CD_DANGEROUS_GIT_REGEX=""
   local _CD_HOMOGLYPH_PATTERNS="" _CD_HOMOGLYPH_ENABLED="true"
+  local _CD_ENCODING_PATTERNS="" _CD_ENCODING_ENABLED="true" _CD_ENCODING_REASON=""
   eval "$(printf '%s' "$_cd" | jq -r '
     "_CD_SENSITIVE_PATHS=" + ([.sensitive_paths[]?] | join("\n") | @sh),
     "_CD_PROTECTED_DIRS=" + ([.protected_dirs[]?] | join("\n") | @sh),
@@ -52,7 +53,10 @@ codediff_eval() {
     "_CD_DESTRUCTIVE_REGEX=" + ([.destructive_regex[]?] | join("\n") | @sh),
     "_CD_DANGEROUS_GIT_REGEX=" + ([.dangerous_git_regex[]?] | join("\n") | @sh),
     "_CD_HOMOGLYPH_PATTERNS=" + ([.homoglyphs.patterns[]?] | join("\n") | @sh),
-    "_CD_HOMOGLYPH_ENABLED=" + (if .homoglyphs.enabled == false then "false" else "true" end | @sh)
+    "_CD_HOMOGLYPH_ENABLED=" + (if .homoglyphs.enabled == false then "false" else "true" end | @sh),
+    "_CD_ENCODING_PATTERNS=" + ([.encoding_detection.patterns[]?] | join("\n") | @sh),
+    "_CD_ENCODING_ENABLED=" + (if .encoding_detection.enabled == false then "false" else "true" end | @sh),
+    "_CD_ENCODING_REASON=" + ((.encoding_detection.reason // "Encoded content detected — may hide payload; verify this is intentional") | @sh)
   ')" || true
 
   local input_str
@@ -198,6 +202,24 @@ codediff_eval() {
       return 1
     fi
   done <<< "$_CD_ASK_PATTERNS"
+
+  # --- Encoding detection → ask (pre-execution) ---
+  # Detects base64 decode pipes, hex escape sequences, nested decode-to-eval
+  # chains, and dense URL-encoded payloads before execution. Uses PCRE with
+  # timeout to guard against ReDoS.
+  if [ "$_CD_ENCODING_ENABLED" != "false" ]; then
+    while IFS= read -r pattern; do
+      [ -z "$pattern" ] && continue
+      if printf '%s' "$tool_input" | timeout 1 grep -qP -- "$pattern" 2>/dev/null; then
+        local match_snippet
+        match_snippet=$(printf '%s' "$tool_input" | timeout 1 grep -oP -- "$pattern" 2>/dev/null | head -1 | head -c 80)
+        CODEDIFF_PASSED=false
+        CODEDIFF_DECISION="ask"
+        CODEDIFF_REASON="[LaneKeep] NEEDS APPROVAL — CodeDiffEvaluator (Tier 2, score: 0.8)\n${_CD_ENCODING_REASON}\nMatched: ${match_snippet:-encoded content}\nCompliance: MITRE ATT&CK T1027, ATLAS T0015"
+        return 1
+      fi
+    done <<< "$_CD_ENCODING_PATTERNS"
+  fi
 
   # --- Hidden Unicode character detection → deny ---
   # Scans Write/Edit tool input for invisible/bidirectional Unicode characters
