@@ -12,11 +12,13 @@
     "max_input_tokens": 250000,
     "max_output_tokens": 250000,
     "max_tokens": 500000,
+    "max_cost": 20,
     "max_total_actions": 10000,
     "max_total_input_tokens": 5000000,
     "max_total_output_tokens": 5000000,
     "max_total_time_seconds": 1728000,
     "max_total_tokens": 10000000,
+    "max_total_cost": 400,
     "timeout_seconds": 86400
   },
   "evaluators": {
@@ -243,6 +245,22 @@
           "[\\x{0400}-\\x{04FF}]",
           "[\\x{0370}-\\x{03FF}]"
         ]
+      },
+      "encoding_detection": {
+        "enabled": true,
+        "patterns": [
+          "\\|\\s*base64\\s+(--decode|-d)",
+          "base64\\s+(--decode|-d)\\s*[<|]",
+          "echo\\s+['\"][A-Za-z0-9+/]{20,}={0,2}['\"]\\s*\\|",
+          "printf\\s+\\S*\\\\\\\\x[0-9a-fA-F]{2}(\\\\\\\\x[0-9a-fA-F]{2}){3,}",
+          "\\$'(\\\\\\\\x[0-9a-fA-F]{2}){4,}'",
+          "base64\\s+(--decode|-d).*\\|.*(sh|bash|eval|source)",
+          "\\|\\s*xxd\\s+-r.*\\|.*(sh|bash|eval)",
+          "python[23]?\\s+-c\\s+.*(__import__|exec|eval).*base64",
+          "(%[0-9a-fA-F]{2}){6,}",
+          "\\\\\\\\u00[0-9a-fA-F]{2}(\\\\\\\\u00[0-9a-fA-F]{2}){3,}"
+        ],
+        "reason": "Encoded content detected — may hide payload; verify this is intentional"
       }
     },
     "budget": {
@@ -328,7 +346,13 @@
         "eyJ[a-zA-Z0-9]{20,}",
         "(password|passwd|pwd)[[:space:]]*[=:][[:space:]]*[^[:space:]]+",
         "(secret|api_key|apikey|api_secret)[[:space:]]*[=:][[:space:]]*[^[:space:]]+",
-        "(access_token|auth_token|bearer)[[:space:]]*[=:][[:space:]]*[^[:space:]]+"
+        "(access_token|auth_token|bearer)[[:space:]]*[=:][[:space:]]*[^[:space:]]+",
+        {
+          "pattern": "[A-Za-z0-9+/]{40,}={0,2}",
+          "decision": "warn",
+          "reason": "Possible base64-encoded content in tool output — may hide injection payload",
+          "compliance": ["attck:t1027", "atlas:t0015", "nist-ai100-2:evasion"]
+        }
       ],
       "hidden_char_patterns": [
         "[\\x{200B}\\x{200C}\\x{200D}\\x{200E}\\x{200F}]",
@@ -1391,6 +1415,66 @@
         "CWE-94"
       ],
       "type": "free"
+    },
+    {
+      "id": "sec-021",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(?im)^(SYSTEM|ASSISTANT|USER|HUMAN|AI|BOT|CLAUDE|GPT|CHATGPT|DEVELOPER|ADMIN(ISTRATOR)?|INSTRUCTION(S)?):\\s"
+      },
+      "decision": "ask",
+      "reason": "Bare LLM role prefix detected — may confuse model into treating file content as a system/assistant message",
+      "category": "security",
+      "intent": "Plain-text role prefixes (SYSTEM:, ASSISTANT:, USER:, etc.) at the start of a line can trick LLMs into role confusion when file content is fed back into a conversation",
+      "compliance": [
+        "CWE-94"
+      ],
+      "type": "free",
+      "compliance_tags": [
+        "owasp-llm:LLM01:2025",
+        "atlas:t0054",
+        "nist-ai100-2:prompt-injection"
+      ]
+    },
+    {
+      "id": "sec-022",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(?i)\\[\\[?/?(SYSTEM|INST(RUCTION)?|ASSISTANT|USER|HUMAN|ADMIN)\\]\\]?"
+      },
+      "decision": "ask",
+      "reason": "Bracket-style role marker detected — common LLM delimiter that could enable role injection",
+      "category": "security",
+      "intent": "Bracket markers like [SYSTEM], [/SYSTEM], [[SYSTEM]], [INSTRUCTION] are used by various LLM frameworks as role delimiters; injecting them into file content can hijack model behavior",
+      "compliance": [
+        "CWE-94"
+      ],
+      "type": "free",
+      "compliance_tags": [
+        "owasp-llm:LLM01:2025",
+        "atlas:t0054",
+        "nist-ai100-2:prompt-injection"
+      ]
+    },
+    {
+      "id": "sec-023",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(?i)<\\s*/?\\s*(system|assistant|user|human|instruction|prompt|admin|developer)\\s*>"
+      },
+      "decision": "ask",
+      "reason": "XML-style role tag detected — may be used to inject fake role boundaries into LLM context",
+      "category": "security",
+      "intent": "Tags like <system>, </assistant>, <prompt> mimic XML role delimiters used by LLM APIs; embedding them in files can trick models into treating content as privileged instructions",
+      "compliance": [
+        "CWE-94"
+      ],
+      "type": "free",
+      "compliance_tags": [
+        "owasp-llm:LLM01:2025",
+        "atlas:t0054",
+        "nist-ai100-2:prompt-injection"
+      ]
     },
     {
       "id": "sec-020",
