@@ -50,7 +50,33 @@ jobs:
       - name: Run gitleaks
         run: gitleaks detect --source . --no-banner
 
+  smoke:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq socat
+
+      - name: Install bats
+        run: |
+          git clone --depth 1 --branch v1.13.0 https://github.com/bats-core/bats-core.git /tmp/bats
+          sudo /tmp/bats/install.sh /usr/local
+
+      - name: Run smoke tests (Tier 1 + 2)
+        run: |
+          bats --recursive \
+            tests/evaluators/ \
+            tests/config/ \
+            tests/rules/ \
+            tests/pipeline/
+
   test:
+    needs: smoke
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -66,7 +92,7 @@ jobs:
           git clone --depth 1 --branch v1.13.0 https://github.com/bats-core/bats-core.git /tmp/bats
           sudo /tmp/bats/install.sh /usr/local
 
-      - name: Run tests
+      - name: Run full test suite
         run: bats --recursive tests/
 
       - name: Generate app token
