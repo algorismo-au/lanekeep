@@ -1352,6 +1352,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
       <div class="settings-row"><span class="settings-label">Max sessions</span><input type="number" class="settings-input" id="set-trace-max_sessions" min="1"></div>
     </div>
 
+    <div class="settings-card" id="settings-pricing-card">
+      <h3>Model Pricing</h3>
+      <p class="settings-hint">USD per million tokens. Edit to override bundled defaults for cost calculation.</p>
+      <div id="settings-pricing-models"></div>
+    </div>
+
     <div class="settings-card">
       <h3>Features</h3>
       <div class="settings-row">
@@ -5559,6 +5565,7 @@ async function loadSettings() {
       trace: Object.assign({ retention_days: 365, max_sessions: 100 }, cfg.trace || {}),
       autoformat: Object.assign({ enabled: true }, cfg.autoformat || {}),
       evaluators_semantic: Object.assign({ enabled: false, model: 'claude-haiku-4-5-20251001' }, (cfg.evaluators && cfg.evaluators.semantic) || {}),
+      pricing_overrides: Object.assign({}, (cfg.budget && cfg.budget.pricing_overrides) || {}),
     };
     // Backward compat: migrate old platforms object to single platform string
     const n = settingsData.notifications;
@@ -5637,6 +5644,64 @@ function renderSettings() {
   document.getElementById('set-semantic-enabled').checked = settingsData.evaluators_semantic.enabled === true;
   document.getElementById('set-semantic-model').value = settingsData.evaluators_semantic.model || 'claude-haiku-4-5-20251001';
   toggleSemanticModel();
+  renderPricingSettings();
+}
+
+var _bundledPricing = null;
+async function renderPricingSettings() {
+  const container = document.getElementById('settings-pricing-models');
+  if (!container) return;
+  // Fetch bundled defaults once
+  if (!_bundledPricing) {
+    try {
+      const res = await fetch(API + '/api/pricing');
+      if (res.ok) _bundledPricing = await res.json();
+    } catch (e) { /* ignore */ }
+  }
+  if (!_bundledPricing) { container.textContent = 'Could not load pricing data.'; return; }
+  const overrides = settingsData.pricing_overrides || {};
+  const rateLabels = { input_per_mtok: 'Input', output_per_mtok: 'Output', cache_write_per_mtok: 'Cache Write', cache_read_per_mtok: 'Cache Read' };
+  const rateKeys = Object.keys(rateLabels);
+  // Build DOM safely
+  container.textContent = '';
+  for (const [model, rates] of Object.entries(_bundledPricing)) {
+    const shortName = model.replace(/-\d{8}$/, '');
+    const ovr = overrides[model] || {};
+    const block = document.createElement('div');
+    block.style.cssText = 'margin-bottom:12px';
+    const label = document.createElement('span');
+    label.style.cssText = 'font-size:12px;font-weight:600;color:var(--text-secondary)';
+    label.textContent = shortName;
+    block.appendChild(label);
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-top:4px';
+    for (const rk of rateKeys) {
+      const val = ovr[rk] != null ? ovr[rk] : rates[rk];
+      const isOverridden = ovr[rk] != null;
+      const row = document.createElement('div');
+      row.className = 'settings-row';
+      row.style.cssText = 'margin:0;padding:2px 0';
+      const rl = document.createElement('span');
+      rl.className = 'settings-label';
+      rl.style.cssText = 'font-size:11px';
+      rl.textContent = rateLabels[rk];
+      const inp = document.createElement('input');
+      inp.type = 'number';
+      inp.className = 'settings-input pricing-rate-input';
+      inp.dataset.model = model;
+      inp.dataset.rate = rk;
+      inp.value = val;
+      inp.min = '0';
+      inp.step = 'any';
+      inp.style.cssText = 'width:80px;font-size:12px;' + (isOverridden ? 'border-color:var(--accent)' : '');
+      inp.addEventListener('input', markSettingsDirty);
+      row.appendChild(rl);
+      row.appendChild(inp);
+      grid.appendChild(row);
+    }
+    block.appendChild(grid);
+    container.appendChild(block);
+  }
 }
 
 function toggleSemanticModel() {
@@ -5704,6 +5769,20 @@ function collectSettingsFromForm() {
   settingsData.autoformat.enabled = document.getElementById('set-autoformat-enabled').checked;
   settingsData.evaluators_semantic.enabled = document.getElementById('set-semantic-enabled').checked;
   settingsData.evaluators_semantic.model = document.getElementById('set-semantic-model').value;
+  // Collect pricing overrides — only save rates that differ from bundled defaults
+  const pricingOverrides = {};
+  document.querySelectorAll('.pricing-rate-input').forEach(inp => {
+    const model = inp.dataset.model;
+    const rate = inp.dataset.rate;
+    const val = parseFloat(inp.value);
+    if (isNaN(val) || val < 0) return;
+    const bundled = _bundledPricing && _bundledPricing[model] && _bundledPricing[model][rate];
+    if (bundled != null && val !== bundled) {
+      if (!pricingOverrides[model]) pricingOverrides[model] = {};
+      pricingOverrides[model][rate] = val;
+    }
+  });
+  settingsData.pricing_overrides = pricingOverrides;
   return null;
 }
 
@@ -5711,10 +5790,17 @@ async function saveSettings() {
   const validationError = collectSettingsFromForm();
   if (validationError) { setSettingsStatus(validationError, 'error'); return; }
   try {
+    // Nest pricing_overrides under budget for the save payload
+    const payload = JSON.parse(JSON.stringify(settingsData));
+    if (payload.pricing_overrides) {
+      if (!payload.budget) payload.budget = {};
+      payload.budget.pricing_overrides = payload.pricing_overrides;
+      delete payload.pricing_overrides;
+    }
     const res = await fetch(API + '/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(settingsData),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

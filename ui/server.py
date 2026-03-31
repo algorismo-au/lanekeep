@@ -68,18 +68,24 @@ def _load_pricing():
 
 
 def _compute_cost(model: str, input_toks: int, cache_create_toks: int,
-                  cache_read_toks: int, output_toks: int):
+                  cache_read_toks: int, output_toks: int,
+                  pricing_overrides: dict = None):
     """Compute session cost and cache savings. Returns (cost, savings) or (None, None)."""
     models = _load_pricing()
     if not model or not models:
         return None, None
-    pricing = models.get(model)
+    pricing = dict(models.get(model) or {})
     if not pricing:
         # Strip date suffix: "claude-sonnet-4-5-20250514" → "claude-sonnet-4-5"
         stripped = re.sub(r'-\d{8}$', '', model)
-        pricing = models.get(stripped)
+        pricing = dict(models.get(stripped) or {})
     if not pricing:
         return None, None
+    # Apply per-model overrides from config
+    if pricing_overrides:
+        ovr = pricing_overrides.get(model) or pricing_overrides.get(re.sub(r'-\d{8}$', '', model))
+        if ovr and isinstance(ovr, dict):
+            pricing.update(ovr)
     non_cached = max(0, input_toks - cache_create_toks - cache_read_toks)
     cost = (non_cached * pricing['input_per_mtok']
             + cache_create_toks * pricing['cache_write_per_mtok']
@@ -513,6 +519,8 @@ class Handler(BaseHTTPRequestHandler):
             self._serve_trace(qs)
         elif path == '/api/bookmarks':
             self._serve_bookmarks()
+        elif path == '/api/pricing':
+            self._serve_pricing()
         elif path == '/api/status':
             self._serve_status()
         elif path == '/api/rules/update-check':
@@ -627,6 +635,22 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(data)
         except FileNotFoundError:
             self._respond_json_error(404, f'Config file not found: {CONFIG_PATH}')
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception as e:
+            print(f"[LaneKeep UI] Error: {e}", file=sys.stderr)
+            self._respond_json_error(500)
+
+    def _serve_pricing(self):
+        """Return bundled model pricing defaults."""
+        try:
+            models = _load_pricing()
+            data = json.dumps(models).encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', len(data))
+            self.end_headers()
+            self.wfile.write(data)
         except (BrokenPipeError, ConnectionResetError):
             pass
         except Exception as e:
@@ -1199,13 +1223,19 @@ class Handler(BaseHTTPRequestHandler):
                     budget['context_source'] = 'model'
                 budget['context_model'] = context_model
 
-            # Cost calculation
+            # Cost calculation (with user pricing overrides from config)
+            _pricing_ovr = {}
+            try:
+                _pricing_ovr = cfg.get('budget', {}).get('pricing_overrides', {})
+            except NameError:
+                pass
             cost, cache_savings = _compute_cost(
                 context_model,
                 budget.get('input_tokens', 0),
                 budget.get('cache_creation_input_tokens', 0),
                 budget.get('cache_read_input_tokens', 0),
-                budget.get('output_tokens', 0))
+                budget.get('output_tokens', 0),
+                pricing_overrides=_pricing_ovr)
             if cost is not None:
                 budget['cost'] = cost
                 budget['cache_savings'] = cache_savings
@@ -2128,6 +2158,21 @@ class Handler(BaseHTTPRequestHandler):
                 if k in BUDGET_FIELDS:
                     if not isinstance(v, int) or isinstance(v, bool) or v < 0:
                         return False, f'budget.{k} must be a non-negative integer'
+            # Pricing overrides: {model: {rate_field: number}}
+            PRICING_RATE_FIELDS = {'input_per_mtok', 'output_per_mtok',
+                                   'cache_write_per_mtok', 'cache_read_per_mtok'}
+            if 'pricing_overrides' in b:
+                po = b['pricing_overrides']
+                if not isinstance(po, dict):
+                    return False, 'budget.pricing_overrides must be an object'
+                for model_name, rates in po.items():
+                    if not isinstance(rates, dict):
+                        return False, f'budget.pricing_overrides.{model_name} must be an object'
+                    for rk, rv in rates.items():
+                        if rk not in PRICING_RATE_FIELDS:
+                            return False, f'budget.pricing_overrides.{model_name}.{rk}: unknown rate field'
+                        if not isinstance(rv, (int, float)) or isinstance(rv, bool) or rv < 0:
+                            return False, f'budget.pricing_overrides.{model_name}.{rk} must be a non-negative number'
 
         # Notifications
         if 'notifications' in body:

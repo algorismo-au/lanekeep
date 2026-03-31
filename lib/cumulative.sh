@@ -46,17 +46,26 @@ cumulative_init() {
   [[ "$prev_cache_read" =~ ^[0-9]+$ ]] || prev_cache_read=0
   [[ "$prev_start" =~ ^[0-9]+$ ]] || prev_start=0
 
-  # Compute session cost from pricing table
+  # Compute session cost from pricing table (with config overrides)
   local session_cost=0 session_savings=0
   local pricing_file="${LANEKEEP_DIR:-}/data/pricing.json"
+  local config_file="${LANEKEEP_CONFIG_FILE:-}"
   if [ -n "$prev_model" ] && [ -f "$pricing_file" ]; then
+    # Read pricing overrides from config if available
+    local _ovr='{}'
+    if [ -n "$config_file" ] && [ -f "$config_file" ]; then
+      _ovr=$(jq -c '.budget.pricing_overrides // {}' "$config_file" 2>/dev/null) || _ovr='{}'
+    fi
     eval "$(jq -r --arg model "$prev_model" \
       --argjson itoks "$prev_input_tokens" \
       --argjson cctoks "$prev_cache_creation" \
       --argjson crtoks "$prev_cache_read" \
-      --argjson otoks "$prev_output_tokens" '
-      (.models[$model] // .models[($model | gsub("-[0-9]{8}$";""))]) as $p |
-      if $p then
+      --argjson otoks "$prev_output_tokens" \
+      --argjson overrides "$_ovr" '
+      ((.models[$model] // .models[($model | gsub("-[0-9]{8}$";""))]) // {}) as $base |
+      (($overrides[$model] // $overrides[($model | gsub("-[0-9]{8}$";""))]) // {}) as $ovr |
+      ($base + $ovr) as $p |
+      if ($p | has("input_per_mtok")) then
         ((([0, ($itoks - $cctoks - $crtoks)] | max) * $p.input_per_mtok
           + $cctoks * $p.cache_write_per_mtok
           + $crtoks * $p.cache_read_per_mtok
