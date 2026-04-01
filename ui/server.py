@@ -1140,7 +1140,8 @@ class Handler(BaseHTTPRequestHandler):
             budget = {'actions': 0, 'max_actions': 500, 'elapsed_min': 0, 'max_minutes': 1440,
                       'tokens': 0, 'input_tokens': 0, 'output_tokens': 0,
                       'cache_creation_input_tokens': 0, 'cache_read_input_tokens': 0,
-                      'max_tokens': None, 'max_input_tokens': None, 'max_output_tokens': None}
+                      'max_tokens': None, 'max_input_tokens': None, 'max_output_tokens': None,
+                      'max_cost': None, 'max_total_cost': None}
             if state_path.exists():
                 try:
                     st = json.loads(state_path.read_text(encoding='utf-8'))
@@ -1172,6 +1173,8 @@ class Handler(BaseHTTPRequestHandler):
                     budget['max_input_tokens'] = int(db['max_input_tokens'])
                 if db.get('max_output_tokens') is not None:
                     budget['max_output_tokens'] = int(db['max_output_tokens'])
+                if db.get('max_cost') is not None:
+                    budget['max_cost'] = float(db['max_cost'])
             except (NameError, ValueError, AttributeError):
                 pass
             # Layer 1: project config
@@ -1190,6 +1193,8 @@ class Handler(BaseHTTPRequestHandler):
                         budget['max_input_tokens'] = int(cb['max_input_tokens'])
                     if cb.get('max_output_tokens') is not None:
                         budget['max_output_tokens'] = int(cb['max_output_tokens'])
+                    if cb.get('max_cost') is not None:
+                        budget['max_cost'] = float(cb['max_cost'])
                 except (json.JSONDecodeError, OSError, ValueError):
                     pass
             # Layer 2: env var overrides
@@ -1206,6 +1211,9 @@ class Handler(BaseHTTPRequestHandler):
             max_otok = os.environ.get('LANEKEEP_MAX_OUTPUT_TOKENS')
             if max_otok:
                 budget['max_output_tokens'] = int(max_otok)
+            max_cost_env = os.environ.get('LANEKEEP_MAX_COST')
+            if max_cost_env:
+                budget['max_cost'] = float(max_cost_env)
             # All-time limits: layer through defaults → project → env
             budget['max_total_actions'] = 10000
             budget['max_total_input_tokens'] = 5000000
@@ -1224,6 +1232,8 @@ class Handler(BaseHTTPRequestHandler):
                     budget['max_total_tokens'] = int(db['max_total_tokens'])
                 if db.get('max_total_time_seconds') is not None:
                     budget['max_total_time_seconds'] = int(db['max_total_time_seconds'])
+                if db.get('max_total_cost') is not None:
+                    budget['max_total_cost'] = float(db['max_total_cost'])
             except (NameError, ValueError, AttributeError):
                 pass
             if cfg_path.exists():
@@ -1239,6 +1249,8 @@ class Handler(BaseHTTPRequestHandler):
                         budget['max_total_tokens'] = int(cfg_b['max_total_tokens'])
                     if cfg_b.get('max_total_time_seconds') is not None:
                         budget['max_total_time_seconds'] = int(cfg_b['max_total_time_seconds'])
+                    if cfg_b.get('max_total_cost') is not None:
+                        budget['max_total_cost'] = float(cfg_b['max_total_cost'])
                 except (json.JSONDecodeError, OSError, ValueError):
                     pass
             if os.environ.get('LANEKEEP_MAX_TOTAL_ACTIONS'):
@@ -1251,6 +1263,8 @@ class Handler(BaseHTTPRequestHandler):
                 budget['max_total_tokens'] = int(os.environ['LANEKEEP_MAX_TOTAL_TOKENS'])
             if os.environ.get('LANEKEEP_MAX_TOTAL_TIME'):
                 budget['max_total_time_seconds'] = int(os.environ['LANEKEEP_MAX_TOTAL_TIME'])
+            if os.environ.get('LANEKEEP_MAX_TOTAL_COST'):
+                budget['max_total_cost'] = float(os.environ['LANEKEEP_MAX_TOTAL_COST'])
 
             # Context window: only meaningful when token_source is transcript
             budget['token_source'] = token_source

@@ -101,6 +101,7 @@ budget_eval() {
   local max_actions="" timeout_seconds="" max_tokens=""
   local max_input_tokens="" max_output_tokens=""
   local max_total_actions="" max_total_input_tokens="" max_total_output_tokens="" max_total_tokens="" max_total_time=""
+  local max_cost="" max_total_cost=""
   if [ -n "${_CFG_MAX_ACTIONS+x}" ]; then
     max_actions="$_CFG_MAX_ACTIONS"
     timeout_seconds="$_CFG_TIMEOUT_SECONDS"
@@ -112,6 +113,8 @@ budget_eval() {
     max_total_output_tokens="${_CFG_MAX_TOTAL_OUTPUT_TOKENS:-}"
     max_total_tokens="${_CFG_MAX_TOTAL_TOKENS:-}"
     max_total_time="${_CFG_MAX_TOTAL_TIME:-}"
+    max_cost="${_CFG_MAX_COST:-}"
+    max_total_cost="${_CFG_MAX_TOTAL_COST:-}"
   elif [ -f "$LANEKEEP_CONFIG_FILE" ]; then
     eval "$(jq -r '
       "max_actions=" + (.budget.max_actions // "" | tostring | @sh),
@@ -123,7 +126,9 @@ budget_eval() {
       "max_total_input_tokens=" + (.budget.max_total_input_tokens // "" | tostring | @sh),
       "max_total_output_tokens=" + (.budget.max_total_output_tokens // "" | tostring | @sh),
       "max_total_tokens=" + (.budget.max_total_tokens // "" | tostring | @sh),
-      "max_total_time=" + (.budget.max_total_time_seconds // "" | tostring | @sh)
+      "max_total_time=" + (.budget.max_total_time_seconds // "" | tostring | @sh),
+      "max_cost=" + (.budget.max_cost // "" | tostring | @sh),
+      "max_total_cost=" + (.budget.max_total_cost // "" | tostring | @sh)
     ' "$LANEKEEP_CONFIG_FILE" 2>/dev/null)" || true
   fi
   if [ -n "${LANEKEEP_TASKSPEC_FILE:-}" ] && [ -f "$LANEKEEP_TASKSPEC_FILE" ]; then
@@ -131,19 +136,21 @@ budget_eval() {
     local _ts_sz
     _ts_sz=$(stat -c %s "$LANEKEEP_TASKSPEC_FILE" 2>/dev/null) || _ts_sz=0
     if [ "$_ts_sz" -gt 4 ]; then
-      local _ts_ma="" _ts_ts="" _ts_mt="" _ts_mit="" _ts_mot=""
+      local _ts_ma="" _ts_ts="" _ts_mt="" _ts_mit="" _ts_mot="" _ts_mc=""
       eval "$(jq -r '
         "_ts_ma=" + (.budget.max_actions // "" | tostring | @sh),
         "_ts_ts=" + (.budget.timeout_seconds // "" | tostring | @sh),
         "_ts_mt=" + (.budget.max_tokens // "" | tostring | @sh),
         "_ts_mit=" + (.budget.max_input_tokens // "" | tostring | @sh),
-        "_ts_mot=" + (.budget.max_output_tokens // "" | tostring | @sh)
+        "_ts_mot=" + (.budget.max_output_tokens // "" | tostring | @sh),
+        "_ts_mc=" + (.budget.max_cost // "" | tostring | @sh)
       ' "$LANEKEEP_TASKSPEC_FILE" 2>/dev/null)" || true
       [ -n "$_ts_ma" ] && max_actions="$_ts_ma"
       [ -n "$_ts_ts" ] && timeout_seconds="$_ts_ts"
       [ -n "$_ts_mt" ] && max_tokens="$_ts_mt"
       [ -n "$_ts_mit" ] && max_input_tokens="$_ts_mit"
       [ -n "$_ts_mot" ] && max_output_tokens="$_ts_mot"
+      [ -n "$_ts_mc" ] && max_cost="$_ts_mc"
     fi
   fi
   # Layer 3: env var overrides
@@ -152,6 +159,8 @@ budget_eval() {
   [ -n "${LANEKEEP_MAX_TOKENS:-}" ] && max_tokens="$LANEKEEP_MAX_TOKENS"
   [ -n "${LANEKEEP_MAX_INPUT_TOKENS:-}" ] && max_input_tokens="$LANEKEEP_MAX_INPUT_TOKENS"
   [ -n "${LANEKEEP_MAX_OUTPUT_TOKENS:-}" ] && max_output_tokens="$LANEKEEP_MAX_OUTPUT_TOKENS"
+  [ -n "${LANEKEEP_MAX_COST:-}" ] && max_cost="$LANEKEEP_MAX_COST"
+  [ -n "${LANEKEEP_MAX_TOTAL_COST:-}" ] && max_total_cost="$LANEKEEP_MAX_TOTAL_COST"
 
   # === LOCKED SECTION: read state, check limits, increment, write back ===
   # Acquire lock BEFORE reading state to prevent TOCTOU race
@@ -317,6 +326,50 @@ budget_eval() {
     fi
   fi
 
+  # Check session cost limit
+  local _session_cost=""
+  if { [ -n "$max_cost" ] && [ "$max_cost" != "null" ]; } \
+     || { [ -n "$max_total_cost" ] && [ "$max_total_cost" != "null" ]; }; then
+    # Compute live session cost from current token counts + pricing table
+    local _cost_model="${_TRANSCRIPT_MODEL:-${_prev_model:-}}"
+    local _pricing_file="${LANEKEEP_DIR:-}/data/pricing.json"
+    if [ -n "$_cost_model" ] && [ -f "$_pricing_file" ]; then
+      local _cost_ovr='{}'
+      if [ -f "$LANEKEEP_CONFIG_FILE" ]; then
+        _cost_ovr=$(jq -c '.budget.pricing_overrides // {}' "$LANEKEEP_CONFIG_FILE" 2>/dev/null) || _cost_ovr='{}'
+      fi
+      _session_cost=$(jq -r --arg model "$_cost_model" \
+        --argjson itoks "$_check_input" \
+        --argjson cctoks "$cache_creation_st" \
+        --argjson crtoks "$cache_read_st" \
+        --argjson otoks "$output_tokens_st" \
+        --argjson overrides "$_cost_ovr" '
+        ((.models[$model] // .models[($model | gsub("-[0-9]{8}$";""))]) // {}) as $base |
+        (($overrides[$model] // $overrides[($model | gsub("-[0-9]{8}$";""))]) // {}) as $ovr |
+        ($base + $ovr) as $p |
+        if ($p | has("input_per_mtok")) then
+          ((([0, ($itoks - $cctoks - $crtoks)] | max) * $p.input_per_mtok
+            + $cctoks * $p.cache_write_per_mtok
+            + $crtoks * $p.cache_read_per_mtok
+            + $otoks * $p.output_per_mtok) / 1000000) |
+          . * 1000000 | round / 1000000
+        else 0 end
+      ' "$_pricing_file" 2>/dev/null) || _session_cost=""
+    fi
+
+    if [ -n "$_session_cost" ] && [ "$_session_cost" != "0" ]; then
+      if [ -n "$max_cost" ] && [ "$max_cost" != "null" ]; then
+        # Compare using jq (bash can't do float comparison)
+        if jq -e --argjson cost "$_session_cost" --argjson max "$max_cost" \
+          'if $cost > $max then true else false end' <<< 'null' >/dev/null 2>&1; then
+          BUDGET_PASSED=false
+          BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nSession cost budget exceeded: \$${_session_cost}/\$${max_cost}"
+          return 1
+        fi
+      fi
+    fi
+  fi
+
   # === ALL-TIME CUMULATIVE LIMIT CHECKS ===
   # Env var overrides (max_total_* already read from config above)
   [ -n "${LANEKEEP_MAX_TOTAL_ACTIONS:-}" ] && max_total_actions="$LANEKEEP_MAX_TOTAL_ACTIONS"
@@ -330,17 +383,19 @@ budget_eval() {
      || { [ -n "$max_total_input_tokens" ] && [ "$max_total_input_tokens" != "null" ]; } \
      || { [ -n "$max_total_output_tokens" ] && [ "$max_total_output_tokens" != "null" ]; } \
      || { [ -n "$max_total_tokens" ] && [ "$max_total_tokens" != "null" ]; } \
-     || { [ -n "$max_total_time" ] && [ "$max_total_time" != "null" ]; }; then
+     || { [ -n "$max_total_time" ] && [ "$max_total_time" != "null" ]; } \
+     || { [ -n "$max_total_cost" ] && [ "$max_total_cost" != "null" ]; }; then
 
     local cumfile="${LANEKEEP_CUMULATIVE_FILE:-${PROJECT_DIR:-.}/.lanekeep/cumulative.json}"
     if [ -f "$cumfile" ]; then
-      local cum_actions=0 cum_input_tokens=0 cum_output_tokens=0 cum_tokens=0 cum_time=0
+      local cum_actions=0 cum_input_tokens=0 cum_output_tokens=0 cum_tokens=0 cum_time=0 cum_cost=0
       eval "$(jq -r '
         "cum_actions=" + (.total_actions // 0 | tostring | @sh),
         "cum_input_tokens=" + (.total_input_tokens // 0 | tostring | @sh),
         "cum_output_tokens=" + (.total_output_tokens // 0 | tostring | @sh),
         "cum_tokens=" + (.total_tokens // 0 | tostring | @sh),
-        "cum_time=" + (.total_time_seconds // 0 | tostring | @sh)
+        "cum_time=" + (.total_time_seconds // 0 | tostring | @sh),
+        "cum_cost=" + (.total_cost // 0 | tostring | @sh)
       ' "$cumfile" 2>/dev/null)" || true
       [[ "$cum_actions" =~ ^[0-9]+$ ]] || cum_actions=0
       [[ "$cum_input_tokens" =~ ^[0-9]+$ ]] || cum_input_tokens=0
@@ -396,6 +451,18 @@ budget_eval() {
         if [ "$total_time" -gt "$max_total_time" ]; then
           BUDGET_PASSED=false
           BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nAll-time time budget exceeded: ${total_time}s/${max_total_time}s"
+          return 1
+        fi
+      fi
+
+      # Check all-time cost limit
+      if [ -n "$max_total_cost" ] && [ "$max_total_cost" != "null" ] && [ -n "$_session_cost" ]; then
+        if jq -e --argjson cum "$cum_cost" --argjson sess "$_session_cost" --argjson max "$max_total_cost" \
+          'if ($cum + $sess) > $max then true else false end' <<< 'null' >/dev/null 2>&1; then
+          local _total_cost
+          _total_cost=$(jq -n --argjson a "$cum_cost" --argjson b "$_session_cost" '$a + $b | . * 100 | round / 100')
+          BUDGET_PASSED=false
+          BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nAll-time cost budget exceeded: \$${_total_cost}/\$${max_total_cost}"
           return 1
         fi
       fi
