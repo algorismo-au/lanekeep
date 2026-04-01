@@ -15,7 +15,7 @@ hardblock_check() {
 
   local search_text
   # Strip null bytes, zero-width chars (U+200B-U+200F, U+FEFF, U+2060, U+00AD),
-  # strip quotes (single/double), optionally NFC-normalize,
+  # strip quotes (single/double), optionally NFKC-normalize,
   # and normalize Unicode fullwidth chars (U+FF01..U+FF5E → ASCII)
   search_text=$(printf '%s %s' "$tool_name" "$tool_input" \
     | tr -d '\000' \
@@ -26,7 +26,7 @@ hardblock_check() {
         -e 's/\xc2\xad//g' \
         -e 's/\xef\xbc[\x81-\xbe]/\x21/g; s/\xef\xbd[\x80-\x9e]/\x60/g' \
         -e "s/'//g; s/\"//g" \
-    | { uconv -x "NFC" 2>/dev/null || cat; } \
+    | { uconv -x "NFKC" 2>/dev/null || cat; } \
     | tr '[:upper:]' '[:lower:]')
 
   # Resolve hard_blocks: use pre-extracted var or fall back to jq
