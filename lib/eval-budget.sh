@@ -362,8 +362,10 @@ budget_eval() {
         # Compare using jq (bash can't do float comparison)
         if jq -e --argjson cost "$_session_cost" --argjson max "$max_cost" \
           'if $cost > $max then true else false end' <<< 'null' >/dev/null 2>&1; then
+          local _display_cost
+          _display_cost=$(jq -n --argjson v "$_session_cost" '$v * 100 | round / 100')
           BUDGET_PASSED=false
-          BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nSession cost budget exceeded: \$${_session_cost}/\$${max_cost}"
+          BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nSession cost budget exceeded: \$${_display_cost}/\$${max_cost}"
           return 1
         fi
       fi
