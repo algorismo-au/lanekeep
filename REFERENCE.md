@@ -274,6 +274,7 @@ lanekeep policy disable governance_paths --reason "Updating CLAUDE.md"
 | `budget.max_input_tokens` | `LANEKEEP_MAX_INPUT_TOKENS` | 250000 | 250000 |
 | `budget.max_output_tokens` | `LANEKEEP_MAX_OUTPUT_TOKENS` | 250000 | 250000 |
 | `budget.max_tokens` | `LANEKEEP_MAX_TOKENS` | 500000 | 500000 |
+| `budget.max_cost` | `LANEKEEP_MAX_COST` | 20 (USD) | 20 |
 | `budget.timeout_seconds` | `LANEKEEP_TIMEOUT_SECONDS` | 86400 | 3600 |
 
 **Cumulative (cross-session):**
@@ -282,6 +283,7 @@ lanekeep policy disable governance_paths --reason "Updating CLAUDE.md"
 |-----|---------|---------|
 | `budget.max_total_actions` | `LANEKEEP_MAX_TOTAL_ACTIONS` | 10000 |
 | `budget.max_total_tokens` | `LANEKEEP_MAX_TOTAL_TOKENS` | 10000000 |
+| `budget.max_total_cost` | `LANEKEEP_MAX_TOTAL_COST` | 400 (USD) |
 | `budget.max_total_time_seconds` | `LANEKEEP_MAX_TOTAL_TIME_SECONDS` | 1728000 (20d) |
 
 Resolution (later wins): `lanekeep.json` -> TaskSpec -> env vars. Your explicit

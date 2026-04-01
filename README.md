@@ -23,7 +23,7 @@ LaneKeep allows your agent to run within boundaries that you control.
 
 - **Live dashboard** — see every file, token, rule, and decision as your agent builds
 - **Token visibility** — track input/output tokens, context window usage %, and per-file token sizes so you know exactly where tokens are going and can keep your agent efficient
-- **Budget limits** — set hard caps on actions, tokens, and wall-clock time; auto-deny when limits are hit so runaway sessions don't burn your budget
+- **Budget limits** — set hard caps on actions, tokens, cost (USD), and wall-clock time; auto-deny when limits are hit so runaway sessions don't burn your budget
 - **Full audit trail** — every tool call logged with matched rule and reason
 - **Defense in depth** — Extendable policy layers: 9+ deterministic evaluators and an optional semantic layer (another LLM) as an evaluator; plus PII detection and blocking, config integrity checks, and injection detection
 - **Config audit** — one-click health check for rules, policies, and security posture
@@ -162,7 +162,7 @@ Hooks into the [PreToolUse hook](https://docs.anthropic.com/en/docs/claude-code/
 | 2 | Rules Engine | Policies, first-match-wins rules |
 | 3 | Hidden Text | CSS/ANSI injection, zero-width chars |
 | 4 | Input PII | PII in tool input (SSNs, credit cards) |
-| 5 | Budget | Action count, token tracking, wall-clock time |
+| 5 | Budget | Action count, token tracking, cost limits, wall-clock time |
 | 6 | Plugins | Custom evaluators (subshell isolated) |
 | 7 | Semantic | LLM intent check — goal misalignment, spirit-of-task violations, disguised exfiltration (opt-in) |
 | Post | ResultTransform | Secrets/injection in output |

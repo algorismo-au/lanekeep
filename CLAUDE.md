@@ -59,7 +59,7 @@ lanekeep/
 | `eval-codediff.sh` | 2 | Legacy static pattern detection — fallback only; runs when the rules array is empty or missing (not when individual rules are deactivated). Superseded by Rules Engine which ships with 144 default rules. |
 | `eval-hidden-text.sh` | 3 | CSS/ANSI injection, zero-width char detection |
 | `eval-input-pii.sh` | 4 | Input-side PII: SSNs, credit cards, emails, phone numbers |
-| `eval-budget.sh` | 5 | Action count, token tracking, wall-clock time limits |
+| `eval-budget.sh` | 5 | Action count, token tracking, cost limits, wall-clock time limits |
 | `eval-semantic.sh` | 7 | LLM-based intent check (opt-in, disabled by default) |
 | `eval-result-transform.sh` | Post | Output masking — secrets/injection in tool results |
 
