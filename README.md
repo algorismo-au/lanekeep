@@ -30,6 +30,8 @@ LaneKeep allows your agent to run within boundaries that you control.
 - **Agent memory view** — see what your agent sees, token-by-token
 - **Coverage and alignment** — built-in compliance tags (NIST, OWASP, CWE, ATT&CK); add your own
 
+Claude Code CLI, other platforms coming soon.
+
 For more details see [Configuration](#configuration).
 
 <p align="center">
