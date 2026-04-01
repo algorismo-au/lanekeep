@@ -19,18 +19,18 @@
 
 LaneKeep allows your agent to run within boundaries that you control.
 
-> Works with **Claude Code CLI** (including incremental and multi-agent setups). **No data leaves your machine.**
+**No data leaves your machine.**
 
-- **Live dashboard** — see every file, token, rule, and decision as your agent builds
-- **Token visibility** — track input/output tokens, context window usage %, and per-file token sizes so you know exactly where tokens are going and can keep your agent efficient
-- **Budget limits** — set hard caps on actions, tokens, cost (USD), and wall-clock time; auto-deny when limits are hit so runaway sessions don't burn your budget
+**Every policy and rule is controlled by you.**
+
+- **Live dashboard** — every decision logged locally
+- **Budget limits** — usage patterns, cost caps, token and action limits
 - **Full audit trail** — every tool call logged with matched rule and reason
-- **Defense in depth** — Extendable policy layers: 9+ deterministic evaluators and an optional semantic layer (another LLM) as an evaluator; plus PII detection and blocking, config integrity checks, and injection detection
-- **Config audit** — one-click health check for rules, policies, and security posture
-- **Compliance-ready** — built-in coverage for NIST, OWASP, CWE, ATT&CK, and more; Pro packs for EU AI Act, SOC2, HIPAA, PCI-DSS
+- **Defense in depth** — extendable policy layers: 9+ deterministic evaluators and an optional semantic layer (another LLM) as an evaluator; PII detection, config integrity checks, and injection detection
+- **Agent memory view** — see what your agent sees, token-by-token
+- **Coverage and alignment** — built-in compliance tags (NIST, OWASP, CWE, ATT&CK); add your own
 
-> **Every policy and rule is configurable.** Start with 30+ policies and 140+ rules as built-in defaults, add community rules,
-> or write your own. See [Configuration](#configuration).
+For more details see [Configuration](#configuration).
 
 <p align="center">
   <img src="images/readme/lanekeep_home.png" alt="LaneKeep Dashboard" width="749" />
