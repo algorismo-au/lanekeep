@@ -16,6 +16,10 @@ codediff_eval() {
   CODEDIFF_REASON="Passed"
   CODEDIFF_DECISION="deny"
 
+  # Cumulative PCRE timeout budget — deny if pattern scanning takes too long
+  local _cd_pcre_start _cd_pcre_budget=5
+  _cd_pcre_start="${EPOCHSECONDS:-$(date +%s)}"
+
   local config="$LANEKEEP_CONFIG_FILE"
   if [ ! -f "$config" ]; then
     return 0
@@ -149,6 +153,11 @@ codediff_eval() {
   # --- Destructive regex patterns → deny (flag-reordering-aware) ---
   while IFS= read -r pattern; do
     [ -z "$pattern" ] && continue
+    if (( ${EPOCHSECONDS:-$(date +%s)} - _cd_pcre_start >= _cd_pcre_budget )); then
+      CODEDIFF_PASSED=false
+      CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2)\nPCRE timeout budget exceeded (${_cd_pcre_budget}s cumulative)"
+      return 1
+    fi
     if printf '%s' "$input_str" | timeout 1 grep -qP "$pattern" 2>/dev/null; then
       CODEDIFF_PASSED=false
       CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nDestructive pattern detected (regex)\nSuggestion: Use safer alternatives"
@@ -171,6 +180,11 @@ codediff_eval() {
   # --- Dangerous git regex patterns → deny (flag-reordering-aware) ---
   while IFS= read -r pattern; do
     [ -z "$pattern" ] && continue
+    if (( ${EPOCHSECONDS:-$(date +%s)} - _cd_pcre_start >= _cd_pcre_budget )); then
+      CODEDIFF_PASSED=false
+      CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2)\nPCRE timeout budget exceeded (${_cd_pcre_budget}s cumulative)"
+      return 1
+    fi
     if printf '%s' "$input_str" | timeout 1 grep -qP "$pattern" 2>/dev/null; then
       CODEDIFF_PASSED=false
       CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nDangerous git operation detected (regex)\nSuggestion: Use non-destructive git operations"
@@ -210,6 +224,11 @@ codediff_eval() {
   if [ "$_CD_ENCODING_ENABLED" != "false" ]; then
     while IFS= read -r pattern; do
       [ -z "$pattern" ] && continue
+      if (( ${EPOCHSECONDS:-$(date +%s)} - _cd_pcre_start >= _cd_pcre_budget )); then
+        CODEDIFF_PASSED=false
+        CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2)\nPCRE timeout budget exceeded (${_cd_pcre_budget}s cumulative)"
+        return 1
+      fi
       if printf '%s' "$tool_input" | timeout 1 grep -qP -- "$pattern" 2>/dev/null; then
         local match_snippet
         match_snippet=$(printf '%s' "$tool_input" | timeout 1 grep -oP -- "$pattern" 2>/dev/null | head -1 | head -c 80)
@@ -228,6 +247,11 @@ codediff_eval() {
   if [ "$_CD_HIDDEN_CHARS_ENABLED" != "false" ]; then
     while IFS= read -r pattern; do
       [ -z "$pattern" ] && continue
+      if (( ${EPOCHSECONDS:-$(date +%s)} - _cd_pcre_start >= _cd_pcre_budget )); then
+        CODEDIFF_PASSED=false
+        CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2)\nPCRE timeout budget exceeded (${_cd_pcre_budget}s cumulative)"
+        return 1
+      fi
       if printf '%s' "$tool_input" | timeout 1 grep -qP -- "$pattern" 2>/dev/null; then
         local char_desc
         char_desc=$(printf '%s' "$tool_input" | timeout 1 grep -oP -- "$pattern" 2>/dev/null | head -1 | od -A n -t x1 | tr -d ' \n')
@@ -245,6 +269,11 @@ codediff_eval() {
   if [ "$_CD_HOMOGLYPH_ENABLED" != "false" ]; then
     while IFS= read -r pattern; do
       [ -z "$pattern" ] && continue
+      if (( ${EPOCHSECONDS:-$(date +%s)} - _cd_pcre_start >= _cd_pcre_budget )); then
+        CODEDIFF_PASSED=false
+        CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2)\nPCRE timeout budget exceeded (${_cd_pcre_budget}s cumulative)"
+        return 1
+      fi
       if printf '%s' "$tool_input" | timeout 1 grep -qP -- "$pattern" 2>/dev/null; then
         local glyph_desc
         glyph_desc=$(printf '%s' "$tool_input" | timeout 1 grep -oP -- "$pattern" 2>/dev/null | head -1 | od -A n -t x1 | tr -d ' \n')

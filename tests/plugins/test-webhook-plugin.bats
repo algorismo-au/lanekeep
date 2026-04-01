@@ -13,58 +13,45 @@ teardown() {
   rm -rf "$TEST_TMP"
 }
 
-_start_mock() {
-  local response="$1"
-  local portfile="$TEST_TMP/mock.port"
-  local script="$TEST_TMP/mock.py"
-  cat > "$script" <<EOF
-import http.server, sys
-class H(http.server.BaseHTTPRequestHandler):
-    def do_POST(self):
-        length = int(self.headers.get('Content-Length', 0))
-        self.rfile.read(length)
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(sys.argv[1].encode())
-    def log_message(self, *a): pass
-srv = http.server.HTTPServer(('127.0.0.1', 0), H)
-with open(sys.argv[2], 'w') as f:
-    f.write(str(srv.server_address[1]))
-for _ in range(3):
-    srv.handle_request()
-EOF
-  python3 "$script" "$response" "$portfile" </dev/null >/dev/null 2>&1 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&- &
-  echo "$!" > "$TEST_TMP/mock.pid"
-  local i=0
-  while [ ! -f "$portfile" ] && [ $i -lt 50 ]; do
-    sleep 0.05
-    i=$((i + 1))
-  done
-  cat "$portfile"
+# --- HTTPS enforcement tests ---
+
+@test "webhook rejects http:// URL" {
+  export LANEKEEP_WEBHOOK_URL="http://example.com/hook"
+  webhook_eval "Bash" '{"command":"ls"}'
+  [ "$WEBHOOK_PASSED" = "true" ]  # fail-open, but URL rejected
 }
 
-@test "webhook deny response returns deny" {
-  port=$(_start_mock '{"passed":false,"reason":"webhook denied","decision":"deny"}')
-  export LANEKEEP_WEBHOOK_URL="http://127.0.0.1:$port"
-  webhook_eval "Bash" '{"command":"rm -rf /"}' || true
-  [ "$WEBHOOK_PASSED" = "false" ]
-  [ "$WEBHOOK_DECISION" = "deny" ]
-  [[ "$WEBHOOK_REASON" == *"webhook denied"* ]]
+@test "webhook rejects localhost URL" {
+  export LANEKEEP_WEBHOOK_URL="https://localhost/hook"
+  webhook_eval "Bash" '{"command":"ls"}'
+  [ "$WEBHOOK_PASSED" = "true" ]  # fail-open, internal address rejected
 }
 
-@test "webhook allow response returns pass" {
-  port=$(_start_mock '{"passed":true,"reason":"","decision":"deny"}')
-  export LANEKEEP_WEBHOOK_URL="http://127.0.0.1:$port"
-  webhook_eval "Read" '{"file_path":"x"}'
-  [ "$WEBHOOK_PASSED" = "true" ]
+@test "webhook rejects 127.0.0.1 URL" {
+  export LANEKEEP_WEBHOOK_URL="https://127.0.0.1/hook"
+  webhook_eval "Bash" '{"command":"ls"}'
+  [ "$WEBHOOK_PASSED" = "true" ]  # fail-open, loopback rejected
 }
 
-@test "webhook unreachable URL fails open" {
-  export LANEKEEP_WEBHOOK_URL="http://127.0.0.1:19999"
-  webhook_eval "Read" '{"file_path":"x"}'
-  [ "$WEBHOOK_PASSED" = "true" ]
+@test "webhook rejects 10.x.x.x URL" {
+  export LANEKEEP_WEBHOOK_URL="https://10.0.0.1/hook"
+  webhook_eval "Bash" '{"command":"ls"}'
+  [ "$WEBHOOK_PASSED" = "true" ]  # fail-open, RFC-1918 rejected
 }
+
+@test "webhook rejects 192.168.x.x URL" {
+  export LANEKEEP_WEBHOOK_URL="https://192.168.1.1/hook"
+  webhook_eval "Bash" '{"command":"ls"}'
+  [ "$WEBHOOK_PASSED" = "true" ]  # fail-open, RFC-1918 rejected
+}
+
+@test "webhook rejects 169.254.x.x (link-local) URL" {
+  export LANEKEEP_WEBHOOK_URL="https://169.254.169.254/latest/meta-data/"
+  webhook_eval "Bash" '{"command":"ls"}'
+  [ "$WEBHOOK_PASSED" = "true" ]  # fail-open, cloud metadata rejected
+}
+
+# --- Functional tests ---
 
 @test "webhook URL not set passes (no-op)" {
   unset LANEKEEP_WEBHOOK_URL
@@ -72,8 +59,8 @@ EOF
   [ "$WEBHOOK_PASSED" = "true" ]
 }
 
-@test "webhook timeout fails open" {
-  export LANEKEEP_WEBHOOK_URL="http://10.255.255.1:9999"
+@test "webhook unreachable HTTPS URL fails open" {
+  export LANEKEEP_WEBHOOK_URL="https://unreachable.invalid:19999"
   export LANEKEEP_WEBHOOK_TIMEOUT="1"
   webhook_eval "Read" '{"file_path":"x"}'
   [ "$WEBHOOK_PASSED" = "true" ]

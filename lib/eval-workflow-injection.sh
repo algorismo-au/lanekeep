@@ -89,8 +89,9 @@ workflow_inject_eval() {
     awk_pat=$(printf '%s' "$src" | sed 's/\./\\./g; s/\*/[^}]*/g')
 
     local scan_result
-    scan_result=$(printf '%s' "$content" | awk -v pat="$awk_pat" '
+    scan_result=$(printf '%s' "$content" | LANEKEEP_PAT="$awk_pat" awk '
       BEGIN {
+        pat = ENVIRON["LANEKEEP_PAT"]
         in_run = 0; run_indent = -1
         in_env = 0; env_indent = -1
         hit = ""

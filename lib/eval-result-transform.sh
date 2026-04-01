@@ -50,6 +50,13 @@ _rt_scan_patterns() {
 
     local matched=false
     if [[ "$grep_flags" == *P* ]]; then
+      # Cumulative PCRE timeout budget — deny if pattern scanning takes too long
+      if (( ${EPOCHSECONDS:-$(date +%s)} - _rt_pcre_start >= _rt_pcre_budget )); then
+        RESULT_TRANSFORM_PASSED=false
+        RESULT_TRANSFORM_REASON="[LaneKeep] DENIED by ResultTransformEvaluator\nPCRE timeout budget exceeded (${_rt_pcre_budget}s cumulative)"
+        RESULT_TRANSFORM_ACTION="block"
+        return 1
+      fi
       if timeout 1 grep -q"${grep_flags}" -- "$pattern" <<< "$transformed" 2>/dev/null; then
         matched=true
       fi
@@ -99,6 +106,10 @@ result_transform_eval() {
   RESULT_TRANSFORM_CONTENT=""
   RESULT_TRANSFORM_DETECTIONS="[]"
   RESULT_TRANSFORM_COMPLIANCE="[]"
+
+  # Cumulative PCRE timeout budget — deny if pattern scanning takes too long
+  local _rt_pcre_start _rt_pcre_budget=5
+  _rt_pcre_start="${EPOCHSECONDS:-$(date +%s)}"
 
   local config="$LANEKEEP_CONFIG_FILE"
   if [ ! -f "$config" ]; then

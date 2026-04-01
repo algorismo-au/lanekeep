@@ -3829,7 +3829,7 @@ function renderTrendCharts(data) {
       + '<div class="trend-card"><h4>Token Usage (Est)</h4><div style="font-size:14px;padding:12px 0">'
         + '<span style="color:var(--color-evaluator)">In: ' + fmtTokens(b.tokens_in || 0) + '</span> · <span style="color:var(--color-ask)">Out: ' + fmtTokens(b.tokens_out || 0) + '</span></div></div>'
       + '<div class="trend-card"><h4>Cost (Est)</h4><div style="font-size:28px;font-weight:700;padding:12px 0">' + fmtCost(b.cost || 0) + '</div></div>'
-      + '<div class="trend-card"><h4>Burn Rate</h4><div style="font-size:14px;padding:12px 0;color:var(--text-secondary)">Insufficient data</div></div>'
+      + '<div class="trend-card"><h4>Burn Rate (Est)</h4><div style="font-size:14px;padding:12px 0;color:var(--text-secondary)">Insufficient data</div></div>'
       + '</div></div>';
     return;
   }
@@ -4022,7 +4022,7 @@ function renderTrendCharts(data) {
     + '<div class="trend-row-divider"></div>'
     + '<div class="trend-card"><h4>Token Usage (Est)</h4>' + tokSvg + labels + '<div class="trend-legend">' + tokLegend + '</div>' + tokMetric + '</div>'
     + '<div class="trend-card"><h4>Cost (Est)</h4>' + costSvg + labels + '<div class="trend-legend">' + costLegend + '</div>' + costMetric + '</div>'
-    + '<div class="trend-card"><h4>Burn Rate</h4>' + burnSvg + labels + burnMetric + '</div>'
+    + '<div class="trend-card"><h4>Burn Rate (Est)</h4>' + burnSvg + labels + burnMetric + '</div>'
     + '</div></div>';
 }
 

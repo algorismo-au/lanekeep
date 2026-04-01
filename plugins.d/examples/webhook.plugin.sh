@@ -29,10 +29,30 @@ webhook_eval() {
     return 0
   fi
 
+  # Validate URL: HTTPS only, no loopback/internal addresses
+  case "$url" in
+    https://*) ;;
+    *)
+      echo "webhook: LANEKEEP_WEBHOOK_URL must use https://" >&2
+      return 0
+      ;;
+  esac
+  local host
+  host=$(printf '%s' "$url" | sed -n 's|^https://\([^:/]*\).*|\1|p')
+  case "$host" in
+    localhost|127.*|10.*|172.1[6-9].*|172.2[0-9].*|172.3[01].*|192.168.*|169.254.*|0.0.0.0|"")
+      echo "webhook: LANEKEEP_WEBHOOK_URL must not point to internal/loopback addresses" >&2
+      return 0
+      ;;
+  esac
+
   local timeout="${LANEKEEP_WEBHOOK_TIMEOUT:-2}"
   local payload
-  payload=$(printf '{"tool_name":"%s","tool_input":%s}' \
-    "$(printf '%s' "$tool_name" | sed 's/"/\\"/g')" "$tool_input")
+  payload=$(jq -n --arg name "$tool_name" --argjson input "$tool_input" \
+    '{tool_name: $name, tool_input: $input}') || {
+    echo "webhook: JSON construction failed" >&2
+    return 0
+  }
 
   local response http_code
   response=$(curl -s -S --max-time "$timeout" --connect-timeout "$timeout" \
