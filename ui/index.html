@@ -1935,7 +1935,7 @@ function renderActivityLeftWidgets(statusData) {
   var actPct = b.max_actions ? Math.min(100, Math.round(b.actions / b.max_actions * 100)) : 0;
   var timePct = b.max_minutes ? Math.min(100, Math.round(b.elapsed_min / b.max_minutes * 100)) : 0;
   function meterCls(pct) { return pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : ''; }
-  var costStr = '$' + (b.cost != null && b.cost > 0 ? b.cost.toFixed(2) : '0.00');
+  var costStr = fmtCost(b.cost || 0);
   var budget = '<div class="activity-widget"><div class="activity-widget-title">Budget <span class="widget-scope">· Session</span></div>'
     + '<div class="aw-meter"><div class="aw-meter-row"><span class="aw-meter-label">Cost</span><span class="aw-meter-value">' + costStr + '</span></div></div>'
     + '<div class="aw-meter"><div class="aw-meter-row"><span class="aw-meter-label">Time</span><span class="aw-meter-value">' + Math.round(b.elapsed_min || 0) + 'm / ' + (b.max_minutes || '–') + 'm</span></div>'
@@ -2453,7 +2453,7 @@ async function loadGovernance() {
     const sessCacheSavings = b.cache_savings || 0;
     // Note: innerHTML is safe here — all interpolated values come from numeric API fields via fmtTokens/esc/toFixed
     document.getElementById('gov-budget-session').innerHTML = `<h3>Budget Progress - Session</h3>
-      <div class="gov-row"><span class="gov-label">Cost</span><span class="gov-value">$${sessCost.toFixed(2)}${sessCacheSavings > 0 ? ' <span style="font-size:11px;color:var(--text-muted)">(saved $' + sessCacheSavings.toFixed(2) + ' via caching)</span>' : ''}</span></div>
+      <div class="gov-row"><span class="gov-label">Cost</span><span class="gov-value">${fmtCost(sessCost)}${sessCacheSavings > 0 ? ' <span style="font-size:11px;color:var(--text-muted)">(saved ' + fmtCost(sessCacheSavings) + ' via caching)</span>' : ''}</span></div>
       <div class="gov-row" style="margin-top:8px"><span class="gov-label">Actions</span><span class="gov-value">${esc(String(b.actions ?? 0))} / ${esc(String(b.max_actions || '?'))}</span></div>
       <div class="gov-progress"><div class="gov-progress-bar ${barClass(sessActPct)}" style="width:${sessActPct}%"></div></div>
       <div class="gov-row" style="margin-top:8px"><span class="gov-label">Tokens (Input)</span><span class="gov-value">${fmtTokens(b.input_tokens || 0)} / ${sessInTokLabel}</span></div>
@@ -2506,7 +2506,7 @@ async function loadGovernance() {
     const atCacheSavings = cum.total_cache_savings || 0;
     // Note: innerHTML is safe here — all interpolated values come from numeric API fields via fmtTokens/esc/toFixed
     document.getElementById('gov-budget-alltime').innerHTML = `<h3>Budget Progress - All-Time</h3>
-      <div class="gov-row"><span class="gov-label">Cost</span><span class="gov-value">$${atCost.toFixed(2)}${atCacheSavings > 0 ? ' <span style="font-size:11px;color:var(--text-muted)">(saved $' + atCacheSavings.toFixed(2) + ' via caching)</span>' : ''}</span></div>
+      <div class="gov-row"><span class="gov-label">Cost</span><span class="gov-value">${fmtCost(atCost)}${atCacheSavings > 0 ? ' <span style="font-size:11px;color:var(--text-muted)">(saved ' + fmtCost(atCacheSavings) + ' via caching)</span>' : ''}</span></div>
       <div class="gov-row" style="margin-top:8px"><span class="gov-label">Actions</span><span class="gov-value">${esc(String(cum.total_actions || 0))} / ${atActLabel}</span></div>
       ${atActBar}
       <div class="gov-row" style="margin-top:8px"><span class="gov-label">Tokens (Input)</span><span class="gov-value">${fmtTokens(cum.total_input_tokens || 0)} / ${atInTokLabel}</span></div>
@@ -4194,13 +4194,18 @@ async function loadInsights() {
       + '&sort=' + encodeURIComponent(insightsSortCol) + '&sort_dir=' + encodeURIComponent(insightsSortDir)
       + (filterParam ? '&decision=' + encodeURIComponent(filterParam) : '');
     var timelineUrl = API + '/api/trace?limit=1000&sort=timestamp&sort_dir=asc';
-    const [res, statusRes, trendsRes, timelineRes, heatmapRes] = await Promise.all([
+    const pricingPromise = !_bundledPricing ? fetch(API + '/api/pricing') : Promise.resolve(null);
+    const [res, statusRes, trendsRes, timelineRes, heatmapRes, pricingRes] = await Promise.all([
       fetch(traceUrl),
       fetch(API + '/api/status'),
       fetch(API + '/api/trends' + (trendRange !== 'all' ? '?range=' + encodeURIComponent(trendRange) : '')),
       fetch(timelineUrl),
-      fetch(API + '/api/heatmap')
+      fetch(API + '/api/heatmap'),
+      pricingPromise
     ]);
+    if (!_bundledPricing && pricingRes && pricingRes.ok) {
+      try { _bundledPricing = await pricingRes.json(); } catch (e) { /* ignore */ }
+    }
     if (!res.ok) return;
     const data = await res.json();
     insightsTimelineEntries = (timelineRes && timelineRes.ok) ? (await timelineRes.json()).entries : null;
