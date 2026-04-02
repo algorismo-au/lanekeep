@@ -66,8 +66,18 @@ done
 
 # Deduplicate and clean up
 if [[ -n "$selected_suites" && "$changed" != "FORCE_FULL" ]]; then
-  # Build unique list of test dirs/files
-  unique_suites=$(echo "$selected_suites" | tr ' ' '\n' | sort -u | tr '\n' ' ')
+  # Build unique list, dropping individual files whose parent dir is already included
+  unique_suites=""
+  for entry in $(echo "$selected_suites" | tr ' ' '\n' | sort -u); do
+    # Skip individual .bats files when their containing directory is already listed
+    if [[ "$entry" == *.bats ]]; then
+      parent_dir="$(dirname "$entry")/"
+      if echo "$selected_suites" | tr ' ' '\n' | grep -qxF "$parent_dir"; then
+        continue
+      fi
+    fi
+    unique_suites="$unique_suites $entry"
+  done
   echo "[pre-push] Running targeted tests: $unique_suites" >&2
   # shellcheck disable=SC2086
   exec bats $unique_suites
