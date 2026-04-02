@@ -3782,7 +3782,7 @@ function renderInsightsAnalytics() {
   const costSessionCard = _renderCostRankingList(sessCostEntries.length ? sessCostEntries : [], 'Top Costly Tool Calls (Est) - Session');
   const costAllTimeCard = _renderCostRankingList(cum.top_cost_entries || [], 'Top Costly Tool Calls (Est) - All-Time');
   // safe: all interpolated values use esc() sanitizer
-  analyticsEl.innerHTML = `<div class="metrics-grid">${mc('Top Denied Tools - Session', s.denied)}${mc('Top Denied Tools - All-Time', c.denied)}${mc('Top Evaluator Denials - Session', s.eval)}${mc('Top Evaluator Denials - All-Time', c.eval)}${mc('Agent File Activity - Session', s.files)}${mc('Agent File Activity - All-Time', c.files)}${lc('Check Latency - Session', s.latency)}${lc('Check Latency - All-Time', c.latency)}${timelineHtml}${dc('Decision Distribution - Session', s.dist)}${dc('Decision Distribution - All-Time', c.dist)}${hourlySessionCard}${hourlyAllTimeCard}${costSessionCard}${costAllTimeCard}</div>`;
+  analyticsEl.innerHTML = `<div class="metrics-grid">${timelineHtml}${dc('Decision Distribution - Session', s.dist)}${dc('Decision Distribution - All-Time', c.dist)}${mc('Top Denied Tools - Session', s.denied)}${mc('Top Denied Tools - All-Time', c.denied)}${mc('Top Evaluator Denials - Session', s.eval)}${mc('Top Evaluator Denials - All-Time', c.eval)}${mc('Agent File Activity - Session', s.files)}${mc('Agent File Activity - All-Time', c.files)}${lc('Check Latency - Session', s.latency)}${lc('Check Latency - All-Time', c.latency)}${hourlySessionCard}${hourlyAllTimeCard}${costSessionCard}${costAllTimeCard}</div>`;
   _restoreFileLists();
 }
 
