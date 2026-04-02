@@ -3658,11 +3658,10 @@ function _buildAnalyticsCards(src, sliceLimit, fileIdPrefix) {
   };
 }
 
-function renderHourlyDistribution(dist) {
-  if (!dist || dist.length !== 24) return '';
+function _renderHourlyChart(dist, title) {
+  if (!dist || dist.length !== 24) return '<div class="metrics-empty">No data</div>';
   const maxCount = Math.max(...dist, 1);
   const W = 600, H = 60, barW = W / 24, barH = H - 16;
-  // Build 24 bars as vertical rectangles
   const bars = dist.map((count, hour) => {
     const barHeight = (count / maxCount) * barH;
     const x = hour * barW;
@@ -3674,7 +3673,7 @@ function renderHourlyDistribution(dist) {
   }).join('');
   const total = dist.reduce((a, b) => a + b, 0);
   const totalStr = total ? total + ' actions' : '';
-  return `<div class="metrics-card"><h3>Hourly Usage (All-Time)</h3>
+  return `<div class="metrics-card"><h3>${title}</h3>
     <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
       ${bars}
       <line x1="0" y1="${H - 8}" x2="${W}" y2="${H - 8}" stroke="var(--border)" stroke-width="1"/>
@@ -3683,10 +3682,12 @@ function renderHourlyDistribution(dist) {
   </div>`;
 }
 
-function renderCostRanking(entries) {
-  if (!entries || !entries.length) return '<div class="metrics-card"><h3>Top 10 Costly Tool Calls (Est)</h3><div class="metrics-empty">No cost data</div></div>';
-  const maxCost = entries[0].cost || 1e-9;
-  const items = entries.map(e => {
+function _renderCostRankingList(entries, title) {
+  if (!entries || !entries.length) return `<div class="metrics-card"><h3>${title}</h3><div class="metrics-empty">No cost data</div></div>`;
+  const sliceLimit = entries.length > 5 ? 5 : entries.length;
+  const sliced = entries.slice(0, sliceLimit);
+  const maxCost = sliced[0].cost || 1e-9;
+  const items = sliced.map(e => {
     const pct = Math.round(e.cost / maxCost * 100);
     const costStr = fmtCost(e.cost);
     const previewText = e.preview.length >= 120 ? e.preview.slice(0, 117) + '...' : e.preview;
@@ -3701,7 +3702,7 @@ function renderCostRanking(entries) {
       </div>
     </div>`;
   }).join('');
-  return `<div class="metrics-card"><h3>Top 10 Costly Tool Calls (Est)</h3>
+  return `<div class="metrics-card"><h3>${title}</h3>
     <div class="ranked-list">${items}</div></div>`;
 }
 
@@ -3729,6 +3730,41 @@ function renderInsightsAnalytics() {
     <div class="decision-timeline">${dots || '<span class="metrics-empty">No entries</span>'}</div>
   </div>`;
 
+  // Compute session hourly distribution from current page entries
+  const sessHourly = Array(24).fill(0);
+  preEntries.forEach(e => {
+    const ts = e.timestamp;
+    if (ts) {
+      try {
+        const dt = new Date(ts);
+        sessHourly[dt.getHours()] += 1;
+      } catch {}
+    }
+  });
+
+  // Compute session top cost entries from current page entries
+  const sessCostEntries = [];
+  preEntries.forEach(e => {
+    const ti = e.tool_input;
+    if (ti !== null && ti !== undefined) {
+      try {
+        const rawBytes = JSON.stringify(ti).length;
+        const tokIn = Math.round(rawBytes / 4);
+        const tokOut = Math.round(tokIn * 1.5);
+        // Use zero rates for session (we don't have pricing in the page context)
+        const entryCost = 0;
+        try {
+          const preview = JSON.stringify(ti).slice(0, 120);
+          sessCostEntries.push({
+            tool: e.tool_name || '',
+            preview: preview,
+            cost: entryCost,
+          });
+        } catch {}
+      } catch {}
+    }
+  });
+
   // Always show side-by-side session + all-time analytics
   const cumSrc = { top_denied_tools: cum.top_denied_tools || {}, top_evaluators: cum.top_evaluators || {}, files_touched: cum.files_touched || {}, latency_values: (cum.latency || {}).values || [], decisions: cum.decisions || {}, _cumLatency: cum.latency || {}, _isCum: true };
   const sessSrc = sessData; // always unfiltered — filter applies only to the traces table
@@ -3737,9 +3773,11 @@ function renderInsightsAnalytics() {
   const mc = (title, body) => `<div class="metrics-card"><h3>${title}</h3><div class="ranked-list">${body}</div></div>`;
   const lc = (title, lat) => `<div class="metrics-card"><h3>${title}</h3><div class="latency-stats"><div class="latency-stat"><div class="stat-value">${lat.p50}</div><div class="stat-label">P50</div></div><div class="latency-stat"><div class="stat-value">${lat.p95}</div><div class="stat-label">P95</div></div><div class="latency-stat"><div class="stat-value">${lat.avg}</div><div class="stat-label">Avg</div></div><div class="latency-stat"><div class="stat-value">${lat.max}</div><div class="stat-label">Max</div></div></div></div>`;
   const dc = (title, d) => `<div class="metrics-card"><h3>${title}</h3><div class="stacked-bar">${d.segments}</div><div class="stacked-bar-legend">${d.legendItems}</div></div>`;
-  const hourlyCard = renderHourlyDistribution(cum.hourly_distribution || null);
-  const costCard = renderCostRanking(cum.top_cost_entries || null);
-  analyticsEl.innerHTML = `<div class="metrics-grid">${mc('Top Denied Tools - Session', s.denied)}${mc('Top Denied Tools - All-Time', c.denied)}${mc('Top Evaluator Denials - Session', s.eval)}${mc('Top Evaluator Denials - All-Time', c.eval)}${mc('Agent File Activity - Session', s.files)}${mc('Agent File Activity - All-Time', c.files)}${lc('Check Latency - Session', s.latency)}${lc('Check Latency - All-Time', c.latency)}${dc('Decision Distribution - Session', s.dist)}${dc('Decision Distribution - All-Time', c.dist)}${hourlyCard}${costCard}${timelineHtml}</div>`; // safe: all interpolated values use esc() sanitizer
+  const hourlySessionCard = _renderHourlyChart(sessHourly.some(x => x > 0) ? sessHourly : null, 'Hourly Usage - Session');
+  const hourlyAllTimeCard = _renderHourlyChart(cum.hourly_distribution || null, 'Hourly Usage - All-Time');
+  const costSessionCard = _renderCostRankingList(sessCostEntries.length ? sessCostEntries : [], 'Top Costly Tool Calls (Est) - Session');
+  const costAllTimeCard = _renderCostRankingList(cum.top_cost_entries || [], 'Top Costly Tool Calls (Est) - All-Time');
+  analyticsEl.innerHTML = `<div class="metrics-grid">${mc('Top Denied Tools - Session', s.denied)}${mc('Top Denied Tools - All-Time', c.denied)}${mc('Top Evaluator Denials - Session', s.eval)}${mc('Top Evaluator Denials - All-Time', c.eval)}${mc('Agent File Activity - Session', s.files)}${mc('Agent File Activity - All-Time', c.files)}${lc('Check Latency - Session', s.latency)}${lc('Check Latency - All-Time', c.latency)}${dc('Decision Distribution - Session', s.dist)}${dc('Decision Distribution - All-Time', c.dist)}${hourlySessionCard}${hourlyAllTimeCard}${costSessionCard}${costAllTimeCard}${timelineHtml}</div>`; // safe: all interpolated values use esc() sanitizer
   _restoreFileLists();
 }
 
