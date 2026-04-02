@@ -455,6 +455,7 @@ tbody tr.selected { background: var(--bg-hover); }
 .insights-section.visible { display: block; animation: fadeUp 0.3s var(--ease-out); }
 #insights-analytics { margin-bottom: 20px; }
 .insights-cards { display: flex; gap: 12px; margin-bottom: 20px; width: 100%; }
+.audit-section .insights-cards { gap: 8px; margin-bottom: 12px; }
 .insights-cards .insight-card { flex: 1; min-width: 0; }
 .insight-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; min-width: 0; text-align: center; cursor: pointer; transition: border-color 0.15s, opacity 0.15s, transform 0.15s var(--ease-out), box-shadow 0.15s; box-shadow: var(--shadow-card); }
 .insight-card:hover { border-color: var(--text-muted); transform: translateY(-1px); box-shadow: var(--shadow-card-hover); }
@@ -652,7 +653,7 @@ tbody tr.selected { background: var(--bg-hover); }
 .filemap-desc:hover { color: var(--text-body); }
 .filemap-desc-default { font-style: italic; color: var(--text-muted); }
 .filemap-desc-default:hover { color: var(--text-secondary); }
-.audit-section { display: none; padding: 24px; }
+.audit-section { display: none; padding: 16px; }
 .audit-section.visible { display: block; animation: fadeUp 0.3s var(--ease-out); }
 .audit-finding-section { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; overflow: hidden; box-shadow: var(--shadow-card); }
 .audit-finding-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer; user-select: none; }
@@ -673,7 +674,7 @@ tbody tr.selected { background: var(--bg-hover); }
 .audit-finding-level.error { background: rgba(212,68,46,0.15); color: var(--color-deny); }
 .audit-finding-level.warning { background: rgba(196,154,42,0.15); color: var(--color-warn); }
 .audit-finding-level.info { background: rgba(90,156,197,0.15); color: var(--color-ask); }
-.audit-overall { padding: 12px 16px; border-radius: 6px; font-size: 14px; font-weight: 600; margin-bottom: 16px; font-family: var(--font-heading); }
+.audit-overall { padding: 10px 16px; border-radius: 6px; font-size: 14px; font-weight: 600; margin-bottom: 8px; font-family: var(--font-heading); }
 .audit-overall.pass { background: rgba(127,168,99,0.1); border: 1px solid rgba(127,168,99,0.3); color: var(--color-allow); }
 .audit-overall.fail { background: rgba(212,68,46,0.1); border: 1px solid rgba(212,68,46,0.3); color: var(--color-deny); }
 
@@ -1222,7 +1223,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
 
 <div class="audit-section" id="section-audit">
   <div class="view-spacer">&nbsp;</div>
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
     <button class="primary" id="audit-run-btn">Run Audit</button>
     <span id="audit-status" style="font-size:12px;color:var(--text-secondary);"></span>
   </div>
