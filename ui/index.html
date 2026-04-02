@@ -4143,14 +4143,15 @@ function renderActivityHeatmap(data) {
     const tip = d.date + ': ' + d.count + ' action' + (d.count !== 1 ? 's' : '');
     cells.push(`<div class="heatmap-cell" style="background:${cellColor(d.count, maxCount)}" title="${esc(tip)}"></div>`);
   });
-  const totalStr = data.total ? data.total + ' actions over 52 weeks' : '';
+  const numWeeks = Math.ceil(data.days.length / 7);
+  const totalStr = data.total ? data.total + ' actions over ' + numWeeks + ' weeks' : '';
   const section = `<div class="trend-section" style="margin-top:8px">
     <div class="trend-header"><h3 class="trend-title">Activity Heatmap</h3>
       <span style="font-size:11px;color:var(--text-muted)">${esc(totalStr)}</span>
     </div>
     <div class="heatmap-grid">${cells.join('')}</div>
     <div class="heatmap-month-labels">
-      <span>52 weeks ago</span><span>Today</span>
+      <span>${numWeeks} weeks ago</span><span>Today</span>
     </div>
   </div>`;
   el.innerHTML += section;

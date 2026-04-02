@@ -1217,13 +1217,18 @@ class Handler(BaseHTTPRequestHandler):
                 except OSError:
                     continue
 
-            # Build 365-day dense array from today-364 to today
+            # Build dense day array from first activity to today (capped at 2 years)
             today = datetime.now(timezone.utc).date()
-            start_date = today - timedelta(days=364)
+            if date_counts:
+                earliest_date = min(datetime.fromisoformat(d).date() if isinstance(d, str) else d for d in date_counts)
+                start_date = max(earliest_date, today - timedelta(days=729))
+            else:
+                start_date = today
+            num_days = (today - start_date).days + 1
             days = []
             total = 0
             max_count = 0
-            for i in range(365):
+            for i in range(num_days):
                 d = start_date + timedelta(days=i)
                 date_str = d.isoformat()
                 count = date_counts.get(date_str, 0)
