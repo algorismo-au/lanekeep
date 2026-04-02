@@ -3,7 +3,7 @@
 
 import argparse
 import base64
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import hashlib
 import html as html_mod
 import json
@@ -977,7 +977,6 @@ class Handler(BaseHTTPRequestHandler):
             latest_ts = entries[-1][0].isoformat()
             # Apply time range filter relative to current time
             if range_seconds > 0:
-                from datetime import timedelta
                 cutoff = now - timedelta(seconds=range_seconds)
                 entries = [(dt, obj) for dt, obj in entries if dt >= cutoff]
                 if not entries:
