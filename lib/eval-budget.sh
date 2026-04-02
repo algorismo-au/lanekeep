@@ -30,6 +30,10 @@ read_transcript_tokens() {
 
   local path="${TRANSCRIPT_PATH:-}"
   [ -n "$path" ] && [ -f "$path" ] && [ -r "$path" ] || return 0
+  if [ -L "$path" ]; then
+    echo "[LaneKeep] BudgetEvaluator: rejecting symlink transcript path" >&2
+    return 0
+  fi
 
   # Read last assistant entry from end of file (O(1) seek)
   local last_assistant
@@ -203,9 +207,9 @@ budget_eval() {
     if [ -n "$session_id" ] && [ "$action_count" -gt 0 ]; then
       # Finalize old session into cumulative.json before resetting
       local _sb_model=""
-      [ -n "${_prev_model:-}" ] && _sb_model="$(printf ',"model":"%s"' "$_prev_model")"
+      [ -n "${_prev_model:-}" ] && _sb_model="$(printf ',"model":"%s"' "$(_json_escape "$_prev_model")")"
       printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"cache_creation_input_tokens":%d,"cache_read_input_tokens":%d,"total_events":%d,"start_epoch":%d,"session_id":"%s"%s}\n' \
-        "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$session_id" "$_sb_model" > "${state}.tmp" \
+        "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$(_json_escape "$session_id")" "$_sb_model" > "${state}.tmp" \
         && mv "${state}.tmp" "$state"
       cumulative_init
       # Reset counters for new session
@@ -253,13 +257,13 @@ budget_eval() {
     _token_source="$_prev_token_source"
   fi
   local _model_field=""
-  [ -n "$_TRANSCRIPT_MODEL" ] && _model_field="$(printf ',"model":"%s"' "$_TRANSCRIPT_MODEL")"
+  [ -n "$_TRANSCRIPT_MODEL" ] && _model_field="$(printf ',"model":"%s"' "$(_json_escape "$_TRANSCRIPT_MODEL")")"
   # Preserve model from previous state if transcript wasn't read this time
   if [ -z "$_model_field" ] && [ -n "${_prev_model:-}" ]; then
-    _model_field="$(printf ',"model":"%s"' "$_prev_model")"
+    _model_field="$(printf ',"model":"%s"' "$(_json_escape "$_prev_model")")"
   fi
   printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"cache_creation_input_tokens":%d,"cache_read_input_tokens":%d,"total_events":%d,"start_epoch":%d,"elapsed_seconds":%d,"session_id":"%s","token_source":"%s"%s}\n' \
-    "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$elapsed_seconds" "$session_id" "$_token_source" "$_model_field" > "${state}.tmp" \
+    "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$elapsed_seconds" "$(_json_escape "$session_id")" "$_token_source" "$_model_field" > "${state}.tmp" \
     && mv "${state}.tmp" "$state"
   exec 9>&-
 
