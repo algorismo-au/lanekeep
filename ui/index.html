@@ -3659,23 +3659,28 @@ function _buildAnalyticsCards(src, sliceLimit, fileIdPrefix) {
 }
 
 function renderHourlyDistribution(dist) {
-  if (!dist || dist.length !== 24) return '<div class="metrics-empty">No data</div>';
+  if (!dist || dist.length !== 24) return '';
   const maxCount = Math.max(...dist, 1);
-  const items = dist.map((count, hour) => {
-    const pct = Math.round(count / maxCount * 100);
-    const lbl = String(hour).padStart(2, '0') + ':00';
-    return `<div class="ranked-item">
-      <span class="rank-label">${esc(lbl)}</span>
-      <div class="rank-bar-row">
-        <div class="rank-bar-wrap">
-          <div class="rank-bar" style="width:${pct}%;background:var(--color-ask)" title="${count} actions"></div>
-        </div>
-        <span class="rank-count">${count}</span>
-      </div>
-    </div>`;
+  const W = 600, H = 60, barW = W / 24, barH = H - 16;
+  // Build 24 bars as vertical rectangles
+  const bars = dist.map((count, hour) => {
+    const barHeight = (count / maxCount) * barH;
+    const x = hour * barW;
+    const y = H - 8 - barHeight;
+    const tip = String(hour).padStart(2, '0') + ':00: ' + count + ' action' + (count !== 1 ? 's' : '');
+    return `<rect x="${x}" y="${y}" width="${barW - 1}" height="${barHeight}" fill="var(--color-ask)" opacity="0.8">
+      <title>${esc(tip)}</title>
+    </rect>`;
   }).join('');
-  return `<div class="metrics-card full-width"><h3>Hourly Usage Distribution (All-Time)</h3>
-    <div class="ranked-list">${items}</div></div>`;
+  const total = dist.reduce((a, b) => a + b, 0);
+  const totalStr = total ? total + ' actions' : '';
+  return `<div class="metrics-card"><h3>Hourly Usage (All-Time)</h3>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+      ${bars}
+      <line x1="0" y1="${H - 8}" x2="${W}" y2="${H - 8}" stroke="var(--border)" stroke-width="1"/>
+    </svg>
+    <div style="font-size:10px;color:var(--text-secondary);margin-top:4px;font-variant-numeric:tabular-nums">${esc(totalStr)}</div>
+  </div>`;
 }
 
 function renderCostRanking(entries) {
