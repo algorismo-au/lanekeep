@@ -264,7 +264,13 @@
       }
     },
     "budget": {
-      "enabled": true
+      "enabled": true,
+      "compliance_by_category": {
+        "resource_limit": [
+          "CWE-770",
+          "CWE-400"
+        ]
+      }
     },
     "semantic": {
       "enabled": false,
@@ -282,7 +288,14 @@
     },
     "workflow_injection": {
       "enabled": true,
-      "decision": "ask"
+      "decision": "ask",
+      "compliance_by_category": {
+        "expression_injection": [
+          "CWE-78",
+          "PCI-DSS 6.2.4",
+          "OWASP CI/CD-SEC-4"
+        ]
+      }
     },
     "input_pii": {
       "enabled": true,
@@ -465,6 +478,20 @@
           "<span[^>]*(?:display:\\s*none|visibility:\\s*hidden|opacity:\\s*0|font-size:\\s*0)[^>]*>[^<]*(?:ignore|forget|disregard|instruction|override|bypass)",
           "(?://|#|/\\*)\\s*(?:SYSTEM OVERRIDE|NEW INSTRUCTIONS|IGNORE ABOVE|ADMIN MODE|ENTERING SYSTEM)(?:\\s|\\*/|$)",
           "\\[\\w+\\]:\\s*#\\s*\\([^)]*(?:ignore|disregard|forget|instruction|override|bypass|system prompt)[^)]*\\)"
+        ]
+      },
+      "compliance_by_category": {
+        "ansi": [
+          "CWE-1007"
+        ],
+        "css_hiding": [
+          "CWE-1007",
+          "OWASP A05:2025"
+        ],
+        "html_injection": [
+          "CWE-1007",
+          "CWE-79",
+          "OWASP A05:2025"
         ]
       }
     }
