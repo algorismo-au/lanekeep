@@ -767,3 +767,57 @@ rules_eval() {
   RULES_REASON="[LaneKeep] DENIED by RuleEngine: unrecognized decision '$decision'"
   return 1
 }
+
+# Layer 2: Cross-invocation write-then-execute detection
+# Reads the current session's JSONL trace to find files written via Write/Edit,
+# then checks if the Bash command references any of them.
+# Sets SESSION_WRITE_EXEC_MATCHED=true and SESSION_WRITE_EXEC_FILE if found.
+SESSION_WRITE_EXEC_MATCHED=false
+SESSION_WRITE_EXEC_FILE=""
+
+check_session_written_file() {
+  local tool_name="$1"
+  local tool_input="$2"
+  SESSION_WRITE_EXEC_MATCHED=false
+  SESSION_WRITE_EXEC_FILE=""
+
+  # Only applies to Bash tool
+  case "$tool_name" in
+    Bash) ;;
+    *) return 0 ;;
+  esac
+
+  # Need a trace file to check
+  local trace="${LANEKEEP_TRACE_FILE:-}"
+  [ -f "$trace" ] || return 0
+
+  # Extract command string from tool_input
+  local cmd
+  cmd=$(printf '%s' "$tool_input" | jq -r '.command // ""' 2>/dev/null) || return 0
+  [ -n "$cmd" ] || return 0
+
+  # Extract all file_path values from Write/Edit trace entries in this session
+  # Use jq streaming to handle potentially large trace files efficiently
+  local written_files
+  written_files=$(jq -r '
+    select(.tool_name == "Write" or .tool_name == "Edit") |
+    select(.decision == "allow" or .decision == "ask") |
+    .file_path // (.tool_input.file_path // empty)
+  ' "$trace" 2>/dev/null) || return 0
+  [ -n "$written_files" ] || return 0
+
+  # Check if command references any written file (by basename or full path)
+  local fpath basename
+  while IFS= read -r fpath; do
+    [ -n "$fpath" ] || continue
+    basename="${fpath##*/}"
+    # Match full path or basename in the command string
+    if [[ "$cmd" == *"$fpath"* ]] || [[ "$cmd" == *"$basename"* ]]; then
+      SESSION_WRITE_EXEC_MATCHED=true
+      SESSION_WRITE_EXEC_FILE="$fpath"
+      return 0
+    fi
+  done <<< "$written_files"
+
+  return 0
+}

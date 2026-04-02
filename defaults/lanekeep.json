@@ -780,6 +780,22 @@
       "type": "free"
     },
     {
+      "id": "sys-033",
+      "match": {
+        "tool": "Bash",
+        "pattern": "(\\b(bash|sh|zsh|dash|source|python[23]?|node|ruby|perl|php)\\b\\s+\\S+\\.(sh|bash|py|rb|pl|js|ts|php)\\b|\\./\\S+\\.(sh|bash|py|rb|pl|js|ts|php)\\b)"
+      },
+      "decision": "ask",
+      "reason": "Script file execution requires approval — file content is not re-scanned at exec time",
+      "category": "system",
+      "intent": "Executing a script file by interpreter runs its full content without per-line content evaluation — a two-step write-then-execute attack bypasses content scanning rules",
+      "type": "free",
+      "compliance_tags": [
+        "cwe:78",
+        "attck:t1059.004"
+      ]
+    },
+    {
       "id": "sys-042",
       "match": {
         "pattern": "\\biptables\\b.*\\s(-F|--flush)\\b|\\bcrontab\\b.*\\s-r\\b|\\bkill\\b.*\\s-9\\s+1\\b"
