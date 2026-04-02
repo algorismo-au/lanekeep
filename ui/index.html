@@ -494,6 +494,10 @@ tbody tr.selected { background: var(--bg-hover); }
 .trend-row-divider { grid-column: 1 / -1; height: 0; border-top: 1px solid var(--border); margin: 4px 0 2px; }
 .trend-card .trend-metric { font-size: 10px; color: var(--text-secondary); margin-top: 4px; font-variant-numeric: tabular-nums; }
 
+.heatmap-grid { display: grid; grid-template-rows: repeat(7, 10px); grid-auto-flow: column; grid-auto-columns: 10px; gap: 2px; margin-top: 8px; overflow-x: auto; width: max-content; }
+.heatmap-cell { width: 10px; height: 10px; border-radius: 2px; background: var(--bg-hover); }
+.heatmap-month-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--text-muted); margin-top: 4px; width: max-content; min-width: 100%; }
+
 .insights-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .insights-table th { background: var(--bg-panel); padding: 8px 12px; text-align: left; font-size: 11px; text-transform: none; letter-spacing: 0.8px; color: var(--text-secondary); border-bottom: 2px solid var(--border); position: relative; white-space: nowrap; font-family: var(--font-heading); overflow: hidden; text-overflow: ellipsis; }
 .insights-table td { padding: 6px 12px; border-bottom: 1px solid var(--border); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3654,6 +3658,48 @@ function _buildAnalyticsCards(src, sliceLimit, fileIdPrefix) {
   };
 }
 
+function renderHourlyDistribution(dist) {
+  if (!dist || dist.length !== 24) return '<div class="metrics-empty">No data</div>';
+  const maxCount = Math.max(...dist, 1);
+  const items = dist.map((count, hour) => {
+    const pct = Math.round(count / maxCount * 100);
+    const lbl = String(hour).padStart(2, '0') + ':00';
+    return `<div class="ranked-item">
+      <span class="rank-label">${esc(lbl)}</span>
+      <div class="rank-bar-row">
+        <div class="rank-bar-wrap">
+          <div class="rank-bar" style="width:${pct}%;background:var(--color-ask)" title="${count} actions"></div>
+        </div>
+        <span class="rank-count">${count}</span>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="metrics-card full-width"><h3>Hourly Usage Distribution (All-Time)</h3>
+    <div class="ranked-list">${items}</div></div>`;
+}
+
+function renderCostRanking(entries) {
+  if (!entries || !entries.length) return '<div class="metrics-card"><h3>Top 10 Costly Tool Calls (Est)</h3><div class="metrics-empty">No cost data</div></div>';
+  const maxCost = entries[0].cost || 1e-9;
+  const items = entries.map(e => {
+    const pct = Math.round(e.cost / maxCost * 100);
+    const costStr = fmtCost(e.cost);
+    const previewText = e.preview.length >= 120 ? e.preview.slice(0, 117) + '...' : e.preview;
+    return `<div class="ranked-item">
+      <span class="rank-label" title="${esc(e.tool)}">${esc(e.tool)}</span>
+      <span style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block" title="${esc(previewText)}">${esc(previewText)}</span>
+      <div class="rank-bar-row">
+        <div class="rank-bar-wrap">
+          <div class="rank-bar" style="width:${pct}%;background:var(--color-warn)" title="${esc(costStr)}"></div>
+        </div>
+        <span class="rank-count">${esc(costStr)}</span>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="metrics-card"><h3>Top 10 Costly Tool Calls (Est)</h3>
+    <div class="ranked-list">${items}</div></div>`;
+}
+
 function renderInsightsAnalytics() {
   const analyticsEl = document.getElementById('insights-analytics');
   if (!insightsTraceData || !insightsTraceData.entries.length) { analyticsEl.innerHTML = ''; return; }
@@ -3686,7 +3732,9 @@ function renderInsightsAnalytics() {
   const mc = (title, body) => `<div class="metrics-card"><h3>${title}</h3><div class="ranked-list">${body}</div></div>`;
   const lc = (title, lat) => `<div class="metrics-card"><h3>${title}</h3><div class="latency-stats"><div class="latency-stat"><div class="stat-value">${lat.p50}</div><div class="stat-label">P50</div></div><div class="latency-stat"><div class="stat-value">${lat.p95}</div><div class="stat-label">P95</div></div><div class="latency-stat"><div class="stat-value">${lat.avg}</div><div class="stat-label">Avg</div></div><div class="latency-stat"><div class="stat-value">${lat.max}</div><div class="stat-label">Max</div></div></div></div>`;
   const dc = (title, d) => `<div class="metrics-card"><h3>${title}</h3><div class="stacked-bar">${d.segments}</div><div class="stacked-bar-legend">${d.legendItems}</div></div>`;
-  analyticsEl.innerHTML = `<div class="metrics-grid">${mc('Top Denied Tools - Session', s.denied)}${mc('Top Denied Tools - All-Time', c.denied)}${mc('Top Evaluator Denials - Session', s.eval)}${mc('Top Evaluator Denials - All-Time', c.eval)}${mc('Agent File Activity - Session', s.files)}${mc('Agent File Activity - All-Time', c.files)}${lc('Check Latency - Session', s.latency)}${lc('Check Latency - All-Time', c.latency)}${dc('Decision Distribution - Session', s.dist)}${dc('Decision Distribution - All-Time', c.dist)}${timelineHtml}</div>`; // safe: all interpolated values use esc() sanitizer
+  const hourlyCard = renderHourlyDistribution(cum.hourly_distribution || null);
+  const costCard = renderCostRanking(cum.top_cost_entries || null);
+  analyticsEl.innerHTML = `<div class="metrics-grid">${mc('Top Denied Tools - Session', s.denied)}${mc('Top Denied Tools - All-Time', c.denied)}${mc('Top Evaluator Denials - Session', s.eval)}${mc('Top Evaluator Denials - All-Time', c.eval)}${mc('Agent File Activity - Session', s.files)}${mc('Agent File Activity - All-Time', c.files)}${lc('Check Latency - Session', s.latency)}${lc('Check Latency - All-Time', c.latency)}${dc('Decision Distribution - Session', s.dist)}${dc('Decision Distribution - All-Time', c.dist)}${hourlyCard}${costCard}${timelineHtml}</div>`; // safe: all interpolated values use esc() sanitizer
   _restoreFileLists();
 }
 
@@ -4023,6 +4071,41 @@ function renderTrendCharts(data) {
     + '</div></div>';
 }
 
+function renderActivityHeatmap(data) {
+  const el = document.getElementById('insights-trends');
+  if (!data || !data.days || !data.days.length) return;
+  const maxCount = data.max_count || 1;
+  function cellColor(count, maxCount) {
+    if (count === 0 || maxCount === 0) return 'var(--bg-hover)';
+    const intensity = count / maxCount;
+    if (intensity < 0.25) return 'rgba(212,68,46,0.25)';
+    if (intensity < 0.5)  return 'rgba(212,68,46,0.5)';
+    if (intensity < 0.75) return 'rgba(212,68,46,0.75)';
+    return 'rgba(212,68,46,1)';
+  }
+  const firstDate = new Date(data.days[0].date + 'T00:00:00');
+  const startDow = firstDate.getDay();
+  const cells = [];
+  for (let i = 0; i < startDow; i++) {
+    cells.push('<div class="heatmap-cell" style="background:transparent"></div>');
+  }
+  data.days.forEach(d => {
+    const tip = d.date + ': ' + d.count + ' action' + (d.count !== 1 ? 's' : '');
+    cells.push(`<div class="heatmap-cell" style="background:${cellColor(d.count, maxCount)}" title="${esc(tip)}"></div>`);
+  });
+  const totalStr = data.total ? data.total + ' actions over 52 weeks' : '';
+  const section = `<div class="trend-section" style="margin-top:8px">
+    <div class="trend-header"><h3 class="trend-title">Activity Heatmap</h3>
+      <span style="font-size:11px;color:var(--text-muted)">${esc(totalStr)}</span>
+    </div>
+    <div class="heatmap-grid">${cells.join('')}</div>
+    <div class="heatmap-month-labels">
+      <span>52 weeks ago</span><span>Today</span>
+    </div>
+  </div>`;
+  el.innerHTML += section;
+}
+
 async function loadInsights() {
   try {
     var offset = (insightsPage - 1) * insightsPageSize;
@@ -4031,11 +4114,12 @@ async function loadInsights() {
       + '&sort=' + encodeURIComponent(insightsSortCol) + '&sort_dir=' + encodeURIComponent(insightsSortDir)
       + (filterParam ? '&decision=' + encodeURIComponent(filterParam) : '');
     var timelineUrl = API + '/api/trace?limit=1000&sort=timestamp&sort_dir=asc';
-    const [res, statusRes, trendsRes, timelineRes] = await Promise.all([
+    const [res, statusRes, trendsRes, timelineRes, heatmapRes] = await Promise.all([
       fetch(traceUrl),
       fetch(API + '/api/status'),
       fetch(API + '/api/trends' + (trendRange !== 'all' ? '?range=' + encodeURIComponent(trendRange) : '')),
-      fetch(timelineUrl)
+      fetch(timelineUrl),
+      fetch(API + '/api/heatmap')
     ]);
     if (!res.ok) return;
     const data = await res.json();
@@ -4043,13 +4127,15 @@ async function loadInsights() {
     insightsTraceData = data;
     insightsStatusData = statusRes.ok ? await statusRes.json() : {};
     const trendsData = trendsRes.ok ? await trendsRes.json() : null;
+    const heatmapData = heatmapRes && heatmapRes.ok ? await heatmapRes.json() : null;
     const sidecarRunning = insightsStatusData.sidecar_running !== false;
-    var hashInput = JSON.stringify(data.summary) + '|' + JSON.stringify(trendsData?.buckets?.length) + '|' + data.entries.length + '|' + sidecarRunning;
+    var hashInput = JSON.stringify(data.summary) + '|' + JSON.stringify(trendsData?.buckets?.length) + '|' + data.entries.length + '|' + sidecarRunning + '|' + (heatmapData?.total || 0);
     var newHash = hashInput.length + ':' + hashInput.slice(0, 200);
     if (newHash === insightsLastHash) return;
     insightsLastHash = newHash;
     window._trendData = trendsData;
     renderTrendCharts(trendsData);
+    renderActivityHeatmap(heatmapData);
     const cardsEl = document.getElementById('insights-cards');
     const bodyEl = document.getElementById('insights-body');
     const bannerEl = document.getElementById('insights-offline-banner');

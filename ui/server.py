@@ -106,6 +106,7 @@ _trace_cache = {'key': None, 'data': None, 'limit': None}
 _trace_entries_cache = {'key': None, 'entries': None, 'summary': None}  # cached parsed+sorted entries
 _trends_cache = {'key': None, 'data': None}
 _alltime_cache = {'key': None, 'data': None}
+_heatmap_cache = {'key': None, 'data': None}
 _docs_cache = {}  # doc_name -> {'mtime': float, 'data': str}
 _graphs_cache = {'key': None, 'data': None}
 
@@ -229,12 +230,33 @@ def _compute_alltime_from_traces(trace_dir):
         'pii_input': 0,
         'latency': {'count': 0, 'sum_ms': 0, 'max_ms': 0, 'values': []},
         'files_touched': files_touched,
+        'hourly_distribution': [0] * 24,
+        'top_cost_entries': [],
     }
 
     if not trace_dir.exists():
         _alltime_cache['key'] = mtime_key
         _alltime_cache['data'] = result
         return result
+
+    # Resolve pricing for cost estimation
+    _pricing_models = _load_pricing()
+    _state_path = PROJECT_DIR / '.lanekeep' / 'state.json'
+    _model = ''
+    if _state_path.exists():
+        try:
+            _st = json.loads(_state_path.read_text(encoding='utf-8'))
+            _model = _st.get('model', '')
+        except (json.JSONDecodeError, OSError):
+            pass
+    _input_rate = 0.0
+    _output_rate = 0.0
+    if _model and _pricing_models:
+        _pr = _pricing_models.get(_model) or _pricing_models.get(re.sub(r'-\d{8}$', '', _model)) or {}
+        if _pr.get('input_per_mtok'):
+            _input_rate = _pr['input_per_mtok'] / 1_000_000
+        if _pr.get('output_per_mtok'):
+            _output_rate = _pr['output_per_mtok'] / 1_000_000
 
     for trace_file in trace_dir.glob('*.jsonl'):
         try:
@@ -279,6 +301,37 @@ def _compute_alltime_from_traces(trace_dir):
                         if lat > result['latency']['max_ms']:
                             result['latency']['max_ms'] = lat
                         result['latency']['values'].append(lat)
+                    # Hourly distribution
+                    ts_raw = entry.get('timestamp')
+                    if ts_raw:
+                        try:
+                            dt = datetime.fromisoformat(ts_raw.replace('Z', '+00:00'))
+                            result['hourly_distribution'][dt.hour] += 1
+                        except (ValueError, AttributeError):
+                            pass
+                    # Top cost entries
+                    ti = entry.get('tool_input')
+                    if ti is not None:
+                        try:
+                            raw_bytes = len(json.dumps(ti, separators=(',', ':')))
+                            tok_in = round(raw_bytes / 4)
+                            tok_out = round(tok_in * 1.5)
+                            entry_cost = round(tok_in * _input_rate + tok_out * _output_rate, 8)
+                            try:
+                                preview = json.dumps(ti, separators=(',', ':'))[:120]
+                            except (TypeError, ValueError):
+                                preview = str(ti)[:120]
+                            result['top_cost_entries'].append({
+                                'tool': entry.get('tool_name', ''),
+                                'preview': preview,
+                                'cost': entry_cost,
+                            })
+                            # Cap to avoid unbounded memory on large trace dirs
+                            if len(result['top_cost_entries']) > 100:
+                                result['top_cost_entries'].sort(key=lambda x: x['cost'], reverse=True)
+                                result['top_cost_entries'] = result['top_cost_entries'][:50]
+                        except (TypeError, ValueError):
+                            pass
                     # Files touched
                     fp = _extract_file_path(entry)
                     if fp:
@@ -302,6 +355,9 @@ def _compute_alltime_from_traces(trace_dir):
     for fp, rec in files_touched.items():
         rec['sessions'] = len(rec['sessions'])
     result['files_touched'] = files_touched
+    # Finalize top cost entries
+    result['top_cost_entries'].sort(key=lambda x: x['cost'], reverse=True)
+    result['top_cost_entries'] = result['top_cost_entries'][:10]
     _alltime_cache['key'] = mtime_key
     _alltime_cache['data'] = result
     return result
@@ -533,6 +589,8 @@ class Handler(BaseHTTPRequestHandler):
             self._serve_config_trees()
         elif path == '/api/trends':
             self._serve_trends(qs)
+        elif path == '/api/heatmap':
+            self._serve_heatmap()
         elif path == '/api/context':
             self._serve_context()
         elif path == '/api/graphs':
@@ -1032,6 +1090,73 @@ class Handler(BaseHTTPRequestHandler):
             print(f"[LaneKeep UI] Error computing trends: {e}", file=sys.stderr)
             self._respond_json_error(500)
 
+    def _serve_heatmap(self):
+        """Activity heatmap: 365-day grid of PreToolUse event counts."""
+        trace_dir = PROJECT_DIR / '.lanekeep' / 'traces'
+        empty = {'days': [], 'max_count': 0, 'total': 0}
+        if not trace_dir.exists():
+            self._respond(200, json.dumps(empty), 'application/json')
+            return
+        try:
+            mtime_key = _trace_mtime_key(trace_dir)
+            if mtime_key == _heatmap_cache['key'] and _heatmap_cache['data'] is not None:
+                self._respond(200, _heatmap_cache['data'], 'application/json')
+                return
+
+            # Count PreToolUse events by date
+            date_counts = {}
+            jsonl_files = list(trace_dir.glob('*.jsonl'))
+            for trace_file in jsonl_files:
+                try:
+                    with open(trace_file) as f:
+                        for line in f:
+                            line = line.strip()
+                            if not line:
+                                continue
+                            try:
+                                entry = json.loads(line)
+                            except json.JSONDecodeError:
+                                continue
+                            evt = entry.get('event_type', '')
+                            is_pre = evt in ('PreToolUse', 'tool_call', '')
+                            if not is_pre or evt == 'PostToolUse':
+                                continue
+                            ts_raw = entry.get('timestamp')
+                            if ts_raw:
+                                try:
+                                    dt = datetime.fromisoformat(ts_raw.replace('Z', '+00:00'))
+                                    date_str = dt.date().isoformat()
+                                    date_counts[date_str] = date_counts.get(date_str, 0) + 1
+                                except (ValueError, AttributeError):
+                                    pass
+                except OSError:
+                    continue
+
+            # Build 365-day dense array from today-364 to today
+            today = datetime.now(timezone.utc).date()
+            start_date = today - timedelta(days=364)
+            days = []
+            total = 0
+            max_count = 0
+            for i in range(365):
+                d = start_date + timedelta(days=i)
+                date_str = d.isoformat()
+                count = date_counts.get(date_str, 0)
+                days.append({'date': date_str, 'count': count})
+                total += count
+                max_count = max(max_count, count)
+
+            result = {'days': days, 'max_count': max_count, 'total': total}
+            response_body = json.dumps(result)
+            _heatmap_cache['key'] = mtime_key
+            _heatmap_cache['data'] = response_body
+            self._respond(200, response_body, 'application/json')
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception as e:
+            print(f"[LaneKeep UI] Error computing heatmap: {e}", file=sys.stderr)
+            self._respond_json_error(500)
+
     def _bookmarks_path(self):
         return PROJECT_DIR / '.lanekeep' / 'bookmarks.json'
 
@@ -1414,6 +1539,8 @@ class Handler(BaseHTTPRequestHandler):
             cumulative['pii'] = {'input': alltime['pii_input']}
             cumulative['latency'] = alltime['latency']
             cumulative['files_touched'] = alltime['files_touched']
+            cumulative['hourly_distribution'] = alltime['hourly_distribution']
+            cumulative['top_cost_entries'] = alltime['top_cost_entries']
             result['cumulative'] = cumulative
 
             # --- File Map ---
