@@ -1691,6 +1691,7 @@ function fmtTokens(n) {
 }
 function fmtCost(v) {
   if (v == null || v === 0) return '$0.00';
+  if (v < 0.10) return '$' + v.toFixed(4);
   return '$' + v.toFixed(2);
 }
 function fmtSize(bytes) {
@@ -3752,6 +3753,11 @@ function renderInsightsAnalytics() {
   });
 
   // Compute session top cost entries from current page entries
+  const trendModel = (window._trendData && window._trendData.model) || '';
+  const strippedModel = trendModel.replace(/-\d{8}$/, '');
+  const modelPricing = (_bundledPricing && (_bundledPricing[trendModel] || _bundledPricing[strippedModel])) || null;
+  const sessInputRate = modelPricing ? modelPricing.input_per_mtok / 1e6 : 0;
+  const sessOutputRate = modelPricing ? modelPricing.output_per_mtok / 1e6 : 0;
   const sessCostEntries = [];
   preEntries.forEach(e => {
     const ti = e.tool_input;
@@ -3760,8 +3766,7 @@ function renderInsightsAnalytics() {
         const rawBytes = JSON.stringify(ti).length;
         const tokIn = Math.round(rawBytes / 4);
         const tokOut = Math.round(tokIn * 1.5);
-        // Use zero rates for session (we don't have pricing in the page context)
-        const entryCost = 0;
+        const entryCost = tokIn * sessInputRate + tokOut * sessOutputRate;
         try {
           const preview = JSON.stringify(ti).slice(0, 120);
           sessCostEntries.push({
@@ -4066,27 +4071,23 @@ function renderTrendCharts(data) {
   const tokTotalSum = tokTotal.reduce((s, v) => s + v, 0);
   const tokMetric = '<div class="trend-metric">Total: ' + fmtTokens(tokTotalSum) + ' tokens</div>';
 
-  // --- Cost per bucket (with cumulative overlay) ---
+  // --- Cost per bucket ---
   const costVals = buckets.map(b => b.cost || 0);
   const costLine = svgPath(costVals, W, H);
   const costArea = svgArea(costVals, W, H);
-  const costCum = buckets.map(b => b.cost_cumulative || 0);
-  const costCumLine = svgPath(costCum, W, H);
   const costTips = svgTooltips(buckets.map(b => b.t + ': ' + fmtCost(b.cost || 0) + ' (total: ' + fmtCost(b.cost_cumulative || 0) + ')'), W, H, buckets.length);
   const costSvg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
     <path d="${costArea}" fill="var(--color-warn)" opacity="0.12"/>
     <path d="${costLine}" fill="none" stroke="var(--color-warn)" stroke-width="1.5"/>
-    <path d="${costCumLine}" fill="none" stroke="var(--color-allow)" stroke-width="1" opacity="0.5"/>
     ${costTips}
   </svg>`;
   const costSum = costVals.reduce((s, v) => s + v, 0);
-  const costLegend = '<span class="trend-legend-item"><span class="trend-legend-swatch" style="background:var(--color-warn)"></span>Per bucket</span><span class="trend-legend-item"><span class="trend-legend-swatch" style="background:var(--color-allow);opacity:0.5"></span>Cumulative</span>';
   const costMetric = '<div class="trend-metric">Total: ' + fmtCost(costSum) + '</div>';
 
   // --- Burn Rate (cost projected to daily / weekly) ---
   // Compute span in seconds from granularity
   const granSpan = {'5min': 300, 'hourly': 3600, 'daily': 86400, 'weekly': 604800}[data.granularity] || 86400;
-  const periodSecs = buckets.length * granSpan;
+  const periodSecs = data.span_seconds || (buckets.length * granSpan);
   const dailyRate = periodSecs > 0 ? (costSum / periodSecs) * 86400 : 0;
   const weeklyRate = dailyRate * 7;
   const monthlyRate = dailyRate * 30;
@@ -4117,7 +4118,7 @@ function renderTrendCharts(data) {
     + '<div class="trend-card"><h4>Latency (ms)</h4>' + latSvg + labels + '<div class="trend-legend">' + latLegend + '</div></div>'
     + '<div class="trend-row-divider"></div>'
     + '<div class="trend-card"><h4>Token Usage (Est)</h4>' + tokSvg + labels + '<div class="trend-legend">' + tokLegend + '</div>' + tokMetric + '</div>'
-    + '<div class="trend-card"><h4>Cost (Est)</h4>' + costSvg + labels + '<div class="trend-legend">' + costLegend + '</div>' + costMetric + '</div>'
+    + '<div class="trend-card"><h4>Cost (Est)</h4>' + costSvg + labels + costMetric + '</div>'
     + '<div class="trend-card"><h4>Burn Rate (Est)</h4>' + burnSvg + labels + burnMetric + '</div>'
     + '</div></div>';
 }
@@ -4152,7 +4153,7 @@ function renderActivityHeatmap(data) {
     </div>
     <div class="heatmap-grid">${cells.join('')}</div>
     <div class="heatmap-month-labels">
-      <span>${numWeeks} weeks ago</span><span>Today</span>
+      <span>${numWeeks} weeks ago</span>
     </div>
   </div>`;
   el.innerHTML += section;
@@ -4179,7 +4180,7 @@ function renderHourlyUsageChart(allTimeDist) {
   }).join('');
   const svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:76px;cursor:default">${bars}${axis}${ticks}</svg>`;
   const section = `<div class="trend-section" style="margin-top:8px">
-    <div class="trend-header"><h3 class="trend-title">Hourly Usage</h3></div>
+    <div class="trend-header"><h3 class="trend-title">Usage by time of day</h3></div>
     ${svg}
   </div>`;
   el.innerHTML += section;

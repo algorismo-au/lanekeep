@@ -1164,7 +1164,7 @@ class Handler(BaseHTTPRequestHandler):
                 b['cost_cumulative'] = running_cost
                 bucket_list.append(b)
             result = {'granularity': granularity, 'buckets': bucket_list, 'range': time_range,
-                      'model': _trend_model}
+                      'model': _trend_model, 'span_seconds': round(span)}
             response_body = json.dumps(result)
             _trends_cache['key'] = cache_key
             _trends_cache['data'] = response_body
