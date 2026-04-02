@@ -94,6 +94,25 @@ in subshell isolation. LaneKeep supports Bash and polyglot (Python, JS) plugins.
 
 See [plugins.d/AUTHORING.md](plugins.d/AUTHORING.md) for the full authoring guide.
 
+### Plugin directory layout
+
+```
+plugins.d/
+├── examples/          ← tracked in git — shipped reference plugins
+│   ├── docker-safety.plugin.sh
+│   ├── deploy-gate.plugin.sh
+│   ├── terraform-guard.plugin.sh
+│   └── webhook.plugin.sh
+├── AUTHORING.md
+├── LICENSE
+└── *.plugin.*         ← gitignored — runtime/user-installed plugins
+```
+
+`plugins.d/examples/` contains reference plugins that ship with the repo.
+The `plugins.d/` root is where users install plugins at runtime — these are
+gitignored to prevent test-created or user-installed plugins from being
+accidentally committed.
+
 ## Adding Rules
 
 Rules live in `defaults/lanekeep.json`. Each rule has an `id`, `pattern`, `action`,
