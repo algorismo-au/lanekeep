@@ -3684,10 +3684,8 @@ function _renderHourlyChart(dist, title) {
 
 function _renderCostRankingList(entries, title) {
   if (!entries || !entries.length) return `<div class="metrics-card"><h3>${title}</h3><div class="metrics-empty">No cost data</div></div>`;
-  const sliceLimit = entries.length > 5 ? 5 : entries.length;
-  const sliced = entries.slice(0, sliceLimit);
-  const maxCost = sliced[0].cost || 1e-9;
-  const items = sliced.map(e => {
+  const maxCost = entries[0].cost || 1e-9;
+  const allItems = entries.map(e => {
     const pct = Math.round(e.cost / maxCost * 100);
     const costStr = fmtCost(e.cost);
     const previewText = e.preview.length >= 120 ? e.preview.slice(0, 117) + '...' : e.preview;
@@ -3701,9 +3699,15 @@ function _renderCostRankingList(entries, title) {
         <span class="rank-count">${esc(costStr)}</span>
       </div>
     </div>`;
-  }).join('');
+  });
+  const VISIBLE_LIMIT = 3;
+  const ovId = 'cost-overflow-' + Math.random().toString(36).slice(2, 9);
+  const togId = 'cost-toggle-' + Math.random().toString(36).slice(2, 9);
+  const visibleItems = allItems.slice(0, VISIBLE_LIMIT).join('');
+  const overflowItems = allItems.length > VISIBLE_LIMIT ? `<div id="${ovId}" class="ranked-list-overflow">${allItems.slice(VISIBLE_LIMIT).join('')}</div>` : '';
+  const toggleBtn = allItems.length > VISIBLE_LIMIT ? `<div data-action="toggleFileList" data-overflow="${ovId}" data-toggle="${togId}" id="${togId}" class="ranked-list-toggle">Show more...</div>` : '';
   return `<div class="metrics-card"><h3>${title}</h3>
-    <div class="ranked-list">${items}</div></div>`;
+    <div class="ranked-list">${visibleItems}${overflowItems}${toggleBtn}</div></div>`;
 }
 
 function renderInsightsAnalytics() {
