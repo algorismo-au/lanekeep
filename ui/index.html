@@ -456,13 +456,13 @@ tbody tr.selected { background: var(--bg-hover); }
 #insights-analytics { margin-bottom: 20px; }
 .insights-cards { display: flex; gap: 12px; margin-bottom: 20px; width: 100%; }
 .insights-cards .insight-card { flex: 1; min-width: 0; }
-.insight-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; min-width: 0; text-align: center; cursor: pointer; transition: border-color 0.15s, opacity 0.15s, transform 0.15s var(--ease-out), box-shadow 0.15s; box-shadow: var(--shadow-card); }
+.insight-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; min-width: 0; text-align: center; cursor: pointer; transition: border-color 0.15s, opacity 0.15s, transform 0.15s var(--ease-out), box-shadow 0.15s; box-shadow: var(--shadow-card); }
 .insight-card:hover { border-color: var(--text-muted); transform: translateY(-1px); box-shadow: var(--shadow-card-hover); }
 .insight-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .insight-card.static { cursor: default; }
 .insight-card.static:hover { border-color: var(--border); transform: none; box-shadow: var(--shadow-card); }
-.insight-card .card-value { font-size: 24px; font-weight: 700; color: var(--text-bright); font-family: var(--font-heading); }
-.insight-card .card-label { font-size: 11px; color: var(--text-secondary); margin-top: 4px; text-transform: none; letter-spacing: 0.5px; }
+.insight-card .card-value, .insight-card .insight-card-value { font-size: 20px; font-weight: 700; color: var(--text-bright); font-family: var(--font-heading); }
+.insight-card .card-label, .insight-card .insight-card-label { font-size: 11px; color: var(--text-secondary); margin-top: 2px; text-transform: none; letter-spacing: 0.5px; }
 .insight-card.all .card-value { color: var(--text-bright); }
 .insight-card.deny .card-value { color: var(--color-deny); }
 .insight-card.allow .card-value { color: var(--color-allow); }
@@ -493,7 +493,7 @@ tbody tr.selected { background: var(--bg-hover); }
 .trend-range-btn:hover { background: var(--btn-hover); color: var(--text-body); }
 .trend-range-btn.active { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; font-weight: 600; }
 .trend-legend-swatch { width: 10px; height: 3px; border-radius: 1px; }
-.trend-row-divider { grid-column: 1 / -1; height: 0; border-top: 1px solid var(--border); margin: 4px 0 2px; }
+.trend-row-divider { display: none; }
 .trend-card .trend-metric { font-size: 10px; color: var(--text-secondary); margin-top: 4px; font-variant-numeric: tabular-nums; }
 
 .heatmap-grid { display: grid; grid-template-rows: repeat(7, 10px); grid-auto-flow: column; grid-auto-columns: 10px; gap: 2px; margin-top: 8px; overflow-x: auto; width: max-content; }
@@ -564,10 +564,10 @@ tbody tr.selected { background: var(--bg-hover); }
 .trace-compliance-tag { background: var(--bg-hover); border: 1px solid var(--border-strong); padding: 1px 6px; border-radius: 3px; font-size: 10px; color: var(--text-secondary); }
 
 .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.metrics-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; padding: 16px; box-shadow: var(--shadow-card); transition: transform 0.15s var(--ease-out), box-shadow 0.15s; min-width: 0; }
+.metrics-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; padding: 12px; box-shadow: var(--shadow-card); transition: transform 0.15s var(--ease-out), box-shadow 0.15s; min-width: 0; }
 .metrics-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-card-hover); }
 .metrics-card.full-width { grid-column: 1 / -1; }
-.metrics-card h3 { font-size: 12px; font-weight: 600; color: var(--text-bright); text-transform: none; letter-spacing: 0.5px; margin-bottom: 12px; font-family: var(--font-heading); }
+.metrics-card h3 { font-size: 12px; font-weight: 600; color: var(--text-bright); text-transform: none; letter-spacing: 0.5px; margin-bottom: 8px; font-family: var(--font-heading); }
 .metrics-card .gov-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 12px; }
 .metrics-card .gov-row .gov-label { color: var(--text-secondary); }
 .metrics-card .gov-row .gov-value { color: var(--text-body); font-weight: 600; }
@@ -577,7 +577,7 @@ tbody tr.selected { background: var(--bg-hover); }
 .stacked-bar-legend .legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-secondary); }
 .stacked-bar-legend .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
 .ranked-list { display: flex; flex-direction: column; gap: 10px; }
-.ranked-item { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.ranked-item { display: flex; flex-direction: column; gap: 3px; font-size: 12px; overflow: hidden; }
 .ranked-item .rank-label { color: var(--text-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ranked-item .rank-label.ins-file-link { color: var(--color-ask); }
 .ranked-item .rank-bar-row { display: flex; align-items: center; gap: 8px; }
@@ -618,9 +618,9 @@ tbody tr.selected { background: var(--bg-hover); }
 .governance-section.visible { display: block; animation: fadeUp 0.3s var(--ease-out); }
 .gov-cards { display: flex; gap: 20px; flex-wrap: wrap; }
 .gov-cards > .settings-card { flex: 1 1 0; min-width: 0; }
-.gov-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; padding: 14px 20px; flex: 1; min-width: 200px; box-shadow: var(--shadow-card); transition: transform 0.15s var(--ease-out), box-shadow 0.15s; }
+.gov-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; padding: 10px 16px; flex: 1; min-width: 200px; box-shadow: var(--shadow-card); transition: transform 0.15s var(--ease-out), box-shadow 0.15s; }
 .gov-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-card-hover); }
-.gov-card h3 { font-size: 13px; font-weight: 600; color: var(--text-bright); margin-bottom: 10px; text-transform: none; letter-spacing: 0.5px; font-family: var(--font-heading); }
+.gov-card h3 { font-size: 13px; font-weight: 600; color: var(--text-bright); margin-bottom: 6px; text-transform: none; letter-spacing: 0.5px; font-family: var(--font-heading); }
 .gov-card .gov-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 12px; }
 .gov-card .gov-row .gov-label { color: var(--text-secondary); }
 .gov-tip { position: relative; display: inline-flex; align-items: center; margin-left: 4px; }
@@ -690,7 +690,7 @@ tbody tr.selected { background: var(--bg-hover); }
 .graphs-canvas { min-height: 200px; overflow: auto; position: relative; }
 .graphs-canvas svg { width: 100%; display: block; }
 .graphs-canvas svg text { font-family: var(--font-body); }
-.graphs-canvas .gn-framework { cursor: default; }
+.graphs-canvas .gn-framework, .graphs-canvas .gn-requirement, .graphs-canvas .gn-evaluator { cursor: default; }
 .graphs-canvas .gn-framework rect { fill: #1e2124; stroke: #8b929a; stroke-width: 0.5; rx: 3; transition: fill 0.15s; }
 .graphs-canvas .gn-framework:hover rect { fill: #2a2e33; filter: url(#gn-glow); }
 .graphs-canvas .gn-framework text { fill: #c8cdd3; font-size: 2.5px; font-weight: 600; }
@@ -1234,7 +1234,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
     <div class="graphs-panel" id="graphs-coverage">
       <div class="graphs-panel-header">
         <h3>Coverage Evidence Chain</h3>
-        <span class="graphs-panel-sub">Regulation &rarr; Requirements &rarr; Rules</span>
+        <span class="graphs-panel-sub">Frameworks &rarr; Requirements &rarr; Rules / Evaluators</span>
       </div>
       <div class="graphs-filter-bar" id="graphs-framework-filter"></div>
       <div class="graphs-canvas" id="graphs-coverage-canvas"></div>
@@ -3046,7 +3046,7 @@ function renderComplianceGraph(data, filterFw) {
     })(rid, isEval ? rid : null);
     if (!isEval) g.appendChild(linkIcon);
     // Click node to jump to impact analysis
-    g.style.cursor = 'pointer';
+    if (!isEval) g.style.cursor = 'pointer';
     g.addEventListener('click', function() {
       if (!isEval) {
         _graphsSelectedRule = rid;
@@ -3693,7 +3693,7 @@ function _renderCostRankingList(entries, title) {
     const previewText = e.preview.length >= 120 ? e.preview.slice(0, 117) + '...' : e.preview;
     return `<div class="ranked-item">
       <div style="display:flex;gap:8px;align-items:baseline;min-width:0">
-        <span class="rank-label" title="${esc(e.tool)}">${esc(e.tool)}</span>
+        <span class="rank-label" style="flex-shrink:0" title="${esc(e.tool)}">${esc(e.tool)}</span>
         <span style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" title="${esc(previewText)}">${esc(previewText)}</span>
       </div>
       <div class="rank-bar-row">

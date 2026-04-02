@@ -101,6 +101,92 @@ _sidecar_cache = {'running': False, 'ts': 0}
 UI_DIR = Path(__file__).parent
 LANEKEEP_DIR = UI_DIR.parent  # lanekeep/ directory (parent of ui/)
 
+
+def _resolve_config(config):
+    """Resolve 'extends: defaults' inheritance — mirrors config.sh merge logic.
+
+    If the config has no 'extends' field, returns it unchanged.
+    Otherwise loads defaults and merges: defaults.rules + rule_overrides
+    - disabled_rules + extra_rules, with deep-merge on other fields.
+    """
+    if config.get('extends') != 'defaults':
+        return config
+
+    defaults_path = LANEKEEP_DIR / 'defaults' / 'lanekeep.json'
+    if not defaults_path.exists():
+        return config
+
+    try:
+        with open(defaults_path) as f:
+            defaults = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return config
+
+    layering_keys = {'rules', 'rule_overrides', 'extra_rules', 'disabled_rules', 'extends'}
+
+    # Deep-merge non-layering fields (user wins on conflicts)
+    def _deep_merge(base, overlay):
+        merged = dict(base)
+        for k, v in overlay.items():
+            if k in layering_keys:
+                continue
+            if k in merged and isinstance(merged[k], dict) and isinstance(v, dict):
+                merged[k] = _deep_merge(merged[k], v)
+            else:
+                merged[k] = v
+        return merged
+
+    resolved = _deep_merge(defaults, config)
+
+    # Rules: start with defaults, apply overrides, remove disabled, append extras
+    rules = list(defaults.get('rules', []))
+
+    # Apply rule_overrides by id (skip locked / sys-* rules)
+    overrides = config.get('rule_overrides', [])
+    if overrides:
+        override_map = {}
+        for ov in overrides:
+            oid = ov.get('id', '')
+            if oid:
+                override_map[oid] = ov
+        new_rules = []
+        for rule in rules:
+            rid = rule.get('id', '')
+            if rid in override_map:
+                if rule.get('locked') or (rid.startswith('sys-') and rid[4:].isdigit()):
+                    new_rules.append(rule)  # locked — ignore override
+                else:
+                    merged_rule = dict(rule)
+                    merged_rule.update(override_map[rid])
+                    new_rules.append(merged_rule)
+            else:
+                new_rules.append(rule)
+        rules = new_rules
+
+    # Remove disabled_rules by id (skip locked / sys-* rules)
+    disabled = set(config.get('disabled_rules', []))
+    if disabled:
+        rules = [
+            r for r in rules
+            if r.get('locked') or (r.get('id', '').startswith('sys-') and r['id'][4:].isdigit())
+            or r.get('id', '') not in disabled
+        ]
+
+    # Append extra_rules
+    extras = config.get('extra_rules', [])
+    for ex in extras:
+        tagged = dict(ex)
+        tagged['source'] = 'custom'
+        rules.append(tagged)
+
+    resolved['rules'] = rules
+
+    # Clean up layering-only fields
+    for k in ('extends', 'rule_overrides', 'extra_rules', 'disabled_rules'):
+        resolved.pop(k, None)
+
+    return resolved
+
 # Mtime-based response caches for trace endpoints
 _trace_cache = {'key': None, 'data': None, 'limit': None}
 _trace_entries_cache = {'key': None, 'entries': None, 'summary': None}  # cached parsed+sorted entries
@@ -1754,9 +1840,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._respond(200, _graphs_cache['data'], 'application/json')
                 return
 
-            # Load config
+            # Load config (resolve extends: defaults inheritance)
             with open(CONFIG_PATH) as f:
-                config = json.load(f)
+                raw_config = json.load(f)
+            config = _resolve_config(raw_config)
             rules_list = config.get('rules', [])
 
             # Build rule index with compliance tags

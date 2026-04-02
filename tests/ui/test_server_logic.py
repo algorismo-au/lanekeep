@@ -1119,5 +1119,144 @@ class TestConfigMergeLayering(_ServerTestCase):
                 os.environ.pop(key, None)
 
 
+# ── Config extends resolution tests ────────────────────────────────
+
+class TestResolveConfig(unittest.TestCase):
+    """Test _resolve_config() — extends: defaults inheritance."""
+
+    def test_no_extends_returns_unchanged(self):
+        """Config without extends is returned as-is."""
+        config = {'rules': [{'id': 'r1'}], 'policies': {}}
+        result = srv._resolve_config(config)
+        self.assertEqual(result, config)
+
+    def test_extends_merges_default_rules(self):
+        """Config with extends: defaults gets default rules."""
+        config = {'extends': 'defaults'}
+        result = srv._resolve_config(config)
+        self.assertIn('rules', result)
+        self.assertGreater(len(result['rules']), 0)
+        # Verify well-known default rules are present
+        ids = {r['id'] for r in result['rules']}
+        self.assertIn('sec-012', ids)
+        self.assertIn('sec-028', ids)
+
+    def test_extends_merges_evaluators(self):
+        """Evaluator config from defaults is inherited."""
+        config = {'extends': 'defaults'}
+        result = srv._resolve_config(config)
+        self.assertIn('evaluators', result)
+
+    def test_extra_rules_appended(self):
+        """extra_rules are appended after default rules."""
+        config = {
+            'extends': 'defaults',
+            'extra_rules': [{'id': 'custom-001', 'decision': 'ask', 'reason': 'test'}],
+        }
+        result = srv._resolve_config(config)
+        ids = [r['id'] for r in result['rules']]
+        self.assertIn('custom-001', ids)
+        # custom-001 should be last
+        self.assertEqual(ids[-1], 'custom-001')
+        # Should have source: custom tag
+        custom = [r for r in result['rules'] if r['id'] == 'custom-001'][0]
+        self.assertEqual(custom['source'], 'custom')
+
+    def test_disabled_rules_removed(self):
+        """disabled_rules removes rules by id from defaults."""
+        config = {
+            'extends': 'defaults',
+            'disabled_rules': ['sec-012'],
+        }
+        result = srv._resolve_config(config)
+        ids = {r['id'] for r in result['rules']}
+        self.assertNotIn('sec-012', ids)
+        # sec-028 should still be there
+        self.assertIn('sec-028', ids)
+
+    def test_locked_rules_cannot_be_disabled(self):
+        """Locked rules are preserved even when listed in disabled_rules."""
+        # Find a locked rule in defaults
+        defaults_path = srv.LANEKEEP_DIR / 'defaults' / 'lanekeep.json'
+        with open(defaults_path) as f:
+            defaults = json.load(f)
+        locked = [r for r in defaults.get('rules', []) if r.get('locked')]
+        if not locked:
+            self.skipTest('No locked rules in defaults')
+        locked_id = locked[0]['id']
+        config = {
+            'extends': 'defaults',
+            'disabled_rules': [locked_id],
+        }
+        result = srv._resolve_config(config)
+        ids = {r['id'] for r in result['rules']}
+        self.assertIn(locked_id, ids)
+
+    def test_layering_fields_removed(self):
+        """extends, extra_rules, disabled_rules are removed from output."""
+        config = {
+            'extends': 'defaults',
+            'extra_rules': [{'id': 'x-1', 'decision': 'ask', 'reason': 'test'}],
+            'disabled_rules': ['sec-012'],
+        }
+        result = srv._resolve_config(config)
+        self.assertNotIn('extends', result)
+        self.assertNotIn('extra_rules', result)
+        self.assertNotIn('disabled_rules', result)
+
+
+class TestGraphsExtendsDefaults(_ServerTestCase):
+    """Test _serve_graphs() with extends: defaults config — the real-world pattern."""
+
+    @classmethod
+    def _setup_project(cls):
+        # Mimics the real buildinglanekeep/lanekeep.json pattern
+        config = {
+            'extends': 'defaults',
+            'extra_rules': [
+                {
+                    'id': 'meta-001',
+                    'match': {'tool': 'Write', 'target': 'roadmap.json'},
+                    'decision': 'ask',
+                    'reason': 'Roadmap changes need approval',
+                },
+            ],
+        }
+        (cls._project_dir / 'lanekeep.json').write_text(json.dumps(config, indent=2))
+
+    def test_default_rules_loaded(self):
+        """Default rules are resolved and present in graphs data."""
+        _, data = self.get('/api/graphs')
+        self.assertGreater(len(data['rules']), 10)
+        self.assertIn('sec-012', data['rules'])
+        self.assertIn('sec-028', data['rules'])
+
+    def test_cwe200_covered(self):
+        """CWE-200 shows as a framework with rules linked."""
+        _, data = self.get('/api/graphs')
+        # CWE-200 is its own framework (no space in tag)
+        self.assertIn('CWE-200', data['frameworks'])
+        reqs = data['frameworks']['CWE-200']['requirements']
+        self.assertIn('CWE-200', reqs)
+        # Should have sec-012 and sec-028 linked
+        rules = reqs['CWE-200']['rules']
+        self.assertIn('sec-012', rules)
+        self.assertIn('sec-028', rules)
+
+    def test_extra_rules_included(self):
+        """Extra rules from project config appear in rules data."""
+        _, data = self.get('/api/graphs')
+        self.assertIn('meta-001', data['rules'])
+
+    def test_compliance_frameworks_populated(self):
+        """Multiple compliance frameworks from default rules are present."""
+        _, data = self.get('/api/graphs')
+        # Default rules tag many frameworks
+        fw_names = set(data['frameworks'].keys())
+        # At least CWE entries should be present
+        cwe_fws = {f for f in fw_names if f.startswith('CWE-')}
+        self.assertGreater(len(cwe_fws), 0)
+
+
 if __name__ == '__main__':
     unittest.main()
