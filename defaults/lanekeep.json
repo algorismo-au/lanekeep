@@ -654,7 +654,33 @@
       "allowed": [],
       "denied": [
         "evilcorp\\.com",
-        "idontwanttousethiswebsite\\.com"
+        "idontwanttousethiswebsite\\.com",
+        "ngrok\\.io",
+        "ngrok\\.com",
+        "ngrok-free\\.app",
+        "webhook\\.site",
+        "webhook\\.cool",
+        "requestbin\\.com",
+        "requestbin\\.net",
+        "pipedream\\.com",
+        "pipedream\\.net",
+        "hookbin\\.com",
+        "beeceptor\\.com",
+        "postbin\\.org",
+        "requestcatcher\\.com",
+        "httpbin\\.org",
+        "burpcollaborator\\.net",
+        "oastify\\.com",
+        "interactsh\\.com",
+        "interact\\.sh",
+        "dnslog\\.cn",
+        "canarytokens\\.com",
+        "transfer\\.sh",
+        "paste\\.ee",
+        "hastebin\\.com",
+        "0x0\\.st",
+        "file\\.io",
+        "temp\\.sh"
       ],
       "type": "free"
     }
@@ -2872,6 +2898,167 @@
       "category": "code-security",
       "intent": "$(pwd) can fail or return unexpected results in subshells, symlinked directories, and certain CI environments; the safe form provides a fallback",
       "type": "free"
+    },
+    {
+      "id": "sec-034",
+      "match": {
+        "pattern": "(?i)(export\\s+|\\b)(ANTHROPIC_BASE_URL|OPENAI_BASE_URL|AZURE_OPENAI_ENDPOINT|OLLAMA_HOST|CLAUDE_API_BASE|AI_GATEWAY_URL)\\s*="
+      },
+      "decision": "deny",
+      "reason": "AI API base URL override detected — redirects model traffic to attacker-controlled endpoint",
+      "category": "security",
+      "intent": "Overriding ANTHROPIC_BASE_URL, OPENAI_BASE_URL, or similar environment variables silently redirects all LLM API calls to an attacker-controlled proxy, enabling credential theft, response manipulation, and full session hijack without any visible change to the agent's behavior",
+      "type": "free",
+      "compliance_tags": [
+        "attck:t1557",
+        "atlas:t0034",
+        "nist-ai100-2:supply-chain"
+      ]
+    },
+    {
+      "id": "sec-035",
+      "match": {
+        "pattern": "(?i)(enableAllProjectMcpServers|enableAllMcpServers|allowAllMcpServers|\"mcpServers\"\\s*:\\s*\\{)"
+      },
+      "decision": "deny",
+      "reason": "MCP server mass-enable or config injection detected — enables untrusted tool servers",
+      "category": "security",
+      "intent": "enableAllProjectMcpServers bypasses the MCP server allowlist, granting any project-defined server tool access. Writing mcpServers config directly injects arbitrary tool endpoints. Both enable supply-chain attacks where a malicious MCP server exfiltrates data or executes code under the agent's identity",
+      "type": "free",
+      "compliance_tags": [
+        "attck:t1195",
+        "atlas:t0042",
+        "nist-ai100-2:supply-chain"
+      ]
+    },
+    {
+      "id": "csec-053",
+      "match": {
+        "pattern": "data:(text/html|image/svg\\+xml|application/xhtml\\+xml)[;,]"
+      },
+      "decision": "ask",
+      "reason": "Data URI with executable content type detected — verify payload is safe",
+      "category": "code-security",
+      "intent": "Data URIs with text/html or SVG content types can embed executable JavaScript without a network request — used for XSS, phishing overlays, and sandbox escapes in browser and webview contexts",
+      "type": "free",
+      "compliance": [
+        "OWASP A03:2021"
+      ],
+      "compliance_tags": [
+        "attck:t1059.007",
+        "cwe:79",
+        "nist-ai100-2:evasion"
+      ]
+    },
+    {
+      "id": "csec-054",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "<script[\\s>]|\\bon(error|load|click|mouseover|focus|blur|submit|change|input|keydown|keyup|message)\\s*=\\s*[\"']"
+      },
+      "decision": "ask",
+      "reason": "Inline script or event handler detected — verify no injection risk",
+      "category": "code-security",
+      "intent": "Inline <script> tags and on* event handlers are the primary XSS payload delivery mechanism. While framework-rendered content is typically safe, agent-written HTML that includes these patterns should be reviewed to confirm the content is not attacker-controlled",
+      "type": "free",
+      "compliance": [
+        "OWASP A03:2021"
+      ],
+      "compliance_tags": [
+        "attck:t1059.007",
+        "cwe:79"
+      ]
+    },
+    {
+      "id": "net-011",
+      "match": {
+        "pattern": "(?i)(ngrok\\.io|ngrok\\.com|ngrok-free\\.app|webhook\\.site|webhook\\.cool|requestbin\\.(com|net)|pipedream\\.(com|net)|hookbin\\.com|beeceptor\\.com|postbin\\.org|requestcatcher\\.com|burpcollaborator\\.net|oastify\\.com|interactsh?\\.com|interact\\.sh|dnslog\\.cn|canarytokens\\.com|transfer\\.sh|paste\\.ee|hastebin\\.com|0x0\\.st|file\\.io|temp\\.sh)"
+      },
+      "decision": "deny",
+      "reason": "Known exfiltration/data collection service detected — these endpoints capture and store any data sent to them",
+      "category": "network",
+      "intent": "Services like ngrok, webhook.site, requestbin, pipedream, and Burp Collaborator are purpose-built to receive and inspect arbitrary HTTP requests. An agent sending data to these endpoints is almost certainly exfiltrating secrets, tokens, or source code. Legitimate tunneling should use org-approved infrastructure, not public collection services",
+      "type": "free",
+      "compliance_tags": [
+        "attck:t1567",
+        "attck:t1048",
+        "atlas:t0025",
+        "nist-ai100-2:exfiltration"
+      ]
+    },
+    {
+      "id": "sec-036",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(?i)\"autoApprove\"\\s*:\\s*\\[|\"autoApprove\"\\s*:\\s*true|auto_approve.*tool"
+      },
+      "decision": "deny",
+      "reason": "MCP autoApprove configuration detected — bypasses human-in-the-loop approval for tool calls",
+      "category": "security",
+      "intent": "The autoApprove setting in MCP server configs allows specified tools to execute without user confirmation. Writing this setting grants an MCP server silent execution privileges, defeating the approval gate that protects against malicious tool use. A compromised or poisoned MCP server with autoApprove runs tools unattended",
+      "type": "free",
+      "compliance_tags": [
+        "attck:t1195",
+        "atlas:t0042",
+        "nist-ai100-2:supply-chain"
+      ]
+    },
+    {
+      "id": "sec-037",
+      "match": {
+        "tool": "Write|Edit",
+        "pattern": "(?i)(\"(description|tool_description)\"\\s*:.*(<img|<script|<iframe|\\\\u00|\\\\x[0-9a-f]{2}|data:text/html|ignore previous|ignore above|disregard|you are now|new instructions|IMPORTANT:|SYSTEM:|ssh_key|api_key|credentials|/\\.ssh/|/\\.aws/|/\\.env|webhook\\.site|ngrok|requestbin|pipedream|burpcollaborator|interactsh))"
+      },
+      "decision": "deny",
+      "reason": "MCP tool description poisoning detected — hidden instructions or exfiltration indicators in tool metadata",
+      "category": "security",
+      "intent": "MCP tool descriptions are rendered to the AI agent as context. Attackers embed hidden instructions (prompt injection), credential harvesting paths (.ssh, .aws, .env), or exfiltration URLs in tool descriptions to manipulate the agent into leaking data. Based on Invariant Labs tool-poisoning research",
+      "type": "free",
+      "compliance_tags": [
+        "attck:t1195.003",
+        "atlas:t0042",
+        "atlas:t0051",
+        "nist-ai100-2:prompt-injection",
+        "nist-ai100-2:supply-chain"
+      ]
+    },
+    {
+      "id": "dep-029",
+      "match": {
+        "pattern": "\\bnpx\\s+(-y|--yes)\\s|\\bnpx\\s+\\S+.*\\s(-y|--yes)\\b"
+      },
+      "decision": "deny",
+      "reason": "npx --yes skips install confirmation — auto-downloads and executes packages from npm without approval",
+      "category": "dependencies",
+      "intent": "npx -y/--yes bypasses the interactive prompt that warns when a package needs to be downloaded. In MCP server configs and CI scripts, this silently fetches and executes arbitrary packages from the npm registry — a primary supply chain attack vector. Typosquatted or compromised packages execute immediately on download",
+      "type": "free",
+      "compliance_tags": [
+        "attck:t1195.001",
+        "atlas:t0010.001",
+        "atlas:t0011.001",
+        "nist-ai100-2:supply-chain",
+        "ntia-sbom:provenance",
+        "openssf:dangerous-workflow"
+      ]
+    },
+    {
+      "id": "sec-038",
+      "match": {
+        "tool": "Write|Edit",
+        "target": "(agent|subagent|assistant|persona|custom_instructions|\\.claude/)",
+        "pattern": "(?i)(ignore (all |any )?(previous|above|prior) (instructions|rules|guidelines)|you are now|disregard (all |any )?(previous|prior|above)|forget (your|all|everything)|new (system |base )?instructions|SYSTEM:\\s|\\[SYSTEM\\]|<system>|act as (an? )?(unrestricted|unfiltered|jailbroken)|DAN mode|Developer Mode|bypass (all |any )?(safety|security|filter|restriction)|\\bdo anything now\\b)"
+      },
+      "decision": "deny",
+      "reason": "Prompt injection pattern in agent definition file — attempts to override system instructions",
+      "category": "security",
+      "intent": "Agent definition files (.claude/ configs, custom instructions, persona files) are loaded as trusted context. Injecting role-override phrases ('you are now', 'ignore previous instructions', 'DAN mode') into these files hijacks the agent's identity and bypasses all behavioral constraints. This is the agent-config equivalent of a stored XSS attack",
+      "type": "free",
+      "compliance_tags": [
+        "attck:t1059",
+        "atlas:t0051",
+        "atlas:t0043",
+        "nist-ai100-2:prompt-injection"
+      ]
     }
   ],
   "signing": {
