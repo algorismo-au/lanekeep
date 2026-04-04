@@ -382,6 +382,29 @@ See [CLAUDE.md](CLAUDE.md) for architecture and conventions. Run tests with
 
 ---
 
+## Keywords
+
+AI agent guardrails, AI agent governance, AI coding agent security, agentic AI
+security, vibe coding security, AI agent policy engine, governance sidecar, AI
+agent firewall, AI agent audit trail, AI agent least privilege, AI agent
+sandboxing, prompt injection prevention, MCP security, MCP guardrails, Claude
+Code security, Claude Code guardrails, Claude Code hooks, Cursor guardrails,
+Copilot governance, Aider guardrails, AI agent monitoring, AI agent
+observability, AI coding assistant safety, policy-as-code, governance-as-code,
+AI agent runtime security, AI agent access control, AI agent permissions, AI
+agent allowlist denylist, OWASP agentic top 10, NIST AI risk management, SOC2
+AI compliance, HIPAA AI compliance, EU AI Act compliance tools, PII detection,
+secrets detection, AI agent budget limits, token budget enforcement, AI agent
+cost control, shadow AI governance, AI development guardrails, DevSecOps AI, AI
+agent command blocking, AI agent file access control, defense in depth AI, zero
+trust AI agents, fail-closed security, append-only audit log, deterministic
+guardrails, rule engine AI, compliance automation AI, AI agent behavior
+monitoring, AI agent risk management, open source AI governance, CLI guardrails
+tool, shell-based policy engine, no-cloud AI security, zero network calls, AI
+coding tool audit log
+
+---
+
 <div align="center">
 
 ### Interested in building with us?
