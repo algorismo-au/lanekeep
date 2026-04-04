@@ -27,7 +27,7 @@ LaneKeep allows your agent to run within boundaries that you control.
 - **Budget limits** — usage patterns, cost caps, token and action limits
 - **Full audit trail** — every tool call logged with matched rule and reason
 - **Defense in depth** — extendable policy layers: 9+ deterministic evaluators and an optional semantic layer (another LLM) as an evaluator; PII detection, config integrity checks, and injection detection
-- **Agent memory view** — see what your agent sees, token-by-token
+- **Agent memory/knowledge view** — see what your agent sees
 - **Coverage and alignment** — built-in compliance tags (NIST, OWASP, CWE, ATT&CK); add your own
 
 Claude Code CLI, other platforms coming soon.
