@@ -4250,14 +4250,7 @@ async function loadInsights() {
     const s = data.summary;
     // Offline banner
     if (!sidecarRunning) {
-      let lastEventTime = '';
-      if (data.entries.length) {
-        const lastTs = data.entries[0].timestamp || data.entries[0].ts;
-        if (lastTs) {
-          try { lastEventTime = new Date(lastTs).toLocaleTimeString(); } catch {}
-        }
-      }
-      bannerEl.innerHTML = '<div class="insights-offline-banner"><span class="offline-dot"></span>Sidecar is offline \u2014 showing metrics from last active session' + (lastEventTime ? '<span class="offline-time">Last event: ' + esc(lastEventTime) + '</span>' : '') + '</div>'; // safe: lastEventTime is from Date.toLocaleTimeString()
+      bannerEl.innerHTML = '<div class="insights-offline-banner"><span class="offline-dot"></span>Sidecar is offline</div>';
       cardsEl.classList.add('insights-cards-dimmed');
     } else {
       bannerEl.innerHTML = '';
