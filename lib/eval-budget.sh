@@ -79,7 +79,7 @@ budget_eval() {
 
   # Initialize state file if missing
   if [ ! -f "$state" ]; then
-    printf '{"action_count":0,"token_count":0,"input_tokens":0,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"total_events":0,"start_epoch":%s}\n' "$now_epoch" > "$state"
+    printf '{"action_count":0,"token_count":0,"input_tokens":0,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"total_events":0,"start_epoch":%s,"lanekeep_session_id":"%s"}\n' "$now_epoch" "$(_json_escape "${LANEKEEP_SESSION_ID:-}")" > "$state"
   fi
 
   # Resolve token count: use real transcript data when available, fall back to estimation.
@@ -208,8 +208,8 @@ budget_eval() {
       # Finalize old session into cumulative.json before resetting
       local _sb_model=""
       [ -n "${_prev_model:-}" ] && _sb_model="$(printf ',"model":"%s"' "$(_json_escape "$_prev_model")")"
-      printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"cache_creation_input_tokens":%d,"cache_read_input_tokens":%d,"total_events":%d,"start_epoch":%d,"session_id":"%s"%s}\n' \
-        "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$(_json_escape "$session_id")" "$_sb_model" > "${state}.tmp" \
+      printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"cache_creation_input_tokens":%d,"cache_read_input_tokens":%d,"total_events":%d,"start_epoch":%d,"session_id":"%s","lanekeep_session_id":"%s"%s}\n' \
+        "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$(_json_escape "$session_id")" "$(_json_escape "${LANEKEEP_SESSION_ID:-}")" "$_sb_model" > "${state}.tmp" \
         && mv "${state}.tmp" "$state"
       cumulative_init
       # Reset counters for new session
@@ -262,8 +262,8 @@ budget_eval() {
   if [ -z "$_model_field" ] && [ -n "${_prev_model:-}" ]; then
     _model_field="$(printf ',"model":"%s"' "$(_json_escape "$_prev_model")")"
   fi
-  printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"cache_creation_input_tokens":%d,"cache_read_input_tokens":%d,"total_events":%d,"start_epoch":%d,"elapsed_seconds":%d,"session_id":"%s","token_source":"%s"%s}\n' \
-    "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$elapsed_seconds" "$(_json_escape "$session_id")" "$_token_source" "$_model_field" > "${state}.tmp" \
+  printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"cache_creation_input_tokens":%d,"cache_read_input_tokens":%d,"total_events":%d,"start_epoch":%d,"elapsed_seconds":%d,"session_id":"%s","lanekeep_session_id":"%s","token_source":"%s"%s}\n' \
+    "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$elapsed_seconds" "$(_json_escape "$session_id")" "$(_json_escape "${LANEKEEP_SESSION_ID:-}")" "$_token_source" "$_model_field" > "${state}.tmp" \
     && mv "${state}.tmp" "$state"
   exec 9>&-
 

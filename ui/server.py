@@ -1349,6 +1349,7 @@ class Handler(BaseHTTPRequestHandler):
             # --- Budget ---
             start_epoch = 0
             session_id = ''
+            lanekeep_session_id = ''
             token_source = 'unavailable'
             context_model = ''
             state_path = PROJECT_DIR / '.lanekeep' / 'state.json'
@@ -1364,6 +1365,7 @@ class Handler(BaseHTTPRequestHandler):
                     budget['events'] = st.get('total_events', 0)
                     start_epoch = st.get('start_epoch', 0)
                     session_id = st.get('session_id', '')
+                    lanekeep_session_id = st.get('lanekeep_session_id', '')
                     token_source = st.get('token_source', 'estimate')
                     context_model = st.get('model', '')
                     if start_epoch:
@@ -1525,12 +1527,15 @@ class Handler(BaseHTTPRequestHandler):
                                      key=lambda p: p.stat().st_mtime, reverse=True)
                 session['total_trace_files'] = len(jsonl_files)
                 # Find current session's trace file
+                # lanekeep_session_id is the trace file name; session_id may be
+                # the Claude Code UUID (overwritten after first request)
                 current_trace = None
-                if session_id:
-                    candidate = trace_dir / f"{session_id}.jsonl"
+                _trace_sid = lanekeep_session_id or session_id
+                if _trace_sid:
+                    candidate = trace_dir / f"{_trace_sid}.jsonl"
                     if candidate.exists():
                         current_trace = candidate
-                # Fallback: no session_id — use newest file with mtime >= start_epoch
+                # Fallback: no lanekeep_session_id — use newest file with mtime >= start_epoch
                 if current_trace is None and jsonl_files and start_epoch:
                     newest = jsonl_files[0]
                     try:

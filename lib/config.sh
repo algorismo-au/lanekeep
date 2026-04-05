@@ -165,7 +165,7 @@ load_config() {
 
   # --- Initialize session state ---
   jq -n --argjson epoch "$(date +%s)" --arg sid "$LANEKEEP_SESSION_ID" \
-    '{action_count: 0, token_count: 0, input_tokens: 0, output_tokens: 0, total_events: 0, start_epoch: $epoch, session_id: $sid}' > "$LANEKEEP_STATE_FILE"
+    '{action_count: 0, token_count: 0, input_tokens: 0, output_tokens: 0, total_events: 0, start_epoch: $epoch, session_id: $sid, lanekeep_session_id: $sid}' > "$LANEKEEP_STATE_FILE"
 
   # --- Defaults version tracking: one-time notice on upgrade ---
   local _dv_file="$project_dir/.lanekeep/defaults_manifest.json"

@@ -250,3 +250,44 @@ teardown() {
   kill "$SERVER_PID" 2>/dev/null; wait "$SERVER_PID" 2>/dev/null || true
   SERVER_PID=""
 }
+
+@test "Trace lookup uses lanekeep_session_id not CC session_id" {
+  local now_epoch
+  now_epoch=$(date +%s)
+
+  # Trace file is named after LANEKEEP_SESSION_ID (sidecar process ID)
+  printf '{"timestamp":"2025-01-02T00:00:01Z","tool_name":"Read","decision":"allow","event_type":"PreToolUse","latency_ms":2}\n' \
+    > "$TEST_TMP/.lanekeep/traces/20260406-143025-1234.jsonl"
+
+  # After first request, session_id gets overwritten to CC UUID
+  # but lanekeep_session_id preserves the trace file name
+  printf '{"action_count":1,"total_events":1,"token_count":0,"input_tokens":0,"output_tokens":0,"start_epoch":%d,"session_id":"cc-uuid-abc123","lanekeep_session_id":"20260406-143025-1234"}\n' \
+    "$now_epoch" > "$TEST_TMP/.lanekeep/state.json"
+
+  local port
+  port=$((RANDOM % 10000 + 20000))
+  [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null; wait "$SERVER_PID" 2>/dev/null || true
+  "$LANEKEEP_DIR/ui/server.py" --port "$port" --config "$LANEKEEP_CONFIG_FILE" --project-dir "$TEST_TMP" </dev/null >/dev/null 2>&1 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&- &
+  SERVER_PID=$!
+  local retries=30
+  while [ $retries -gt 0 ]; do
+    curl -sf "http://127.0.0.1:$port/api/status" >/dev/null 2>&1 && break
+    sleep 0.1; retries=$((retries - 1))
+  done
+
+  local status
+  status=$(curl -s "http://127.0.0.1:$port/api/status")
+
+  # Server must find the trace via lanekeep_session_id, not the CC UUID
+  local trace_file
+  trace_file=$(printf '%s' "$status" | jq -r '.session.trace_file')
+  [ "$trace_file" = "20260406-143025-1234.jsonl" ]
+
+  # Verify it actually read the trace (1 allow decision)
+  local sess_allow
+  sess_allow=$(printf '%s' "$status" | jq -r '.session.decisions.allow')
+  [ "$sess_allow" -eq 1 ]
+
+  kill "$SERVER_PID" 2>/dev/null; wait "$SERVER_PID" 2>/dev/null || true
+  SERVER_PID=""
+}
