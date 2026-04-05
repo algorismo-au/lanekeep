@@ -41,6 +41,14 @@ case "${1:-help}" in
   ui)     shift; exec "$LANEKEEP_DIR/bin/lanekeep-ui" "$@" ;;
   start)
     shift
+    # If sidecar is already running, stop it first so we can restart cleanly
+    PIDFILE_CHECK="$PROJECT_DIR/.lanekeep/lanekeep-serve.pid"
+    if [ -f "$PIDFILE_CHECK" ]; then
+      OLD_PID=$(head -1 "$PIDFILE_CHECK" 2>/dev/null)
+      if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
+        "$LANEKEEP_DIR/bin/lanekeep" stop 2>/dev/null || true
+      fi
+    fi
     UI_PORT="${LANEKEEP_UI_PORT:-8111}"
     TLS="${LANEKEEP_UI_TLS:-}"
     # Fallback: read ui.tls from project lanekeep.json

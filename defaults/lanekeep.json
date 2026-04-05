@@ -1112,7 +1112,7 @@
       "id": "sys-034",
       "match": {
         "tool": "Bash",
-        "pattern": "\\b(printenv)\\b|\\b(export\\s+-p|declare\\s+-p|declare\\s+-x|compgen\\s+-v)\\b|\\benv\\b(?!\\s+\\w+=)"
+        "pattern": "\\b(printenv)\\b|\\b(export\\s+-p|declare\\s+-p|declare\\s+-x|compgen\\s+-v)\\b|(?<!\\.)\\benv\\b(?!\\s+\\w+=)"
       },
       "decision": "ask",
       "reason": "Environment variable dump detected — may expose API keys and secrets",
