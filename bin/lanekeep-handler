@@ -267,7 +267,7 @@ case "$HOOK_EVENT" in
     if [ "$BLOCKED" = false ] && [ "$TOOL_NAME" = "Bash" ]; then
       check_session_written_file "$TOOL_NAME" "$TOOL_INPUT"
       if [ "$SESSION_WRITE_EXEC_MATCHED" = true ]; then
-        local _wte_reason="[LaneKeep] WARNING — Write-then-execute detected (Tier 2.1)
+        _wte_reason="[LaneKeep] WARNING — Write-then-execute detected (Tier 2.1)
 File '$SESSION_WRITE_EXEC_FILE' was written earlier in this session and is now being executed.
 Executing session-written files bypasses content-level evaluation at runtime.
 
