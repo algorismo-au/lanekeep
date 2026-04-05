@@ -113,14 +113,22 @@ DECISION=$(printf '%s' "$RESPONSE" | jq -r '.decision // "deny"')
 WARN=$(printf '%s' "$RESPONSE" | jq -r '.warn // empty')
 
 case "$DECISION" in
-  deny|ask)
+  deny)
     REASON=$(printf '%s' "$RESPONSE" | jq -r '.reason // "[LaneKeep] DENIED: Unknown reason"')
-    # Claude Code only recognizes "allow" and "deny" — map "ask" to "deny"
-    # so the tool is blocked and the reason (with NEEDS APPROVAL tag) is shown
     jq -n -c --arg reason "$REASON" '{
       hookSpecificOutput: {
         hookEventName: "PreToolUse",
         permissionDecision: "deny",
+        permissionDecisionReason: $reason
+      }
+    }' 2>/dev/null
+    ;;
+  ask)
+    REASON=$(printf '%s' "$RESPONSE" | jq -r '.reason // "[LaneKeep] NEEDS APPROVAL"')
+    jq -n -c --arg reason "$REASON" '{
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "ask",
         permissionDecisionReason: $reason
       }
     }' 2>/dev/null
