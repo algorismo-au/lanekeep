@@ -17,7 +17,7 @@
 
 # LaneKeep
 
-LaneKeep allows your agent to run within boundaries that you control.
+LaneKeep allows your AI coding agent to run within boundaries that you control.
 
 **No data leaves your machine.**
 
