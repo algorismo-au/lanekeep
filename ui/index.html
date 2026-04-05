@@ -3778,33 +3778,6 @@ function renderInsightsAnalytics() {
     }
   });
 
-  // Compute session top cost entries from current page entries
-  const trendModel = (window._trendData && window._trendData.model) || '';
-  const strippedModel = trendModel.replace(/-\d{8}$/, '');
-  const modelPricing = (_bundledPricing && (_bundledPricing[trendModel] || _bundledPricing[strippedModel])) || null;
-  const sessInputRate = modelPricing ? modelPricing.input_per_mtok / 1e6 : 0;
-  const sessOutputRate = modelPricing ? modelPricing.output_per_mtok / 1e6 : 0;
-  const sessCostEntries = [];
-  preEntries.forEach(e => {
-    const ti = e.tool_input;
-    if (ti !== null && ti !== undefined) {
-      try {
-        const rawBytes = JSON.stringify(ti).length;
-        const tokIn = Math.round(rawBytes / 4);
-        const tokOut = Math.round(tokIn * 1.5);
-        const entryCost = tokIn * sessInputRate + tokOut * sessOutputRate;
-        try {
-          const preview = JSON.stringify(ti).slice(0, 120);
-          sessCostEntries.push({
-            tool: e.tool_name || '',
-            preview: preview,
-            cost: entryCost,
-          });
-        } catch {}
-      } catch {}
-    }
-  });
-
   // Always show side-by-side session + all-time analytics
   const cumSrc = { top_denied_tools: cum.top_denied_tools || {}, top_evaluators: cum.top_evaluators || {}, files_touched: cum.files_touched || {}, latency_values: (cum.latency || {}).values || [], decisions: cum.decisions || {}, _cumLatency: cum.latency || {}, _isCum: true };
   const sessSrc = sessData; // always unfiltered — filter applies only to the traces table
@@ -3813,7 +3786,7 @@ function renderInsightsAnalytics() {
   const mc = (title, body) => `<div class="metrics-card"><h3>${title}</h3><div class="ranked-list">${body}</div></div>`;
   const lc = (title, lat) => `<div class="metrics-card"><h3>${title}</h3><div class="latency-stats"><div class="latency-stat"><div class="stat-value">${lat.p50}</div><div class="stat-label">P50</div></div><div class="latency-stat"><div class="stat-value">${lat.p95}</div><div class="stat-label">P95</div></div><div class="latency-stat"><div class="stat-value">${lat.avg}</div><div class="stat-label">Avg</div></div><div class="latency-stat"><div class="stat-value">${lat.max}</div><div class="stat-label">Max</div></div></div></div>`;
   const dc = (title, d) => `<div class="metrics-card"><h3>${title}</h3><div class="stacked-bar">${d.segments}</div><div class="stacked-bar-legend">${d.legendItems}</div></div>`;
-  const costSessionCard = _renderCostRankingList(sessCostEntries.length ? sessCostEntries : [], 'Top Costly Tool Calls (Est) - Session');
+  const costSessionCard = _renderCostRankingList(sessData.top_cost_entries || [], 'Top Costly Tool Calls (Est) - Session');
   const costAllTimeCard = _renderCostRankingList(cum.top_cost_entries || [], 'Top Costly Tool Calls (Est) - All-Time');
   // safe: all interpolated values use esc() sanitizer
   analyticsEl.innerHTML = `<div class="metrics-grid">${timelineHtml}${dc('Decision Distribution - Session', s.dist)}${dc('Decision Distribution - All-Time', c.dist)}${mc('Top Denied Tools - Session', s.denied)}${mc('Top Denied Tools - All-Time', c.denied)}${mc('Top Evaluator Denials - Session', s.eval)}${mc('Top Evaluator Denials - All-Time', c.eval)}${mc('Agent File Activity - Session', s.files)}${mc('Agent File Activity - All-Time', c.files)}${lc('Check Latency - Session', s.latency)}${lc('Check Latency - All-Time', c.latency)}${costSessionCard}${costAllTimeCard}</div>`;
@@ -4173,14 +4146,15 @@ function renderActivityHeatmap(data) {
     cells.push(`<div class="heatmap-cell" style="background:${cellColor(d.count, maxCount)}" title="${esc(tip)}"></div>`);
   });
   const numWeeks = Math.ceil(data.days.length / 7);
-  const totalStr = data.total ? data.total + ' actions over ' + numWeeks + ' weeks' : '';
+  const weekLabel = numWeeks === 1 ? 'week' : 'weeks';
+  const totalStr = data.total ? data.total + ' actions over ' + numWeeks + ' ' + weekLabel : '';
   const section = `<div class="trend-section" style="margin-top:8px">
     <div class="trend-header"><h3 class="trend-title">Activity Heatmap</h3>
       <span style="font-size:11px;color:var(--text-muted)">${esc(totalStr)}</span>
     </div>
     <div class="heatmap-grid">${cells.join('')}</div>
     <div class="heatmap-month-labels">
-      <span>${numWeeks} weeks ago</span>
+      <span>${numWeeks} ${weekLabel} ago</span>
     </div>
   </div>`;
   el.innerHTML += section;

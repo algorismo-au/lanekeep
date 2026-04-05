@@ -118,6 +118,7 @@ cumulative_init() {
     --argjson secs "$elapsed" \
     --argjson cost "$session_cost" \
     --argjson savings "$session_savings" \
+    --arg model "$prev_model" \
     --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
     .updated_at = $now |
     .total_sessions += 1 |
@@ -130,7 +131,8 @@ cumulative_init() {
     .total_cache_read_input_tokens = ((.total_cache_read_input_tokens // 0) + $crtoks) |
     .total_time_seconds += $secs |
     .total_cost = ((.total_cost // 0) + $cost) |
-    .total_cache_savings = ((.total_cache_savings // 0) + $savings)
+    .total_cache_savings = ((.total_cache_savings // 0) + $savings) |
+    if $model != "" then .last_model = $model else . end
   ' "$cumfile" 2>/dev/null) || { exec 8>&-; return 0; }
 
   printf '%s\n' "$updated" > "${cumfile}.tmp" && mv "${cumfile}.tmp" "$cumfile"

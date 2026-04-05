@@ -335,6 +335,18 @@ def _compute_alltime_from_traces(trace_dir):
             _model = _st.get('model', '')
         except (json.JSONDecodeError, OSError):
             pass
+    # Fallback: check cumulative.json for last_model (persisted across sessions)
+    if not _model:
+        _cum_path = PROJECT_DIR / '.lanekeep' / 'cumulative.json'
+        if _cum_path.exists():
+            try:
+                _cum = json.loads(_cum_path.read_text(encoding='utf-8'))
+                _model = _cum.get('last_model', '')
+            except (json.JSONDecodeError, OSError):
+                pass
+    # Last resort: use first model from pricing data
+    if not _model and _pricing_models:
+        _model = next(iter(_pricing_models), '')
     _input_rate = 0.0
     _output_rate = 0.0
     if _model and _pricing_models:
@@ -1134,6 +1146,18 @@ class Handler(BaseHTTPRequestHandler):
                     _trend_model = _st.get('model', '')
                 except (json.JSONDecodeError, OSError):
                     pass
+            # Fallback: check cumulative.json for last_model
+            if not _trend_model:
+                _cum_path = PROJECT_DIR / '.lanekeep' / 'cumulative.json'
+                if _cum_path.exists():
+                    try:
+                        _cum = json.loads(_cum_path.read_text(encoding='utf-8'))
+                        _trend_model = _cum.get('last_model', '')
+                    except (json.JSONDecodeError, OSError):
+                        pass
+            # Last resort: use first model from pricing data
+            if not _trend_model and _pricing_models:
+                _trend_model = next(iter(_pricing_models), '')
             # Resolve pricing rates (per-token, not per-MTok)
             _input_rate = 0.0  # $/token
             _output_rate = 0.0
@@ -1549,6 +1573,27 @@ class Handler(BaseHTTPRequestHandler):
                     session['top_evaluators'] = {}
                     session['latency_values'] = []
                     sess_files = {}  # fp -> {ops: {tool: count}, last_tool, last_ts, denied: int}
+                    # Pricing for session cost entries
+                    _s_pricing = _load_pricing()
+                    _s_model = context_model
+                    if not _s_model:
+                        _cum_path_s = PROJECT_DIR / '.lanekeep' / 'cumulative.json'
+                        if _cum_path_s.exists():
+                            try:
+                                _s_model = json.loads(_cum_path_s.read_text(encoding='utf-8')).get('last_model', '')
+                            except (json.JSONDecodeError, OSError):
+                                pass
+                    if not _s_model and _s_pricing:
+                        _s_model = next(iter(_s_pricing), '')
+                    _s_input_rate = 0.0
+                    _s_output_rate = 0.0
+                    if _s_model and _s_pricing:
+                        _s_pr = _s_pricing.get(_s_model) or _s_pricing.get(re.sub(r'-\d{8}$', '', _s_model)) or {}
+                        if _s_pr.get('input_per_mtok'):
+                            _s_input_rate = _s_pr['input_per_mtok'] / 1_000_000
+                        if _s_pr.get('output_per_mtok'):
+                            _s_output_rate = _s_pr['output_per_mtok'] / 1_000_000
+                    sess_cost_entries = []
                     try:
                         lines = current_trace.read_text(encoding='utf-8').strip().splitlines()
                         session['entries'] = len(lines)
@@ -1589,6 +1634,22 @@ class Handler(BaseHTTPRequestHandler):
                                         srec['last_ts'] = ts
                                         if dec == 'deny':
                                             srec['denied'] += 1
+                                    # Cost estimation
+                                    ti = entry.get('tool_input')
+                                    if ti is not None:
+                                        try:
+                                            raw_bytes = len(json.dumps(ti, separators=(',', ':')))
+                                            tok_in = round(raw_bytes / 4)
+                                            tok_out = round(tok_in * 1.5)
+                                            entry_cost = round(tok_in * _s_input_rate + tok_out * _s_output_rate, 8)
+                                            preview = json.dumps(ti, separators=(',', ':'))[:120]
+                                            sess_cost_entries.append({
+                                                'tool': entry.get('tool_name', ''),
+                                                'preview': preview,
+                                                'cost': entry_cost,
+                                            })
+                                        except (TypeError, ValueError):
+                                            pass
                                 # PII (PreToolUse only)
                                 for ev in entry.get('evaluators', entry.get('evaluator_results', [])):
                                     for det in ev.get('detections', []):
@@ -1601,6 +1662,8 @@ class Handler(BaseHTTPRequestHandler):
                     except OSError:
                         pass
                     session['files_touched'] = sess_files
+                    sess_cost_entries.sort(key=lambda x: x['cost'], reverse=True)
+                    session['top_cost_entries'] = sess_cost_entries[:10]
             result['session'] = session
 
             # --- Cumulative Stats ---
