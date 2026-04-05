@@ -1399,6 +1399,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
       <div class="settings-row">
         <span class="settings-label">On detect</span>
         <select class="settings-select" id="set-pii-on_detect" style="width:220px;">
+          <option value="allow" hidden>Allow (detection off)</option>
           <option value="ask">Ask (prompt user)</option>
           <option value="deny">Deny (block action)</option>
           <option value="warn">Warn (allow with warning)</option>
@@ -3716,7 +3717,7 @@ function _renderCostRankingList(entries, title) {
     const costStr = fmtCost(e.cost);
     const previewText = e.preview.length >= 120 ? e.preview.slice(0, 117) + '...' : e.preview;
     return `<div class="ranked-item">
-      <div style="display:flex;gap:8px;align-items:baseline;min-width:0;overflow:hidden">
+      <div style="display:flex;gap:8px;align-items:baseline;min-width:0">
         <span class="rank-label" style="flex-shrink:0" title="${esc(e.tool)}">${esc(e.tool)}</span>
         <span style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" title="${esc(previewText)}">${esc(previewText)}</span>
       </div>
@@ -3740,8 +3741,8 @@ function _renderCostRankingList(entries, title) {
 
 function renderInsightsAnalytics() {
   const analyticsEl = document.getElementById('insights-analytics');
-  if (!insightsTraceData || !insightsTraceData.entries.length) { analyticsEl.innerHTML = ''; return; }
-  const entries = insightsTraceData.entries;
+  if (!insightsTraceData && !insightsStatusData) { analyticsEl.innerHTML = ''; return; }
+  const entries = (insightsTraceData && insightsTraceData.entries) || [];
   const preEntries = entries.filter(e => e.event_type === 'PreToolUse');
   const cum = (insightsStatusData && insightsStatusData.cumulative) || {};
   const sessData = (insightsStatusData && insightsStatusData.session) || {};
@@ -3855,7 +3856,8 @@ function renderInsightsTable() {
     let fp = e.file_path || '';
     if (!fp && e.tool_input && typeof e.tool_input === 'object') fp = e.tool_input.file_path || '';
     const fpBase = fp ? fp.split('/').pop() : '';
-    return `<tr class="trace-row row-${esc(rowClass)}" data-action="toggleTraceDetail" data-idx="${origIdx}"><td>${esc(time)}</td><td>${esc(e.source || '')}</td><td>${esc(e.event_type || '')}</td><td>${esc(e.tool_name || '')}</td><td class="ins-file" title="${esc(fp)}">${fp ? '<span class="ins-file-link" data-action="openInsightsFile" data-path="' + esc(fp) + '">' + fileIcon(fpBase) + esc(fpBase) + '</span>' : esc(fpBase)}</td><td class="${decDisplayClass}">${esc(decDisplay)}</td><td>${esc(latency)}</td><td class="ins-reason">${esc(e.reason || '')}</td></tr>` +
+    const isPii = (e.evaluators || []).some(ev => (ev.detections || []).some(d => d.category === 'pii'));
+    return `<tr class="trace-row row-${esc(rowClass)}" data-action="toggleTraceDetail" data-idx="${origIdx}"><td>${esc(time)}</td><td>${esc(e.source || '')}</td><td>${esc(e.event_type || '')}</td><td>${esc(e.tool_name || '')}</td><td class="ins-file" title="${esc(fp)}">${fp ? '<span class="ins-file-link" data-action="openInsightsFile" data-path="' + esc(fp) + '">' + fileIcon(fpBase) + esc(fpBase) + '</span>' : esc(fpBase)}</td><td class="${decDisplayClass}">${esc(decDisplay)}</td><td>${esc(latency)}</td><td class="ins-reason"${isPii ? ' style="color:var(--color-pii)"' : ''}>${esc(e.reason || '')}</td></tr>` +
       `<tr class="trace-detail" id="trace-detail-${origIdx}"><td colspan="8">${renderTraceDetail(e)}</td></tr>`;
   }).join('');
 
@@ -5991,6 +5993,17 @@ async function renderPricingSettings() {
 
 function toggleSemanticModel() {
   document.getElementById('set-semantic-model-row').style.display = document.getElementById('set-semantic-enabled').checked ? '' : 'none';
+}
+
+function togglePiiEnabled() {
+  var on = document.getElementById('set-pii-enabled').checked;
+  var sel = document.getElementById('set-pii-on_detect');
+  var pat = document.getElementById('set-pii-patterns');
+  sel.disabled = !on;
+  pat.disabled = !on;
+  if (!on) { sel.value = 'allow'; }
+  else if (sel.value === 'allow') { sel.value = 'ask'; }
+  sel.querySelector('option[value="allow"]').hidden = on;
 }
 
 function markSettingsDirty() {
