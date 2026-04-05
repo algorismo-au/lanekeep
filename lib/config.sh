@@ -86,6 +86,10 @@ load_config() {
 
   # --- Resolve config file ---
   LANEKEEP_CONFIG_FILE="${LANEKEEP_CONFIG_FILE:-$project_dir/lanekeep.json}"
+  # Fallback to .bak when primary config is missing
+  if [ ! -f "$LANEKEEP_CONFIG_FILE" ] && [ -f "$project_dir/lanekeep.json.bak" ]; then
+    LANEKEEP_CONFIG_FILE="$project_dir/lanekeep.json.bak"
+  fi
 
   # Save user's explicit budget/evaluator values before resolve_config or
   # apply_profile can overwrite them.  Profile values are defaults — user's

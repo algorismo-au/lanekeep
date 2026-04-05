@@ -36,6 +36,8 @@ if [ -z "$CONFIG" ]; then
   _cwd="${PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
   if [ -f "$_cwd/lanekeep.json" ]; then
     CONFIG="$_cwd/lanekeep.json"
+  elif [ -f "$_cwd/lanekeep.json.bak" ]; then
+    CONFIG="$_cwd/lanekeep.json.bak"
   else
     CONFIG="$LANEKEEP_DIR/defaults/lanekeep.json"
   fi
@@ -43,6 +45,8 @@ elif [ -d "$CONFIG" ]; then
   # If given a directory, look for lanekeep.json inside it
   if [ -f "$CONFIG/lanekeep.json" ]; then
     CONFIG="$CONFIG/lanekeep.json"
+  elif [ -f "$CONFIG/lanekeep.json.bak" ]; then
+    CONFIG="$CONFIG/lanekeep.json.bak"
   elif [ -f "$CONFIG/defaults/lanekeep.json" ]; then
     CONFIG="$CONFIG/defaults/lanekeep.json"
   fi

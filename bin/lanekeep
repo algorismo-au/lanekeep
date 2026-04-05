@@ -52,8 +52,10 @@ case "${1:-help}" in
     UI_PORT="${LANEKEEP_UI_PORT:-8111}"
     TLS="${LANEKEEP_UI_TLS:-}"
     # Fallback: read ui.tls from project lanekeep.json
-    if [ -z "$TLS" ] && [ -f "$PROJECT_DIR/lanekeep.json" ]; then
-      if jq -e '.ui.tls == true' "$PROJECT_DIR/lanekeep.json" >/dev/null 2>&1; then
+    _cfg="$PROJECT_DIR/lanekeep.json"
+    [ -f "$_cfg" ] || _cfg="$PROJECT_DIR/lanekeep.json.bak"
+    if [ -z "$TLS" ] && [ -f "$_cfg" ]; then
+      if jq -e '.ui.tls == true' "$_cfg" >/dev/null 2>&1; then
         TLS="1"
       fi
     fi

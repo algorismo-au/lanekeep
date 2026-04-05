@@ -2135,7 +2135,7 @@ async function saveFile() {
     if (tab) { tab.content = content; tab.dirty = false; }
     renderEditorTabs();
     setEditorStatus('Saved', 'saved');
-    if (path.endsWith('lanekeep.json')) loadRules();
+    if (path.endsWith('lanekeep.json') || path.endsWith('lanekeep.json.bak')) loadRules();
   } catch (e) {
     setEditorStatus('Error: ' + e.message, 'error');
   }

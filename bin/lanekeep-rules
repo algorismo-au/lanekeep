@@ -43,6 +43,8 @@ usage() {
 _resolve_config() {
   if [ -f "$PROJECT_DIR/lanekeep.json" ]; then
     echo "$PROJECT_DIR/lanekeep.json"
+  elif [ -f "$PROJECT_DIR/lanekeep.json.bak" ]; then
+    echo "$PROJECT_DIR/lanekeep.json.bak"
   else
     echo "$LANEKEEP_DIR/defaults/lanekeep.json"
   fi
@@ -134,8 +136,10 @@ cmd_import() {
   fi
 
   local user_config="$PROJECT_DIR/lanekeep.json"
+  [ -f "$user_config" ] || [ ! -f "$PROJECT_DIR/lanekeep.json.bak" ] || user_config="$PROJECT_DIR/lanekeep.json.bak"
 
   if [ ! -f "$user_config" ]; then
+    user_config="$PROJECT_DIR/lanekeep.json"
     # Create new layered config with imported rules as extra_rules
     local import_rules
     import_rules=$(jq '.rules' "$file")
@@ -219,10 +223,12 @@ cmd_update() {
   fi
 
   local old_count=0
-  if [ -f "$PROJECT_DIR/lanekeep.json" ]; then
+  local _uc="$PROJECT_DIR/lanekeep.json"
+  [ -f "$_uc" ] || _uc="$PROJECT_DIR/lanekeep.json.bak"
+  if [ -f "$_uc" ]; then
     old_count=$(jq --arg p "$pack_name" \
       '[.extra_rules // [] | .[] | select(.pack == $p)] | length' \
-      "$PROJECT_DIR/lanekeep.json" 2>/dev/null) || old_count=0
+      "$_uc" 2>/dev/null) || old_count=0
   fi
 
   echo "Updating $pack_name..."
@@ -251,6 +257,7 @@ cmd_update() {
 _remove_pack_rules() {
   local pack_name="$1"
   local user_config="$PROJECT_DIR/lanekeep.json"
+  [ -f "$user_config" ] || user_config="$PROJECT_DIR/lanekeep.json.bak"
   [ -f "$user_config" ] || return 0
   local updated
   updated=$(jq --arg p "$pack_name" \
@@ -356,10 +363,12 @@ cmd_remove() {
   local_dir=$(pack_local_dir "$pack_name")
 
   local rule_count=0
-  if [ -f "$PROJECT_DIR/lanekeep.json" ]; then
+  local _rc="$PROJECT_DIR/lanekeep.json"
+  [ -f "$_rc" ] || _rc="$PROJECT_DIR/lanekeep.json.bak"
+  if [ -f "$_rc" ]; then
     rule_count=$(jq --arg p "$pack_name" \
       '[.extra_rules // [] | .[] | select(.pack == $p)] | length' \
-      "$PROJECT_DIR/lanekeep.json" 2>/dev/null) || rule_count=0
+      "$_rc" 2>/dev/null) || rule_count=0
   fi
 
   if [ "$rule_count" -eq 0 ] && [ ! -d "$local_dir" ]; then
@@ -641,8 +650,10 @@ cmd_add() {
 
   # Append to lanekeep.json extra_rules
   local user_config="$PROJECT_DIR/lanekeep.json"
+  [ -f "$user_config" ] || [ ! -f "$PROJECT_DIR/lanekeep.json.bak" ] || user_config="$PROJECT_DIR/lanekeep.json.bak"
 
   if [ ! -f "$user_config" ]; then
+    user_config="$PROJECT_DIR/lanekeep.json"
     jq -n --argjson rule "$rule_json" \
       '{"extends": "defaults", "extra_rules": [$rule]}' > "$user_config"
     echo "Created $user_config"
@@ -695,9 +706,11 @@ cmd_test() {
   config=$(_resolve_config)
 
   # If using layered config, resolve it first
-  if [ -f "$PROJECT_DIR/lanekeep.json" ]; then
+  local _tc="$PROJECT_DIR/lanekeep.json"
+  [ -f "$_tc" ] || _tc="$PROJECT_DIR/lanekeep.json.bak"
+  if [ -f "$_tc" ]; then
     local extends
-    extends=$(jq -r '.extends // empty' "$PROJECT_DIR/lanekeep.json" 2>/dev/null) || extends=""
+    extends=$(jq -r '.extends // empty' "$_tc" 2>/dev/null) || extends=""
     if [ "$extends" = "defaults" ]; then
       local resolved
       resolved=$(jq -s '
@@ -820,6 +833,7 @@ cmd_whatsnew() {
   done
 
   local user_config="$PROJECT_DIR/lanekeep.json"
+  [ -f "$user_config" ] || [ ! -f "$PROJECT_DIR/lanekeep.json.bak" ] || user_config="$PROJECT_DIR/lanekeep.json.bak"
   local manifest_file="$PROJECT_DIR/.lanekeep/defaults_manifest.json"
   local defaults_file="$LANEKEEP_DIR/defaults/lanekeep.json"
 

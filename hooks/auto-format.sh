@@ -31,6 +31,7 @@ fi
 
 # Check exclude patterns from config
 CONFIG_FILE="${LANEKEEP_CONFIG_FILE:-$PWD/lanekeep.json}"
+[ -f "$CONFIG_FILE" ] || [ ! -f "$PWD/lanekeep.json.bak" ] || CONFIG_FILE="$PWD/lanekeep.json.bak"
 if [ -f "$CONFIG_FILE" ]; then
   enabled=$(jq -r 'if .autoformat | has("enabled") then .autoformat.enabled else true end' "$CONFIG_FILE" 2>/dev/null) || enabled=true
   if [ "$enabled" = "false" ]; then

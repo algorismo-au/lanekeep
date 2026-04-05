@@ -5,6 +5,7 @@ set -euo pipefail
 LANEKEEP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT_DIR="${1:-$(pwd 2>/dev/null || echo "$PWD")}"
 CONFIG="$PROJECT_DIR/lanekeep.json"
+[ -f "$CONFIG" ] || [ ! -f "$PROJECT_DIR/lanekeep.json.bak" ] || CONFIG="$PROJECT_DIR/lanekeep.json.bak"
 DEFAULTS="$LANEKEEP_DIR/defaults/lanekeep.json"
 
 if [ ! -f "$CONFIG" ]; then

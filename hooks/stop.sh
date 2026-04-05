@@ -8,6 +8,7 @@ set -uo pipefail
 STATE_FILE="${LANEKEEP_STATE_FILE:-$PWD/.lanekeep/state.json}"
 TRACE_DIR="${LANEKEEP_TRACE_DIR:-$PWD/.lanekeep/traces}"
 CONFIG_FILE="${LANEKEEP_CONFIG_FILE:-$PWD/lanekeep.json}"
+[ -f "$CONFIG_FILE" ] || [ ! -f "$PWD/lanekeep.json.bak" ] || CONFIG_FILE="$PWD/lanekeep.json.bak"
 
 # Read stdin (required by hook protocol, but we don't use it)
 cat >/dev/null

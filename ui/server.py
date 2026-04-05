@@ -1349,6 +1349,10 @@ class Handler(BaseHTTPRequestHandler):
             result['config']['defaults'] = defaults_info
 
             user_path = PROJECT_DIR / 'lanekeep.json'
+            if not user_path.exists():
+                _bak = PROJECT_DIR / 'lanekeep.json.bak'
+                if _bak.exists():
+                    user_path = _bak
             user_info = {'path': str(user_path), 'overrides': 0, 'profile': 'default'}
             if user_path.exists():
                 try:
@@ -1420,6 +1424,10 @@ class Handler(BaseHTTPRequestHandler):
                 pass
             # Layer 1: project config
             cfg_path = PROJECT_DIR / 'lanekeep.json'
+            if not cfg_path.exists():
+                _bak_cfg = PROJECT_DIR / 'lanekeep.json.bak'
+                if _bak_cfg.exists():
+                    cfg_path = _bak_cfg
             if cfg_path.exists():
                 try:
                     cfg = json.loads(cfg_path.read_text(encoding='utf-8'))
@@ -1706,7 +1714,7 @@ class Handler(BaseHTTPRequestHandler):
             home_dir = Path.home()
             file_map = [
                 {'group': 'Project', 'entries': [
-                    {'path': 'lanekeep.json', 'note': 'Project config (extends defaults)', 'exists': (PROJECT_DIR / 'lanekeep.json').exists()},
+                    {'path': 'lanekeep.json', 'note': 'Project config (extends defaults)', 'exists': (PROJECT_DIR / 'lanekeep.json').exists() or (PROJECT_DIR / 'lanekeep.json.bak').exists()},
                     {'path': '.lanekeep/taskspec.json', 'note': 'Active task specification', 'exists': (PROJECT_DIR / '.lanekeep' / 'taskspec.json').exists()},
                     {'path': '.lanekeep/state.json', 'note': 'Session state (action count, tokens)', 'exists': (PROJECT_DIR / '.lanekeep' / 'state.json').exists()},
                     {'path': '.lanekeep/cumulative.json', 'note': 'All-time stats', 'exists': (PROJECT_DIR / '.lanekeep' / 'cumulative.json').exists()},
@@ -2362,6 +2370,10 @@ class Handler(BaseHTTPRequestHandler):
             # Handle disabled_rules in project config
             if not enable_new and new_ids:
                 user_config = PROJECT_DIR / 'lanekeep.json'
+                if not user_config.exists():
+                    _bak_uc = PROJECT_DIR / 'lanekeep.json.bak'
+                    if _bak_uc.exists():
+                        user_config = _bak_uc
                 if not user_config.exists():
                     cfg = {'extends': 'defaults', 'disabled_rules': list(new_ids)}
                     user_config.write_text(json.dumps(cfg, indent=2) + '\n', encoding='utf-8')

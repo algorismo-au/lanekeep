@@ -73,13 +73,15 @@ echo ""
 # --- 3. Config ---
 echo "Config:"
 PROJECT_DIR="${PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
-if [ -f "$PROJECT_DIR/lanekeep.json" ]; then
-  extends=$(jq -r '.extends // empty' "$PROJECT_DIR/lanekeep.json" 2>/dev/null) || extends=""
+_st_cfg="$PROJECT_DIR/lanekeep.json"
+[ -f "$_st_cfg" ] || _st_cfg="$PROJECT_DIR/lanekeep.json.bak"
+if [ -f "$_st_cfg" ]; then
+  extends=$(jq -r '.extends // empty' "$_st_cfg" 2>/dev/null) || extends=""
   if [ "$extends" = "defaults" ]; then
-    _pass "lanekeep.json uses layered config (extends: defaults)"
+    _pass "${_st_cfg##*/} uses layered config (extends: defaults)"
   else
-    rule_count=$(jq '.rules | length' "$PROJECT_DIR/lanekeep.json" 2>/dev/null) || rule_count="?"
-    _pass "lanekeep.json found ($rule_count rules, monolithic)"
+    rule_count=$(jq '.rules | length' "$_st_cfg" 2>/dev/null) || rule_count="?"
+    _pass "${_st_cfg##*/} found ($rule_count rules, monolithic)"
   fi
 else
   _warn "No lanekeep.json in $PROJECT_DIR — using defaults"
@@ -113,6 +115,8 @@ jq -n --argjson epoch "$(date +%s)" '{action_count: 0, token_count: 0, start_epo
 # Need a config file
 if [ -f "$PROJECT_DIR/lanekeep.json" ]; then
   export LANEKEEP_CONFIG_FILE="$PROJECT_DIR/lanekeep.json"
+elif [ -f "$PROJECT_DIR/lanekeep.json.bak" ]; then
+  export LANEKEEP_CONFIG_FILE="$PROJECT_DIR/lanekeep.json.bak"
 else
   export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
 fi

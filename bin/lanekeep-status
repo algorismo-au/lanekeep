@@ -8,6 +8,7 @@ PROJECT_DIR="${LANEKEEP_PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
 # --- Config Stack ---
 DEFAULTS_PATH="$LANEKEEP_DIR/defaults/lanekeep.json"
 USER_PATH="$PROJECT_DIR/lanekeep.json"
+[ -f "$USER_PATH" ] || [ ! -f "$PROJECT_DIR/lanekeep.json.bak" ] || USER_PATH="$PROJECT_DIR/lanekeep.json.bak"
 STATE_PATH="$PROJECT_DIR/.lanekeep/state.json"
 TRACE_DIR="$PROJECT_DIR/.lanekeep/traces"
 

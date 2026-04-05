@@ -25,12 +25,16 @@ _defaults_file() { echo "$LANEKEEP_DIR/defaults/lanekeep.json"; }
 _project_file() {
   if [ -f "$PROJECT_DIR/lanekeep.json" ]; then
     echo "$PROJECT_DIR/lanekeep.json"
+  elif [ -f "$PROJECT_DIR/lanekeep.json.bak" ]; then
+    echo "$PROJECT_DIR/lanekeep.json.bak"
   fi
 }
 
 _resolve_config() {
   if [ -f "$PROJECT_DIR/lanekeep.json" ]; then
     echo "$PROJECT_DIR/lanekeep.json"
+  elif [ -f "$PROJECT_DIR/lanekeep.json.bak" ]; then
+    echo "$PROJECT_DIR/lanekeep.json.bak"
   else
     echo "$LANEKEEP_DIR/defaults/lanekeep.json"
   fi

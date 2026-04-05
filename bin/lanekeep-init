@@ -30,9 +30,11 @@ fi
 command -v socat >/dev/null 2>&1 || echo "Note: 'socat' not found — sidecar mode unavailable (hook-only mode still works)"
 
 # --- Copy default config (skip if exists) ---
-if [ ! -f "$PROJECT_DIR/lanekeep.json" ]; then
+if [ ! -f "$PROJECT_DIR/lanekeep.json" ] && [ ! -f "$PROJECT_DIR/lanekeep.json.bak" ]; then
   cp "$LANEKEEP_DIR/defaults/lanekeep.json" "$PROJECT_DIR/lanekeep.json"
   echo "Created $PROJECT_DIR/lanekeep.json"
+elif [ ! -f "$PROJECT_DIR/lanekeep.json" ] && [ -f "$PROJECT_DIR/lanekeep.json.bak" ]; then
+  echo "Config exists: $PROJECT_DIR/lanekeep.json.bak (skipped)"
 else
   echo "Config exists: $PROJECT_DIR/lanekeep.json (skipped)"
 fi
@@ -146,9 +148,11 @@ if [ "$ENABLE_TLS" = true ]; then
   fi
 
   # Inject ui.tls into project lanekeep.json
-  jq '.ui = {"tls": true}' "$PROJECT_DIR/lanekeep.json" > "$PROJECT_DIR/lanekeep.json.tmp" \
-    && mv "$PROJECT_DIR/lanekeep.json.tmp" "$PROJECT_DIR/lanekeep.json"
-  echo "Enabled TLS in $PROJECT_DIR/lanekeep.json"
+  _tls_cfg="$PROJECT_DIR/lanekeep.json"
+  [ -f "$_tls_cfg" ] || [ ! -f "$PROJECT_DIR/lanekeep.json.bak" ] || _tls_cfg="$PROJECT_DIR/lanekeep.json.bak"
+  jq '.ui = {"tls": true}' "$_tls_cfg" > "$PROJECT_DIR/lanekeep.json.tmp" \
+    && mv "$PROJECT_DIR/lanekeep.json.tmp" "$_tls_cfg"
+  echo "Enabled TLS in $_tls_cfg"
 fi
 
 echo ""
