@@ -3716,7 +3716,7 @@ function _renderCostRankingList(entries, title) {
     const costStr = fmtCost(e.cost);
     const previewText = e.preview.length >= 120 ? e.preview.slice(0, 117) + '...' : e.preview;
     return `<div class="ranked-item">
-      <div style="display:flex;gap:8px;align-items:baseline;min-width:0">
+      <div style="display:flex;gap:8px;align-items:baseline;min-width:0;overflow:hidden">
         <span class="rank-label" style="flex-shrink:0" title="${esc(e.tool)}">${esc(e.tool)}</span>
         <span style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" title="${esc(previewText)}">${esc(previewText)}</span>
       </div>
