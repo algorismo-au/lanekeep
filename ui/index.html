@@ -1408,9 +1408,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
       </div>
       <div class="settings-row" style="align-items:flex-start;">
         <span class="settings-label" style="padding-top:6px;">Patterns</span>
-        <textarea class="settings-input" id="set-pii-patterns" rows="5" style="font-family:var(--font-mono);font-size:11px;resize:vertical;width:100%;max-width:460px;" spellcheck="false"></textarea>
+        <div style="display:flex;gap:10px;align-items:flex-start;flex:1;max-width:1150px;">
+          <span class="settings-hint" style="margin:0;padding-top:4px;white-space:nowrap;flex-shrink:0;">One regex per line.<br>Matched against tool input.</span>
+          <textarea class="settings-input" id="set-pii-patterns" rows="5" style="font-family:var(--font-mono);font-size:11px;resize:vertical;flex:1;min-width:0;" spellcheck="false"></textarea>
+        </div>
       </div>
-      <p class="settings-hint" style="margin:-2px 0 12px;">One regex per line. Matched against tool input content.</p>
     </div>
 
   </div>
