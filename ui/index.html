@@ -907,6 +907,7 @@ tbody tr.selected { background: var(--bg-hover); }
 .settings-input.field-error { border-color: var(--color-deny); background: rgba(212,68,46,0.08); }
 .settings-select { background: var(--bg-deep); border: 1px solid var(--border-strong); color: var(--text-body); padding: 7px 12px; border-radius: 4px; font-family: inherit; font-size: 13px; width: 150px; }
 .settings-select:focus { outline: none; border-color: var(--accent); }
+.settings-select:disabled, .settings-input:disabled { background: rgba(255,255,255,0.04); color: var(--text-muted); cursor: not-allowed; opacity: 0.6; }
 .settings-sub { margin-left: 18px; border-left: 2px solid var(--border); padding-left: 14px; }
 
 .scroll-top-btn {
@@ -5931,6 +5932,7 @@ function renderSettings() {
   document.getElementById('set-pii-enabled').checked = pii.enabled !== false;
   document.getElementById('set-pii-on_detect').value = pii.on_detect || 'ask';
   document.getElementById('set-pii-patterns').value = (pii.pii_patterns || []).join('\n');
+  togglePiiEnabled();
   renderPricingSettings();
 }
 
@@ -6407,6 +6409,7 @@ document.addEventListener('visibilitychange', function() {
     settingsContainer.addEventListener('change', function(e) {
       var target = e.target;
       if (target.id === 'set-semantic-enabled') { markSettingsDirty(); toggleSemanticModel(); }
+      else if (target.id === 'set-pii-enabled') { markSettingsDirty(); togglePiiEnabled(); }
       else if (target.id === 'set-profile') { markSettingsDirty(); updateProfileDesc(true); }
       else if (target.id && target.id.startsWith('set-')) { markSettingsDirty(); }
       // Budget sum updates
