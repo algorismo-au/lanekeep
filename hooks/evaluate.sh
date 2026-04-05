@@ -77,9 +77,35 @@ if [ ! -S "$SOCKET" ]; then
 fi
 
 # Forward to LaneKeep via socat (already a LaneKeep dependency, unlike nc which varies by distro)
-# Connection failed
 if ! RESPONSE=$(printf '%s' "$INPUT" | socat -t "$TIMEOUT" - UNIX-CONNECT:"$SOCKET" 2>/dev/null) || [ -z "$RESPONSE" ]; then
-  _lanekeep_fail_policy "Failed to reach LaneKeep sidecar."
+  # Stale socket — sidecar died without cleanup. Remove and try one restart.
+  if [ -S "$SOCKET" ] && ! lsof -t "$SOCKET" >/dev/null 2>&1; then
+    rm -f "$SOCKET" "$(dirname "$SOCKET")/lanekeep-serve.pid" "$(dirname "$SOCKET")/lanekeep-serve.lock"
+    # Attempt background restart if lanekeep-serve is on PATH
+    if command -v lanekeep-serve >/dev/null 2>&1; then
+      PROJECT_DIR="${PROJECT_DIR:-$PWD}" lanekeep-serve </dev/null >/dev/null 2>&1 &
+      # Wait briefly for socket to appear
+      for _w in 1 2 3 4 5 6 7 8 9 10; do
+        [ -S "$SOCKET" ] && break
+        sleep 0.1
+      done
+      # Retry the request once
+      if [ -S "$SOCKET" ]; then
+        if RESPONSE=$(printf '%s' "$INPUT" | socat -t "$TIMEOUT" - UNIX-CONNECT:"$SOCKET" 2>/dev/null) && [ -n "$RESPONSE" ]; then
+          # Recovery succeeded — fall through to decision parsing
+          :
+        else
+          _lanekeep_fail_policy "Sidecar restart attempted but still unreachable."
+        fi
+      else
+        _lanekeep_fail_policy "Sidecar restart attempted but socket not ready."
+      fi
+    else
+      _lanekeep_fail_policy "Stale socket detected. Run: lanekeep serve"
+    fi
+  else
+    _lanekeep_fail_policy "Failed to reach LaneKeep sidecar."
+  fi
 fi
 
 # Extract decision

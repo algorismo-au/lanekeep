@@ -72,6 +72,9 @@ if [ -S "$SOCKET" ]; then
   if [ -n "$ORPHAN_PID" ]; then
     kill "$ORPHAN_PID" 2>/dev/null || true
     sleep 0.2
+  else
+    # Stale socket — no process listening. Clean it up.
+    rm -f "$SOCKET"
   fi
 fi
 
@@ -130,7 +133,7 @@ cleanup() {
     kill "$RALPH_PID" 2>/dev/null || true
   fi
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT INT TERM HUP
 
 # --- Start server ---
 echo "[LaneKeep] Project: $PROJECT_DIR"
