@@ -20,12 +20,13 @@ input_pii_eval() {
   local config="$LANEKEEP_CONFIG_FILE"
 
   # Resolve config: use pre-extracted _CFG_INPUT_PII_* vars or fall back to jq
-  local on_detect pii_patterns_raw all_compliance _has_custom_tools_filter
+  local on_detect pii_patterns_raw all_compliance _has_custom_tools_filter pii_allowlist_raw
 
   if [ -n "${_CFG_INPUT_PII_ON_DETECT+x}" ]; then
     # Pre-extracted path (handler mega-jq)
     on_detect="$_CFG_INPUT_PII_ON_DETECT"
     pii_patterns_raw="$_CFG_INPUT_PII_PATTERNS"
+    pii_allowlist_raw="${_CFG_INPUT_PII_ALLOWLIST:-}"
     all_compliance="$_CFG_INPUT_PII_COMPLIANCE"
     # Default tools filter (Write|Edit|Bash) — skip non-mutation tools
     # Use pre-extracted flag; custom tools filters need jq fallback (rare)
@@ -117,6 +118,11 @@ input_pii_eval() {
     # Convert newline-separated to RS-delimited for consistent handling
     pii_patterns_raw=$(printf '%s' "$pii_patterns_nl" | tr '\n' '\036')
 
+    # Resolve PII allowlist
+    local pii_allowlist_nl
+    pii_allowlist_nl=$(printf '%s' "$_ip" | jq -r '.pii_allowlist[]? // empty')
+    pii_allowlist_raw=$(printf '%s' "$pii_allowlist_nl" | tr '\n' '\036')
+
     # Resolve compliance
     local cat_comp
     cat_comp=$(printf '%s' "$_ip" | jq -c '.compliance_by_category.pii // []') || cat_comp="[]"
@@ -142,9 +148,38 @@ input_pii_eval() {
   local _pii_pats
   IFS=$'\x1e' read -ra _pii_pats <<< "$pii_patterns_raw"
 
+  # Parse allowlist patterns
+  local _allow_pats=()
+  if [ -n "${pii_allowlist_raw:-}" ]; then
+    IFS=$'\x1e' read -ra _allow_pats <<< "$pii_allowlist_raw"
+  fi
+
   for pattern in "${_pii_pats[@]}"; do
     [ -z "$pattern" ] && continue
     if printf '%s' "$scan_text" | grep -qE -- "$pattern"; then
+      # PII pattern matched — check allowlist line-by-line
+      if [ "${#_allow_pats[@]}" -gt 0 ]; then
+        local _has_non_allowed=false
+        while IFS= read -r _line; do
+          if printf '%s' "$_line" | grep -qE -- "$pattern"; then
+            local _allowed=false
+            for _ap in "${_allow_pats[@]}"; do
+              [ -z "$_ap" ] && continue
+              if printf '%s' "$_line" | grep -qE -- "$_ap"; then
+                _allowed=true
+                break
+              fi
+            done
+            if [ "$_allowed" = false ]; then
+              _has_non_allowed=true
+              break
+            fi
+          fi
+        done <<< "$scan_text"
+        if [ "$_has_non_allowed" = false ]; then
+          continue  # All matching lines were allowlisted
+        fi
+      fi
       found_any=true
       detections=$(printf '%s' "$detections" | jq -c --arg p "$pattern" '. + [{"category":"pii","pattern":$p}]')
     fi

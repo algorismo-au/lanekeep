@@ -164,6 +164,53 @@ teardown() {
   [ "$decision" = "allow" ]
 }
 
+@test "InputPII on_detect=deny blocks Write with SSN" {
+  jq '.evaluators.input_pii.on_detect = "deny"' "$LANEKEEP_CONFIG_FILE" > "$TEST_TMP/tmp.json" && mv "$TEST_TMP/tmp.json" "$LANEKEEP_CONFIG_FILE"
+  output=$(echo '{"tool_name":"Write","tool_input":{"file_path":"data.txt","content":"SSN: 123-45-6789"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  reason=$(printf '%s' "$output" | jq -r '.reason')
+  [ "$decision" = "deny" ]
+  [[ "$reason" == *"InputPII"* ]]
+}
+
+@test "InputPII on_detect=warn returns warn decision with SSN" {
+  jq '.evaluators.input_pii.on_detect = "warn"' "$LANEKEEP_CONFIG_FILE" > "$TEST_TMP/tmp.json" && mv "$TEST_TMP/tmp.json" "$LANEKEEP_CONFIG_FILE"
+  output=$(echo '{"tool_name":"Write","tool_input":{"file_path":"data.txt","content":"SSN: 123-45-6789"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  warn=$(printf '%s' "$output" | jq -r '.warn // empty')
+  [ "$decision" = "warn" ]
+  [ -n "$warn" ]
+  [[ "$warn" == *"InputPII"* ]]
+}
+
+@test "InputPII on_detect=ask returns ask for Write with email" {
+  jq '.evaluators.input_pii.on_detect = "ask"' "$LANEKEEP_CONFIG_FILE" > "$TEST_TMP/tmp.json" && mv "$TEST_TMP/tmp.json" "$LANEKEEP_CONFIG_FILE"
+  output=$(echo '{"tool_name":"Write","tool_input":{"file_path":"data.txt","content":"Contact: user@example.com"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "ask" ]
+}
+
+@test "InputPII disabled allows Write with SSN" {
+  jq '.evaluators.input_pii.enabled = false' "$LANEKEEP_CONFIG_FILE" > "$TEST_TMP/tmp.json" && mv "$TEST_TMP/tmp.json" "$LANEKEEP_CONFIG_FILE"
+  output=$(echo '{"tool_name":"Write","tool_input":{"file_path":"data.txt","content":"SSN: 123-45-6789"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "allow" ]
+}
+
+@test "InputPII custom patterns detect custom regex" {
+  jq '.evaluators.input_pii.pii_patterns = ["EMPLOYEE-[0-9]{6}"]' "$LANEKEEP_CONFIG_FILE" > "$TEST_TMP/tmp.json" && mv "$TEST_TMP/tmp.json" "$LANEKEEP_CONFIG_FILE"
+  output=$(echo '{"tool_name":"Write","tool_input":{"file_path":"data.txt","content":"ID: EMPLOYEE-482901"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "ask" ]
+}
+
+@test "InputPII custom patterns do not match default SSN pattern" {
+  jq '.evaluators.input_pii.pii_patterns = ["EMPLOYEE-[0-9]{6}"]' "$LANEKEEP_CONFIG_FILE" > "$TEST_TMP/tmp.json" && mv "$TEST_TMP/tmp.json" "$LANEKEEP_CONFIG_FILE"
+  output=$(echo '{"tool_name":"Write","tool_input":{"file_path":"data.txt","content":"SSN: 123-45-6789"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "allow" ]
+}
+
 @test "Rules ask + Schema deny = deny (not ask)" {
   # Restrictive taskspec: Bash not allowed → Schema will deny
   # aws s3 ls triggers rules "ask", but Schema denial must override to "deny"

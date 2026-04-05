@@ -311,6 +311,10 @@
         "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}",
         "[(]?[0-9]{3}[)]?[- .][0-9]{3}[- .][0-9]{4}"
       ],
+      "pii_allowlist": [
+        "^\\s*(Co-Authored-By|Signed-off-by|Reviewed-by|Acked-by|Tested-by|Reported-by):",
+        "^\\s*git\\s+.*--author="
+      ],
       "compliance_by_category": {
         "pii": [
           "HIPAA §164.502",

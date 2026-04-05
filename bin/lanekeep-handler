@@ -91,6 +91,7 @@ _CFG_INPUT_PII_PATTERNS=""
 _CFG_INPUT_PII_COMPLIANCE="[]"
 _CFG_INPUT_PII_HAS_TOOLS="false"
 _CFG_INPUT_PII_TOOLS=""
+_CFG_INPUT_PII_ALLOWLIST=""
 if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
   eval "$(jq -r '
     "_CFG_RULES_COUNT=" + (.rules | length | tostring | @sh),
@@ -132,7 +133,8 @@ if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
     "_CFG_INPUT_PII_PATTERNS=" + ((.evaluators.input_pii.pii_patterns // .evaluators.result_transform.pii_patterns // []) | join("\u001e") | @sh),
     "_CFG_INPUT_PII_COMPLIANCE=" + (.evaluators.input_pii.compliance_by_category.pii // .evaluators.result_transform.compliance_by_category.pii // [] | tojson | @sh),
     "_CFG_INPUT_PII_HAS_TOOLS=" + (if (.evaluators.input_pii | has("tools")) and (.evaluators.input_pii.tools | length > 0) then "true" else "false" end | @sh),
-    "_CFG_INPUT_PII_TOOLS=" + (.evaluators.input_pii.tools // [] | join(",") | @sh)
+    "_CFG_INPUT_PII_TOOLS=" + (.evaluators.input_pii.tools // [] | join(",") | @sh),
+    "_CFG_INPUT_PII_ALLOWLIST=" + ((.evaluators.input_pii.pii_allowlist // []) | join("\u001e") | @sh)
   ' "$LANEKEEP_CONFIG_FILE" 2>/dev/null)" || true
 fi
 

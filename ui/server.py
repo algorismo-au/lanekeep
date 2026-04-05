@@ -2562,6 +2562,13 @@ class Handler(BaseHTTPRequestHandler):
                 existing = config['evaluators'].get('semantic', {})
                 config['evaluators']['semantic'] = self._deep_merge(existing, body['evaluators_semantic'])
 
+            # evaluators_input_pii -> config.evaluators.input_pii (deep merge)
+            if 'evaluators_input_pii' in body:
+                if 'evaluators' not in config:
+                    config['evaluators'] = {}
+                existing = config['evaluators'].get('input_pii', {})
+                config['evaluators']['input_pii'] = self._deep_merge(existing, body['evaluators_input_pii'])
+
             new_content = json.dumps(config, indent=2) + '\n'
             new_hash = hashlib.sha256(new_content.encode()).hexdigest()
             self._write_config_hash(new_hash)

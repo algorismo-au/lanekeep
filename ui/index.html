@@ -1389,6 +1389,28 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
       </div>
     </div>
 
+    <div class="settings-card">
+      <h3>Input PII Detection</h3>
+      <p class="settings-hint">Scans Write, Edit, and Bash inputs for PII patterns (SSN, credit card, email, phone). Configurable action on detection.</p>
+      <div class="settings-row">
+        <span class="settings-label">Enabled</span>
+        <label class="settings-toggle"><input type="checkbox" id="set-pii-enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">On detect</span>
+        <select class="settings-select" id="set-pii-on_detect" style="width:220px;">
+          <option value="ask">Ask (prompt user)</option>
+          <option value="deny">Deny (block action)</option>
+          <option value="warn">Warn (allow with warning)</option>
+        </select>
+      </div>
+      <div class="settings-row" style="align-items:flex-start;">
+        <span class="settings-label" style="padding-top:6px;">Patterns</span>
+        <textarea class="settings-input" id="set-pii-patterns" rows="5" style="font-family:var(--font-mono);font-size:11px;resize:vertical;width:100%;max-width:460px;" spellcheck="false"></textarea>
+      </div>
+      <p class="settings-hint" style="margin:-2px 0 12px;">One regex per line. Matched against tool input content.</p>
+    </div>
+
   </div>
 </div>
 
@@ -5830,6 +5852,7 @@ async function loadSettings() {
       trace: Object.assign({ retention_days: 365, max_sessions: 100 }, cfg.trace || {}),
       autoformat: Object.assign({ enabled: true }, cfg.autoformat || {}),
       evaluators_semantic: Object.assign({ enabled: false, model: 'claude-haiku-4-5-20251001' }, (cfg.evaluators && cfg.evaluators.semantic) || {}),
+      evaluators_input_pii: Object.assign({ enabled: true, on_detect: 'ask', pii_patterns: [] }, (cfg.evaluators && cfg.evaluators.input_pii) || {}),
       pricing_overrides: Object.assign({}, (cfg.budget && cfg.budget.pricing_overrides) || {}),
     };
     // Backward compat: migrate old platforms object to single platform string
@@ -5909,6 +5932,10 @@ function renderSettings() {
   document.getElementById('set-semantic-enabled').checked = settingsData.evaluators_semantic.enabled === true;
   document.getElementById('set-semantic-model').value = settingsData.evaluators_semantic.model || 'claude-haiku-4-5-20251001';
   toggleSemanticModel();
+  const pii = settingsData.evaluators_input_pii;
+  document.getElementById('set-pii-enabled').checked = pii.enabled !== false;
+  document.getElementById('set-pii-on_detect').value = pii.on_detect || 'ask';
+  document.getElementById('set-pii-patterns').value = (pii.pii_patterns || []).join('\n');
   renderPricingSettings();
 }
 
@@ -6052,6 +6079,10 @@ function collectSettingsFromForm() {
   settingsData.autoformat.enabled = document.getElementById('set-autoformat-enabled').checked;
   settingsData.evaluators_semantic.enabled = document.getElementById('set-semantic-enabled').checked;
   settingsData.evaluators_semantic.model = document.getElementById('set-semantic-model').value;
+  settingsData.evaluators_input_pii.enabled = document.getElementById('set-pii-enabled').checked;
+  settingsData.evaluators_input_pii.on_detect = document.getElementById('set-pii-on_detect').value;
+  settingsData.evaluators_input_pii.pii_patterns = document.getElementById('set-pii-patterns').value
+    .split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
   // Collect pricing overrides — only save rates that differ from bundled defaults
   const pricingOverrides = {};
   document.querySelectorAll('.pricing-rate-input').forEach(inp => {
