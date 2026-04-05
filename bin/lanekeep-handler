@@ -263,19 +263,22 @@ case "$HOOK_EVENT" in
 
     # --- Tier 2.1: Session write-then-execute detection ---
     # If a Bash command references a file written earlier in this session,
-    # escalate to deny — the file content was not re-scanned at exec time.
+    # warn — the file content was not re-scanned at exec time.
     if [ "$BLOCKED" = false ] && [ "$TOOL_NAME" = "Bash" ]; then
       check_session_written_file "$TOOL_NAME" "$TOOL_INPUT"
       if [ "$SESSION_WRITE_EXEC_MATCHED" = true ]; then
-        BLOCKED=true
-        BLOCK_DECISION="deny"
-        BLOCK_REASON="[LaneKeep] DENIED — Write-then-execute detected (Tier 2.1)
+        local _wte_reason="[LaneKeep] WARNING — Write-then-execute detected (Tier 2.1)
 File '$SESSION_WRITE_EXEC_FILE' was written earlier in this session and is now being executed.
 Executing session-written files bypasses content-level evaluation at runtime.
 
 Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
-        RESULTS+=("$(printf '{"name":"SessionWriteExecDetector","tier":2.1,"score":1.0,"passed":false,"detail":"%s","compliance_tags":["cwe:78","attck:t1059.004"]}' \
-          "$(_json_escape "$BLOCK_REASON")")")
+        RESULTS+=("$(printf '{"name":"SessionWriteExecDetector","tier":2.1,"score":0.5,"passed":true,"detail":"%s","compliance_tags":["cwe:78","attck:t1059.004"]}' \
+          "$(_json_escape "$_wte_reason")")")
+        if [ -n "$WARN_REASON" ]; then
+          WARN_REASON="${WARN_REASON}; ${_wte_reason}"
+        else
+          WARN_REASON="$_wte_reason"
+        fi
       fi
     fi
 
