@@ -2630,6 +2630,26 @@ class Handler(BaseHTTPRequestHandler):
             if 'model' in es and not isinstance(es['model'], str):
                 return False, 'evaluators_semantic.model must be a string'
 
+        # Hard-block overrides
+        if 'hard_block_overrides' in body:
+            hbo = body['hard_block_overrides']
+            if not isinstance(hbo, dict):
+                return False, 'hard_block_overrides must be an object'
+            VALID_OVERRIDE_VALUES = {'warn', 'disable'}
+            # Load configurable list from current config
+            configurable = set()
+            try:
+                with open(CONFIG_PATH) as f:
+                    cfg = json.load(f)
+                configurable = set(cfg.get('configurable_hard_blocks', []))
+            except Exception:
+                pass
+            for pat, val in hbo.items():
+                if not isinstance(val, str) or val not in VALID_OVERRIDE_VALUES:
+                    return False, f'hard_block_overrides["{pat}"] must be "warn" or "disable"'
+                if configurable and pat not in configurable:
+                    return False, f'hard_block_overrides["{pat}"] is not a configurable pattern'
+
         return True, None
 
     @staticmethod
@@ -2648,7 +2668,7 @@ class Handler(BaseHTTPRequestHandler):
         without touching rules or policies."""
         # Note: evaluators_semantic is absent from ALLOWED_KEYS because it is
         # remapped to config.evaluators.semantic below (lines 1366-1371).
-        ALLOWED_KEYS = {'profile', 'notifications', 'budget', 'trace', 'autoformat', 'sandbox'}
+        ALLOWED_KEYS = {'profile', 'notifications', 'budget', 'trace', 'autoformat', 'sandbox', 'hard_block_overrides'}
         try:
             length = int(self.headers.get('Content-Length', 0))
             if length > MAX_BODY or length < 0:
@@ -2673,9 +2693,11 @@ class Handler(BaseHTTPRequestHandler):
             shutil.copy2(CONFIG_PATH, backup)
 
             # Deep-merge allowed top-level keys (preserves unset nested fields)
+            # Keys that should fully replace rather than deep-merge
+            REPLACE_KEYS = {'profile', 'hard_block_overrides'}
             for key in ALLOWED_KEYS:
                 if key in body:
-                    if key == 'profile':
+                    if key in REPLACE_KEYS:
                         config[key] = body[key]
                     elif isinstance(body[key], dict) and isinstance(config.get(key), dict):
                         config[key] = self._deep_merge(config[key], body[key])

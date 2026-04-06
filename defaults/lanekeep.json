@@ -472,6 +472,21 @@
     }
   },
   "hard_block_overrides": {},
+  "configurable_hard_blocks": [
+    "| bash",
+    "| sh",
+    "git push --force",
+    "git push -f",
+    "git reset --hard",
+    "git clean -fd",
+    "dd if=",
+    "killall -9",
+    "crontab -r",
+    "find -delete",
+    "find . -delete",
+    "fsck -y",
+    "fsck --yes"
+  ],
   "hard_blocks": [
     "rm -rf /",
     "rm -rf ~",
