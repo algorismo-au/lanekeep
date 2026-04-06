@@ -139,8 +139,8 @@
     "governance_paths": {
       "enabled": true,
       "default": "allow",
-      "denied": ["claude\\.md$", "\\.claude/"],
-      "allowed": [],
+      "denied": ["\\.claude/"],
+      "allowed": ["\\.claude/plans/", "\\.claude/settings\\.json$", "\\.claude/commands/", "\\.claude/projects/"],
       "type": "free"
     },
     "shell_configs": {

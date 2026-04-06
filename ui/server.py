@@ -517,9 +517,52 @@ def _md_to_html(text):
     text = re.sub(r'<p[^>]*>\s*(<img\s[^>]+/?>)\s*</p>', _replace_html_img, text)
     text = re.sub(r'(<img\s[^>]+/?>)', _replace_html_img, text)
 
-    # Step 1.6: Escape raw HTML tags (prevent passthrough of HTML embedded in markdown)
-    # Safe because code blocks and img tags are already extracted.
-    # Only escapes '<' followed by a tag name (e.g. <div>, </script>), not comparisons like x < y.
+    # Step 1.6a: Extract block-level HTML sections into placeholders
+    # Markdown allows raw HTML blocks; preserve them through the pipeline and sanitize.
+    html_blocks = []
+    _SAFE_HTML_TAGS = {'div', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'p', 'span',
+                       'strong', 'em', 'a', 'code', 'br', 'hr', 'b', 'i', 'u', 'small',
+                       'h1', 'h2', 'h3', 'h4', 'h5', 'h6'}
+    _SAFE_HTML_ATTRS = {'align', 'href', 'style', 'class', 'colspan', 'rowspan'}
+
+    def _sanitize_html_block(raw_html):
+        """Strip tags/attrs not in the allowlist to prevent XSS."""
+        def _clean_tag(m):
+            slash = m.group(1) or ''
+            tag = m.group(2).lower()
+            attrs = m.group(3) or ''
+            if tag not in _SAFE_HTML_TAGS:
+                return html_mod.escape(m.group(0))
+            if slash:
+                return f'</{tag}>'
+            safe_attrs = []
+            for am in re.finditer(r'(\w+)="([^"]*)"', attrs):
+                if am.group(1).lower() in _SAFE_HTML_ATTRS:
+                    val = html_mod.escape(am.group(2), quote=True)
+                    if am.group(1).lower() == 'href' and re.match(r'\s*javascript:', am.group(2), re.IGNORECASE):
+                        continue
+                    safe_attrs.append(f'{am.group(1).lower()}="{val}"')
+            attr_str = (' ' + ' '.join(safe_attrs)) if safe_attrs else ''
+            return f'<{tag}{attr_str}>'
+        return re.sub(r'<(/?)([a-zA-Z][a-zA-Z0-9]*)((?:\s+[^>]*)?)>', _clean_tag, raw_html)
+
+    def _replace_html_block(m):
+        idx = len(html_blocks)
+        # Convert markdown headings inside HTML blocks before sanitizing
+        block = m.group(0)
+        block = re.sub(r'^(#{1,6})\s+(.+)$',
+                        lambda hm: f'<h{len(hm.group(1))}>{html_mod.escape(hm.group(2))}</h{len(hm.group(1))}>',
+                        block, flags=re.MULTILINE)
+        html_blocks.append(_sanitize_html_block(block))
+        return f'\x00HTMLBLOCK{idx}\x00'
+    # Match block-level HTML: opening tag through its matching close tag
+    # Each pattern matches its own tag to avoid <div> matching </table> etc.
+    for _bl_tag in ('div', 'table'):
+        text = re.sub(rf'(?m)^[ ]*(<{_bl_tag}[\s>][\s\S]*?</{_bl_tag}>)', _replace_html_block, text)
+
+    # Step 1.6b: Escape remaining raw HTML tags (prevent passthrough of inline HTML in markdown)
+    # Safe because code blocks, img tags, and block HTML are already extracted.
+    # Only escapes '<' followed by a tag name (e.g. <script>), not comparisons like x < y.
     text = re.sub(r'<(?=/?[a-zA-Z])', '&lt;', text)
 
     # Step 2: Tables
@@ -602,7 +645,7 @@ def _md_to_html(text):
     result = []
     para = []
     block_tags = {'<pre', '<table', '<ul', '<ol', '<blockquote', '<h1', '<h2', '<h3',
-                  '<h4', '<h5', '<h6', '<hr', '\x00CODEBLOCK', '\x00IMGBLOCK'}
+                  '<h4', '<h5', '<h6', '<hr', '\x00CODEBLOCK', '\x00IMGBLOCK', '\x00HTMLBLOCK'}
     for line in lines:
         stripped = line.strip()
         if not stripped:
@@ -629,6 +672,10 @@ def _md_to_html(text):
     # Step 15: Restore img blocks
     for i, block in enumerate(img_blocks):
         text = text.replace(f'\x00IMGBLOCK{i}\x00', block)
+
+    # Step 16: Restore HTML blocks
+    for i, block in enumerate(html_blocks):
+        text = text.replace(f'\x00HTMLBLOCK{i}\x00', block)
 
     return text
 
@@ -2233,8 +2280,8 @@ class Handler(BaseHTTPRequestHandler):
                 md_text = doc_path.read_text(encoding='utf-8')
                 # Strip leading HTML blocks (GitHub-specific logo + badges, rendered natively in UI)
                 md_text = re.sub(r'^(<p[^>]*>.*?</p>\s*)+', '', md_text, flags=re.DOTALL)
-                # Strip trailing HTML footer (GitHub-specific, not for Docs viewer)
-                md_text = re.sub(r'\n---\s*\n\s*<div\b.*', '', md_text, flags=re.DOTALL)
+                # Strip SEO keywords section but keep the trailing CTA ("building with us")
+                md_text = re.sub(r'\n---\s*\n+## Keywords\n[\s\S]*?(?=\n---\s*\n)', '', md_text)
                 html_content = _md_to_html(md_text)
                 _docs_cache[doc_key] = {'mtime': mtime, 'data': html_content}
             result = json.dumps({'title': title, 'html': html_content})

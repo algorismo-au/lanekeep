@@ -327,7 +327,7 @@
     },
     "result_transform": {
       "enabled": true,
-      "on_detect": "redact",
+      "on_detect": "warn",
       "injection_patterns": [
         "ignore previous instructions",
         "you are now",
@@ -1114,7 +1114,7 @@
         "tool": "Bash",
         "pattern": "\\b(printenv)\\b|\\b(export\\s+-p|declare\\s+-p|declare\\s+-x|compgen\\s+-v)\\b|(?<!\\.)\\benv\\b(?!\\s+\\w+=)"
       },
-      "decision": "ask",
+      "decision": "warn",
       "reason": "Environment variable dump detected — may expose API keys and secrets",
       "category": "system",
       "intent": "Commands that dump environment variables expose API keys, DB credentials, and tokens into agent context",

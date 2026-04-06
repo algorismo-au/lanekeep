@@ -329,6 +329,9 @@ Live decision feed, denial trends, per-file activity, latency percentiles, and a
 <p align="center">
   <img src="images/readme/lanekeep_insights2.png" alt="LaneKeep Insights — file activity and latency" width="749" />
 </p>
+<p align="center">
+  <img src="images/readme/lanekeep_insights3.png" alt="LaneKeep Insights — decision timeline" width="749" />
+</p>
 
 ### Audit & Coverage
 
@@ -350,6 +353,20 @@ Every file your agent reads or writes — with per-file token sizes to see what'
 
 <p align="center">
   <img src="images/readme/lanekeep_files.png" alt="LaneKeep Files — file tree and editor" width="749" />
+</p>
+
+### Settings
+
+Configure enforcement profiles, toggle policies, and tune budget limits — all from the dashboard. Changes take effect immediately without restarting the sidecar.
+
+<p align="center">
+  <img src="images/readme/lanekeep_settings1.png" alt="LaneKeep Settings" width="749" />
+</p>
+<p align="center">
+  <img src="images/readme/lanekeep_settings2.png" alt="LaneKeep Settings" width="749" />
+</p>
+<p align="center">
+  <img src="images/readme/lanekeep_settings3.png" alt="LaneKeep Settings" width="749" />
 </p>
 
 ---
