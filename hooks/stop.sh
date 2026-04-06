@@ -5,10 +5,24 @@
 
 set -uo pipefail
 
-STATE_FILE="${LANEKEEP_STATE_FILE:-$PWD/.lanekeep/state.json}"
-TRACE_DIR="${LANEKEEP_TRACE_DIR:-$PWD/.lanekeep/traces}"
-CONFIG_FILE="${LANEKEEP_CONFIG_FILE:-$PWD/lanekeep.json}"
-[ -f "$CONFIG_FILE" ] || [ ! -f "$PWD/lanekeep.json.bak" ] || CONFIG_FILE="$PWD/lanekeep.json.bak"
+# Resolve project root: walk up from PWD to find lanekeep.json or .lanekeep/
+_resolve_project_root() {
+  local dir="$PWD"
+  while [ "$dir" != "/" ]; do
+    if [ -f "$dir/lanekeep.json" ] || [ -d "$dir/.lanekeep" ]; then
+      printf '%s' "$dir"
+      return
+    fi
+    dir="$(dirname "$dir")"
+  done
+  printf '%s' "$PWD"
+}
+_PROJECT_ROOT="${PROJECT_DIR:-$(_resolve_project_root)}"
+
+STATE_FILE="${LANEKEEP_STATE_FILE:-$_PROJECT_ROOT/.lanekeep/state.json}"
+TRACE_DIR="${LANEKEEP_TRACE_DIR:-$_PROJECT_ROOT/.lanekeep/traces}"
+CONFIG_FILE="${LANEKEEP_CONFIG_FILE:-$_PROJECT_ROOT/lanekeep.json}"
+[ -f "$CONFIG_FILE" ] || [ ! -f "$_PROJECT_ROOT/lanekeep.json.bak" ] || CONFIG_FILE="$_PROJECT_ROOT/lanekeep.json.bak"
 
 # Read stdin (required by hook protocol, but we don't use it)
 cat >/dev/null

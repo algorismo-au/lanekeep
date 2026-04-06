@@ -3,9 +3,33 @@
 # Forwards tool result JSON to LaneKeep over Unix domain socket, returns hookSpecificOutput.
 # VULN-09: Fail-closed by default (LANEKEEP_FAIL_POLICY=allow to override).
 
-SOCKET="${LANEKEEP_SOCKET:-${PROJECT_DIR:-$PWD}/.lanekeep/lanekeep.sock}"
 TIMEOUT="${LANEKEEP_HOOK_TIMEOUT:-2}"
 FAIL_POLICY="${LANEKEEP_FAIL_POLICY:-deny}"
+
+# Resolve socket: explicit env > PROJECT_DIR > walk up from PWD to find .lanekeep/
+_resolve_socket() {
+  if [ -n "${LANEKEEP_SOCKET:-}" ]; then
+    printf '%s' "$LANEKEEP_SOCKET"
+    return
+  fi
+  local base="${PROJECT_DIR:-}"
+  if [ -n "$base" ] && [ -S "$base/.lanekeep/lanekeep.sock" ]; then
+    printf '%s' "$base/.lanekeep/lanekeep.sock"
+    return
+  fi
+  # Walk up from PWD — handles worktrees / subagents with different PWD
+  local dir="$PWD"
+  while [ "$dir" != "/" ]; do
+    if [ -S "$dir/.lanekeep/lanekeep.sock" ]; then
+      printf '%s' "$dir/.lanekeep/lanekeep.sock"
+      return
+    fi
+    dir="$(dirname "$dir")"
+  done
+  # Fallback: expected path (will trigger fail-policy downstream)
+  printf '%s' "${PROJECT_DIR:-$PWD}/.lanekeep/lanekeep.sock"
+}
+SOCKET="$(_resolve_socket)"
 
 # Warn if socket path exceeds Unix limit (108 bytes)
 if [ ${#SOCKET} -gt 108 ]; then
