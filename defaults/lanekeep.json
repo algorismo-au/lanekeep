@@ -812,8 +812,8 @@
       "match": {
         "pattern": "\\bfind\\b.*((-delete|-exec(dir)?\\s+(rm|shred|truncate)\\b)|\\|.*xargs\\s.*(\\brm\\b|\\bshred\\b|\\btruncate\\b))"
       },
-      "decision": "deny",
-      "reason": "Mass file destruction via find pipeline blocked",
+      "decision": "warn",
+      "reason": "Mass file destruction via find pipeline — review carefully",
       "category": "system",
       "intent": "Using find with -delete, -exec rm/shred/truncate, or piping to xargs achieves uncontrolled mass file destruction",
       "type": "free"
@@ -1917,8 +1917,8 @@
       "match": {
         "pattern": "(npm|yarn|pnpm) (list|ls|outdated|info|view|show)|(pip|pip3) (list|show|freeze)|(gem list|gem info)|(cargo tree)|brew list"
       },
-      "decision": "allow",
-      "reason": "Read-only package listing",
+      "decision": "warn",
+      "reason": "Package listing — review output for supply-chain awareness",
       "category": "dependencies",
       "intent": "Listing installed packages is safe — no side effects",
       "enabled": true,
