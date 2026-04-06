@@ -356,9 +356,9 @@
         "ghp_[a-zA-Z0-9]{36}",
         "-----BEGIN.*PRIVATE KEY",
         "eyJ[a-zA-Z0-9]{20,}",
-        "(password|passwd|pwd)[[:space:]]*[=:][[:space:]]*[^[:space:]#\"']{7,}",
-        "(secret|api_key|apikey|api_secret)[[:space:]]*[=:][[:space:]]*[^[:space:]#\"']{12,}",
-        "(access_token|auth_token|bearer)[[:space:]]*[=:][[:space:]]*[^[:space:]#\"']{12,}"
+        "(password|passwd|pwd)[[:space:]]*[=:][[:space:]]*['\"]?[^[:space:]#\"']{7,}",
+        "(secret|api_key|apikey|api_secret)[[:space:]]*[=:][[:space:]]*['\"]?[^[:space:]#\"']{12,}",
+        "(access_token|auth_token|bearer)[[:space:]]*[=:][[:space:]]*['\"]?[^[:space:]#\"']{12,}"
       ],
       "hidden_char_patterns": [
         "[\\x{200B}\\x{200C}\\x{200D}\\x{200E}\\x{200F}]",
@@ -543,7 +543,7 @@
       "default": "allow",
       "denied": [
         "claude\\.md$",
-        "\\.claude/",
+        "\\.claude/settings",
         "lanekeep\\.json$",
         "lanekeep/bin/",
         "lanekeep/lib/",
