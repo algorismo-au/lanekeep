@@ -3,6 +3,7 @@
 # Hard-block: fast substring match before evaluation pipeline
 
 HARDBLOCK_REASON=""
+HARDBLOCK_WARNED=""
 
 # Cache uconv availability at module load time
 _LANEKEEP_HAS_UCONV=""
@@ -12,6 +13,8 @@ hardblock_check() {
   local tool_name="$1"
   local tool_input="$2"
   HARDBLOCK_REASON=""
+  HARDBLOCK_WARNED=""
+  local _hb_overridden=""
 
   local search_text
   # Strip null bytes, zero-width chars (U+200B-U+200F, U+FEFF, U+2060, U+00AD),
@@ -47,15 +50,38 @@ hardblock_check() {
     _hbr_source=""
   fi
 
+  # Resolve hard_block_overrides: pattern=decision (newline-delimited)
+  local _hbo_source=""
+  if [ -n "${_CFG_HARD_BLOCK_OVERRIDES+x}" ] && [ -n "$_CFG_HARD_BLOCK_OVERRIDES" ]; then
+    _hbo_source="$_CFG_HARD_BLOCK_OVERRIDES"
+  elif [ -f "$LANEKEEP_CONFIG_FILE" ]; then
+    _hbo_source=$(jq -r '.hard_block_overrides // {} | to_entries[] | "\(.key)=\(.value)"' "$LANEKEEP_CONFIG_FILE" 2>/dev/null) || _hbo_source=""
+  fi
+
   # Fixed-string patterns: lowercase all at once, single grep across all patterns
   if [ -n "$_hb_source" ]; then
     local _hb_lower _matched
     _hb_lower=$(printf '%s\n' "$_hb_source" | tr '[:upper:]' '[:lower:]')
     _matched=$(printf '%s' "$search_text" | grep -oFm1 -f <(printf '%s\n' "$_hb_lower") 2>/dev/null) || true
     if [ -n "$_matched" ]; then
-      HARDBLOCK_REASON="[LaneKeep] HARD-BLOCKED (Tier 1)\nPattern matched: '$_matched'\nAction: $tool_name"
-      return 1
+      local _override_decision=""
+      _override_decision=$(_hardblock_lookup_override "$_matched" "$_hbo_source")
+      if [ "$_override_decision" = "disable" ]; then
+        _hb_overridden=1
+      elif [ "$_override_decision" = "warn" ]; then
+        _hb_overridden=1
+        HARDBLOCK_WARNED="[LaneKeep] WARN (Tier 1 — overridden)\nPattern matched: '$_matched'\nAction: $tool_name"
+        echo -e "$HARDBLOCK_WARNED" >&2
+      else
+        HARDBLOCK_REASON="[LaneKeep] HARD-BLOCKED (Tier 1)\nPattern matched: '$_matched'\nAction: $tool_name"
+        return 1
+      fi
     fi
+  fi
+
+  # Regex patterns: skip if fixed-string was already overridden (warn/disable)
+  if [ -n "$_hb_overridden" ]; then
+    return 0
   fi
 
   # Regex patterns: validate with bash built-in (no subprocess), combine into single grep
@@ -82,5 +108,26 @@ hardblock_check() {
     fi
   fi
 
+  return 0
+}
+
+# Lookup override decision for a matched pattern
+# Args: $1=matched_pattern (lowercase), $2=overrides_source (newline-delimited "pattern=decision")
+# Returns: prints "warn", "disable", or "" (no override)
+_hardblock_lookup_override() {
+  local matched="$1" overrides="$2"
+  [ -z "$overrides" ] && return 0
+  local line key val
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    key="${line%=*}"
+    val="${line##*=}"
+    # Case-insensitive compare
+    key=$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')
+    if [ "$key" = "$matched" ]; then
+      printf '%s' "$val"
+      return 0
+    fi
+  done <<< "$overrides"
   return 0
 }

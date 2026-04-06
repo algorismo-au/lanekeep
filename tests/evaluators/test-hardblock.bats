@@ -47,3 +47,35 @@ setup() {
   run hardblock_check "Bash" '{"command":"echo [test] (foo) {bar} *.txt"}'
   [ "$status" -eq 0 ]
 }
+
+# AC7: hard_block_overrides — warn
+@test "hardblock_check returns 0 and warns when pattern overridden to warn" {
+  export _CFG_HARD_BLOCK_OVERRIDES="rm -rf /=warn"
+  run hardblock_check "Bash" '{"command":"rm -rf /tmp/x"}'
+  [ "$status" -eq 0 ]
+  unset _CFG_HARD_BLOCK_OVERRIDES
+}
+
+@test "hardblock_check sets HARDBLOCK_WARNED when pattern overridden to warn" {
+  export _CFG_HARD_BLOCK_OVERRIDES="rm -rf /=warn"
+  hardblock_check "Bash" '{"command":"rm -rf /tmp/x"}' || true
+  [[ "$HARDBLOCK_WARNED" == *"WARN"* ]]
+  [[ "$HARDBLOCK_WARNED" == *"overridden"* ]]
+  unset _CFG_HARD_BLOCK_OVERRIDES
+}
+
+# AC8: hard_block_overrides — disable
+@test "hardblock_check skips pattern entirely when overridden to disable" {
+  export _CFG_HARD_BLOCK_OVERRIDES="rm -rf /=disable"
+  run hardblock_check "Bash" '{"command":"rm -rf /tmp/x"}'
+  [ "$status" -eq 0 ]
+  unset _CFG_HARD_BLOCK_OVERRIDES
+}
+
+# AC9: non-overridden patterns still block
+@test "hardblock_check still blocks patterns not in overrides" {
+  export _CFG_HARD_BLOCK_OVERRIDES="| sh=warn"
+  run hardblock_check "Bash" '{"command":"rm -rf /tmp/x"}'
+  [ "$status" -eq 1 ]
+  unset _CFG_HARD_BLOCK_OVERRIDES
+}

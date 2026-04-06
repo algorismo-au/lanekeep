@@ -73,6 +73,7 @@ _CFG_SEMANTIC_ENABLED="true"
 # Hardblock arrays (newline-separated — safe for substrings and single-line regex)
 _CFG_HARD_BLOCKS=""
 _CFG_HARD_BLOCKS_REGEX=""
+_CFG_HARD_BLOCK_OVERRIDES=""
 # Hidden text evaluator config (RS-delimited for pattern arrays)
 _CFG_HT_ANSI_ENABLED="true"
 _CFG_HT_ANSI_PATTERNS=""
@@ -118,6 +119,7 @@ if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
     # -- Hardblock arrays (newline-separated) --
     "_CFG_HARD_BLOCKS=" + (.hard_blocks // [] | join("\n") | @sh),
     "_CFG_HARD_BLOCKS_REGEX=" + (.hard_blocks_regex // [] | join("\n") | @sh),
+    "_CFG_HARD_BLOCK_OVERRIDES=" + (.hard_block_overrides // {} | to_entries | map("\(.key)=\(.value)") | join("\n") | @sh),
     # -- Hidden text evaluator (RS \x1e delimiter for pattern arrays) --
     "_CFG_HT_ANSI_ENABLED=" + (if .evaluators.hidden_text.ansi.enabled == false then "false" else "true" end | @sh),
     "_CFG_HT_ANSI_PATTERNS=" + (.evaluators.hidden_text.ansi.patterns // [] | join("\u001e") | @sh),
