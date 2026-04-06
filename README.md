@@ -290,9 +290,9 @@ lanekeep rules whatsnew --acknowledge    # Record current state (clears future n
 
 | Profile | Behavior |
 |---------|----------|
-| `strict` | Denies Bash, asks for Write/Edit. 50 actions, 15 min. |
-| `guided` | Asks for `git push`. 200 actions, 1 hour. **(default)** |
-| `autonomous` | Permissive, budget + trace only. 500 actions, 2 hours. |
+| `strict` | Denies Bash, asks for Write/Edit. 500 actions, 2.5 hours. |
+| `guided` | Asks for `git push`. 2000 actions, 10 hours. **(default)** |
+| `autonomous` | Permissive, budget + trace only. 5000 actions, 20 hours. |
 
 Set via `LANEKEEP_PROFILE` env var or `"profile"` in `lanekeep.json`.
 

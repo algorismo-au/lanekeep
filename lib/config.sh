@@ -484,7 +484,7 @@ apply_profile() {
     strict)
       # No Bash, all writes ask, tight budget
       overlay='{
-        "budget": {"max_actions": 50, "timeout_seconds": 900}
+        "budget": {"max_actions": 500, "timeout_seconds": 9000}
       }'
       # Prepend deny-Bash and ask-Write rules (first-match-wins)
       local strict_rules='[
@@ -500,7 +500,7 @@ apply_profile() {
     guided)
       # Network needs approval, push needs approval, moderate budget
       overlay='{
-        "budget": {"max_actions": 200, "timeout_seconds": 3600}
+        "budget": {"max_actions": 2000, "timeout_seconds": 36000}
       }'
       # Prepend ask-push rule
       local guided_rules='[
@@ -514,7 +514,7 @@ apply_profile() {
     autonomous)
       # Budget + trace only, permissive evaluators
       overlay='{
-        "budget": {"max_actions": 500, "timeout_seconds": 7200},
+        "budget": {"max_actions": 5000, "timeout_seconds": 72000},
         "evaluators": {
           "codediff": {"enabled": true},
           "semantic": {"enabled": false}

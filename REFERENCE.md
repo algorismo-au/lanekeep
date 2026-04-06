@@ -270,21 +270,21 @@ lanekeep policy disable governance_paths --reason "Updating CLAUDE.md"
 
 | Key | Env var | Default (base) | Guided profile |
 |-----|---------|-----------------|----------------|
-| `budget.max_actions` | `LANEKEEP_MAX_ACTIONS` | 500 | 200 |
-| `budget.max_input_tokens` | `LANEKEEP_MAX_INPUT_TOKENS` | 250000 | 250000 |
-| `budget.max_output_tokens` | `LANEKEEP_MAX_OUTPUT_TOKENS` | 250000 | 250000 |
-| `budget.max_tokens` | `LANEKEEP_MAX_TOKENS` | 500000 | 500000 |
-| `budget.max_cost` | `LANEKEEP_MAX_COST` | 20 (USD) | 20 |
-| `budget.timeout_seconds` | `LANEKEEP_TIMEOUT_SECONDS` | 86400 | 3600 |
+| `budget.max_actions` | `LANEKEEP_MAX_ACTIONS` | 5000 | 2000 |
+| `budget.max_input_tokens` | `LANEKEEP_MAX_INPUT_TOKENS` | 2500000 | 2500000 |
+| `budget.max_output_tokens` | `LANEKEEP_MAX_OUTPUT_TOKENS` | 2500000 | 2500000 |
+| `budget.max_tokens` | `LANEKEEP_MAX_TOKENS` | 5000000 | 5000000 |
+| `budget.max_cost` | `LANEKEEP_MAX_COST` | 200 (USD) | 200 |
+| `budget.timeout_seconds` | `LANEKEEP_TIMEOUT_SECONDS` | 864000 | 36000 |
 
 **Cumulative (cross-session):**
 
 | Key | Env var | Default |
 |-----|---------|---------|
-| `budget.max_total_actions` | `LANEKEEP_MAX_TOTAL_ACTIONS` | 10000 |
-| `budget.max_total_tokens` | `LANEKEEP_MAX_TOTAL_TOKENS` | 10000000 |
-| `budget.max_total_cost` | `LANEKEEP_MAX_TOTAL_COST` | 400 (USD) |
-| `budget.max_total_time_seconds` | `LANEKEEP_MAX_TOTAL_TIME_SECONDS` | 1728000 (20d) |
+| `budget.max_total_actions` | `LANEKEEP_MAX_TOTAL_ACTIONS` | 100000 |
+| `budget.max_total_tokens` | `LANEKEEP_MAX_TOTAL_TOKENS` | 100000000 |
+| `budget.max_total_cost` | `LANEKEEP_MAX_TOTAL_COST` | 4000 (USD) |
+| `budget.max_total_time_seconds` | `LANEKEEP_MAX_TOTAL_TIME_SECONDS` | 17280000 (200d) |
 
 Resolution (later wins): `lanekeep.json` -> TaskSpec -> env vars. Your explicit
 values always take precedence over profile defaults.

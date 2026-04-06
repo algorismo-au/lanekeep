@@ -5855,14 +5855,14 @@ async function loadSettings() {
 }
 
 var profileDescs = {
-  strict: 'Denies Bash, asks for Write/Edit. 50 actions, 15 min budget.',
-  guided: 'Asks before git push. 200 actions, 1 hour budget. (default)',
-  autonomous: 'Permissive \u2014 budget and trace only. 500 actions, 2 hours.'
+  strict: 'Denies Bash, asks for Write/Edit. 500 actions, 2.5 hour budget.',
+  guided: 'Asks before git push. 2000 actions, 10 hour budget. (default)',
+  autonomous: 'Permissive \u2014 budget and trace only. 5000 actions, 20 hours.'
 };
 var profileBudgets = {
-  strict:     { max_actions: 50,  timeout_seconds: 900  },
-  guided:     { max_actions: 200, timeout_seconds: 3600 },
-  autonomous: { max_actions: 500, timeout_seconds: 7200 }
+  strict:     { max_actions: 500,  timeout_seconds: 9000  },
+  guided:     { max_actions: 2000, timeout_seconds: 36000 },
+  autonomous: { max_actions: 5000, timeout_seconds: 72000 }
 };
 function updateProfileDesc(applyBudget) {
   var v = document.getElementById('set-profile').value;

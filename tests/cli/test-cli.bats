@@ -64,11 +64,11 @@ LANEKEEP="$BATS_TEST_DIRNAME/../../bin/lanekeep"
 @test "defaults/lanekeep.json has budget fields" {
   run jq -e '.budget.max_actions' "$BATS_TEST_DIRNAME/../../defaults/lanekeep.json"
   [ "$status" -eq 0 ]
-  [[ "$output" == "500" ]]
+  [[ "$output" == "5000" ]]
 
   run jq -e '.budget.timeout_seconds' "$BATS_TEST_DIRNAME/../../defaults/lanekeep.json"
   [ "$status" -eq 0 ]
-  [[ "$output" == "86400" ]]
+  [[ "$output" == "864000" ]]
 }
 
 # AC5: All Fixtures Valid
