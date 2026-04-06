@@ -1617,6 +1617,37 @@
       ]
     },
     {
+      "id": "sec-039",
+      "match": {
+        "target": "lanekeep\\.json|\\.lanekeep/(resolved-config|state|session)",
+        "tool": "^(Read|Glob)$"
+      },
+      "decision": "deny",
+      "reason": "Reading LaneKeep configuration blocked — governance rules must remain opaque to the governed agent",
+      "category": "security",
+      "intent": "If the agent can read the ruleset, it can reverse-engineer match patterns and craft inputs that evade detection",
+      "type": "free",
+      "compliance_tags": [
+        "atlas:t0051",
+        "nist-ai100-2:prompt-injection"
+      ]
+    },
+    {
+      "id": "sec-040",
+      "match": {
+        "pattern": "(cat|head|tail|less|more|strings|jq|python|node)\\s+.*(\\.lanekeep/|lanekeep\\.json)"
+      },
+      "decision": "deny",
+      "reason": "Reading LaneKeep configuration via shell blocked — governance rules must remain opaque to the governed agent",
+      "category": "security",
+      "intent": "Shell commands reading config files bypass Read tool protections — both vectors must be closed",
+      "type": "free",
+      "compliance_tags": [
+        "atlas:t0051",
+        "nist-ai100-2:prompt-injection"
+      ]
+    },
+    {
       "id": "git-009",
       "match": {
         "pattern": "\\bgit\\s+(push\\b(?=.*\\s(--force(?!-with-lease)\\b|-[a-z]*f\\b))|reset\\b(?=.*\\s--hard\\b)|clean\\b(?=.*\\s-[a-z]*f[a-z]*\\b)(?=.*\\s-[a-z]*d[a-z]*\\b)|branch\\s+-D)"

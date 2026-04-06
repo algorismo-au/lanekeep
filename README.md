@@ -148,7 +148,12 @@ could disable enforcement, tamper with audit logs, or bypass budget limits.
 | `lanekeep/bin/`, `lib/`, `hooks/` | LaneKeep source code |
 | `plugins.d/` | Plugin evaluators |
 
-Reads are allowed — security depends on the agent being unable to modify enforcement, not on hiding the rules. See [SECURITY.md](SECURITY.md) for details.
+**Writes** are blocked by the `governance_paths` policy (Write/Edit tools).
+**Reads** of the active configuration (`lanekeep.json`, `.lanekeep/` state files)
+are blocked by rules `sec-039` and `sec-040` — exposing the ruleset would let
+the agent reverse-engineer match patterns and craft evasions. LaneKeep source
+code (`bin/`, `lib/`) remains readable; security of the engine is open, but the
+active configuration is opaque to the governed agent. See [REFERENCE.md](REFERENCE.md#self-protection-governance_paths--rules) for details.
 
 ---
 

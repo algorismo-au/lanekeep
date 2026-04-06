@@ -254,8 +254,19 @@ Additionally, `.lanekeep/` and all `lanekeep/` source paths are in the codediff
 evaluator's `protected_dirs` list, which catches Bash mutations (e.g.
 `echo > .lanekeep/state.json`) as a defense-in-depth layer.
 
-**Reads are allowed.** LaneKeep is open source — security depends on blocking
-modifications, not on hiding the rules from the agent.
+**Config reads are denied.** The governed agent must not read `lanekeep.json` or
+`.lanekeep/` state files — exposing the ruleset allows the agent to
+reverse-engineer match patterns and craft evasions. Two rules enforce this:
+
+| Rule | Tool | Target | Blocks |
+|------|------|--------|--------|
+| `sec-039` | Read, Glob | `lanekeep.json`, `.lanekeep/resolved-config\|state\|session` | Direct file reads and glob searches |
+| `sec-040` | Bash | `cat\|head\|tail\|jq\|python\|node` + config paths | Shell-based config reads |
+
+> **Note:** LaneKeep's source code (`bin/`, `lib/`, `hooks/`) remains readable —
+> security of the engine depends on blocking modifications, not hiding the code.
+> The distinction is between the *engine* (open source, readable) and the
+> *active configuration* (opaque to the governed agent).
 
 **Customizing:** Add paths to `governance_paths.denied` in your project
 `lanekeep.json`. To temporarily bypass (e.g. updating `CLAUDE.md`):
