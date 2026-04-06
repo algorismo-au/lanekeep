@@ -327,23 +327,18 @@
     },
     "result_transform": {
       "enabled": true,
-      "on_detect": "warn",
+      "on_detect": "redact",
       "injection_patterns": [
         "ignore previous instructions",
-        "you are now",
         "system prompt:",
         "<system>",
         "</system>",
         "forget everything",
         "new instructions:",
         "DAN mode",
-        "act as if",
         "override your instructions",
         "disregard all previous",
         "you must now",
-        "pretend to be",
-        "from now on you",
-        "assume the role",
         "bypass your restrictions",
         "jailbreak",
         "developer mode",
@@ -361,15 +356,9 @@
         "ghp_[a-zA-Z0-9]{36}",
         "-----BEGIN.*PRIVATE KEY",
         "eyJ[a-zA-Z0-9]{20,}",
-        "(password|passwd|pwd)[[:space:]]*[=:][[:space:]]*[^[:space:]]+",
-        "(secret|api_key|apikey|api_secret)[[:space:]]*[=:][[:space:]]*[^[:space:]]+",
-        "(access_token|auth_token|bearer)[[:space:]]*[=:][[:space:]]*[^[:space:]]+",
-        {
-          "pattern": "[A-Za-z0-9+/]{40,}={0,2}",
-          "decision": "warn",
-          "reason": "Possible base64-encoded content in tool output — may hide injection payload",
-          "compliance": ["attck:t1027", "atlas:t0015", "nist-ai100-2:evasion"]
-        }
+        "(password|passwd|pwd)[[:space:]]*[=:][[:space:]]*[^[:space:]#\"']{7,}",
+        "(secret|api_key|apikey|api_secret)[[:space:]]*[=:][[:space:]]*[^[:space:]#\"']{12,}",
+        "(access_token|auth_token|bearer)[[:space:]]*[=:][[:space:]]*[^[:space:]#\"']{12,}"
       ],
       "hidden_char_patterns": [
         "[\\x{200B}\\x{200C}\\x{200D}\\x{200E}\\x{200F}]",
@@ -381,25 +370,7 @@
         "[\\x{FFF9}\\x{FFFA}\\x{FFFB}]",
         "\\x1b\\["
       ],
-      "css_hiding_patterns": [
-        "display\\s*:\\s*none",
-        "visibility\\s*:\\s*hidden",
-        "opacity\\s*:\\s*0(?:[;\\s}]|$)",
-        "font-size\\s*:\\s*0(?:px|em|rem|%)?(?![0-9.])",
-        "color\\s*:\\s*(?:white|#fff(?:fff)?|rgba?\\s*\\([^)]*,\\s*0\\s*\\))\\s*[;}]",
-        "position\\s*:\\s*(?:absolute|fixed)[^}]*left\\s*:\\s*-[0-9]{4,}",
-        "position\\s*:\\s*(?:absolute|fixed)[^}]*top\\s*:\\s*-[0-9]{4,}",
-        "clip\\s*:\\s*rect\\s*\\(\\s*0",
-        "text-indent\\s*:\\s*-[0-9]{4,}",
-        "transform\\s*:\\s*translate[XY]?\\s*\\(\\s*-[0-9]{4,}",
-        "clip-path\\s*:\\s*(?:polygon\\s*\\(\\s*(?:0[\\s,]+){3,}|inset\\s*\\(\\s*100%)",
-        "(?:width|height)\\s*:\\s*0(?:px)?\\s*;[^}]*overflow\\s*:\\s*hidden",
-        "letter-spacing\\s*:\\s*-[0-9]{4,}",
-        "line-height\\s*:\\s*0(?:px|em|rem|%)?(?:[;}\\s]|$)",
-        "position\\s*:\\s*(?:absolute|fixed)[^}]*bottom\\s*:\\s*-[0-9]{4,}",
-        "position\\s*:\\s*(?:absolute|fixed)[^}]*right\\s*:\\s*-[0-9]{4,}",
-        "text-shadow\\s*:\\s*-?[0-9]{4,}(?:px)?\\s"
-      ],
+      "css_hiding_patterns": [],
       "html_comment_injection_patterns": [
         "<!--[^>]*(?:ignore|disregard|forget|instead|new instructions|system prompt|you are now|DAN mode)[^>]*-->"
       ],
