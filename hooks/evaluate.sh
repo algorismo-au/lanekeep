@@ -26,6 +26,31 @@ _resolve_socket() {
     fi
     dir="$(dirname "$dir")"
   done
+  # Fallback 4: LANEKEEP_CORRELATION_ID env var → registry lookup
+  if [ -n "${LANEKEEP_CORRELATION_ID:-}" ]; then
+    local _reg="${XDG_STATE_HOME:-$HOME/.local/state}/lanekeep/sockets/${LANEKEEP_CORRELATION_ID}.sock"
+    if [ -L "$_reg" ] && [ -S "$(readlink -f "$_reg" 2>/dev/null)" ]; then
+      printf '%s' "$(readlink -f "$_reg")"
+      return
+    fi
+  fi
+  # Fallback 5: Git worktree detection — find main project's socket via registry
+  local _git_common
+  _git_common=$(git rev-parse --git-common-dir 2>/dev/null) || true
+  if [ -n "$_git_common" ] && [ "$_git_common" != ".git" ]; then
+    local _main_project
+    _main_project=$(cd "$_git_common/.." 2>/dev/null && pwd -P) || true
+    if [ -n "$_main_project" ]; then
+      local _main_corr
+      _main_corr=$(printf '%s' "$_main_project" | sha256sum | cut -c1-16)
+      local _reg="${XDG_STATE_HOME:-$HOME/.local/state}/lanekeep/sockets/${_main_corr}.sock"
+      if [ -L "$_reg" ] && [ -S "$(readlink -f "$_reg" 2>/dev/null)" ]; then
+        LANEKEEP_CORRELATION_ID="$_main_corr"
+        printf '%s' "$(readlink -f "$_reg")"
+        return
+      fi
+    fi
+  fi
   # Fallback: expected path (will trigger fail-policy downstream)
   printf '%s' "${PROJECT_DIR:-$PWD}/.lanekeep/lanekeep.sock"
 }
@@ -43,22 +68,26 @@ _write_fallback_trace() {
   (
     local trace_dir="$PWD/.lanekeep/traces"
     (umask 077; mkdir -p "$trace_dir")
-    local fields
-    fields=$(printf '%s' "$INPUT" | jq -r '[.tool_name // "unknown", .tool_use_id // "unknown", .session_id // "unknown"] | @tsv' 2>/dev/null) || return 0
-    local tool_name tool_use_id session_id
-    tool_name=$(printf '%s' "$fields" | cut -f1)
-    tool_use_id=$(printf '%s' "$fields" | cut -f2)
-    session_id=$(printf '%s' "$fields" | cut -f3)
     local trace_file="$trace_dir/hook-fallback.jsonl"
     local entry
-    entry=$(jq -n -c \
+    entry=$(printf '%s' "$INPUT" | jq -c \
       --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-      --arg sid "$session_id" \
-      --arg tn "$tool_name" \
       --arg dec "$decision" \
       --arg reason "$reason" \
-      --arg tuid "$tool_use_id" \
-      '{timestamp:$ts,source:"lanekeep-hook",session_id:$sid,event_type:"PreToolUse",tool_name:$tn,decision:$dec,reason:$reason,evaluators:[],tool_use_id:$tuid}') || return 0
+      --arg corr_id "${LANEKEEP_CORRELATION_ID:-}" \
+      '{timestamp:$ts, source:"lanekeep-hook", session_id:"hook-fallback",
+        event_type:"PreToolUse", tool_name:(.tool_name // "unknown"),
+        decision:$dec, reason:$reason, evaluators:[]}
+      + (if (.tool_use_id // "") != "" then {tool_use_id} else {} end)
+      + (if (.session_id // "") != "" then {cc_session_id: .session_id} else {} end)
+      + (if (.agent_id // "") != "" then {agent_id} else {} end)
+      + (if (.parent_session_id // "") != "" then {parent_session_id} else {} end)
+      + (if (.agent_type // "") != "" then {agent_type} else {} end)
+      + (if (.spawned_by // "") != "" then {spawned_by} else {} end)
+      + (if has("agent_depth") then {agent_depth} else {} end)
+      + (if (.isolation_type // "") != "" then {isolation_type} else {} end)
+      + (if .is_background == true then {is_background: true} else {} end)
+      + (if $corr_id != "" then {correlation_id: $corr_id} else {} end)') || return 0
     (flock -n 9 && printf '%s\n' "$entry" >> "$trace_file" && chmod 0600 "$trace_file") 9>>"${trace_file}.lock" || true
   ) || return 0
 }

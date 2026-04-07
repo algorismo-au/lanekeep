@@ -83,6 +83,12 @@ fi
 source "$LANEKEEP_DIR/lib/config.sh"
 load_config "$PROJECT_DIR" "$SPEC_FILE"
 
+# --- AG-004: Generate correlation ID for cross-worktree trace correlation ---
+_canonical_project=$(cd "$PROJECT_DIR" && pwd -P)
+LANEKEEP_CORRELATION_ID=$(printf '%s' "$_canonical_project" | sha256sum | cut -c1-16)
+export LANEKEEP_CORRELATION_ID
+_SOCKET_REGISTRY="${XDG_STATE_HOME:-$HOME/.local/state}/lanekeep/sockets"
+
 # --- Cache plugin hashes at startup for handler performance (1D) ---
 PLUGIN_DIR="$LANEKEEP_DIR/plugins.d"
 if [ -d "$PLUGIN_DIR" ]; then
@@ -129,6 +135,7 @@ cleanup() {
     wait "$SOCAT_PID" 2>/dev/null || true
   fi
   rm -f "$SOCKET" "$PIDFILE" "$LOCKFILE"
+  rm -f "${_SOCKET_REGISTRY:-}/${LANEKEEP_CORRELATION_ID:-}.sock"
   if [ -n "$RALPH_PID" ] && kill -0 "$RALPH_PID" 2>/dev/null; then
     kill "$RALPH_PID" 2>/dev/null || true
   fi
@@ -136,9 +143,10 @@ cleanup() {
 trap cleanup EXIT INT TERM HUP
 
 # --- Start server ---
-echo "[LaneKeep] Project: $PROJECT_DIR"
-echo "[LaneKeep] Session: $LANEKEEP_SESSION_ID (pid $$)"
-echo "[LaneKeep] Trace:   $LANEKEEP_TRACE_FILE"
+echo "[LaneKeep] Project:     $PROJECT_DIR"
+echo "[LaneKeep] Session:     $LANEKEEP_SESSION_ID (pid $$)"
+echo "[LaneKeep] Correlation: $LANEKEEP_CORRELATION_ID"
+echo "[LaneKeep] Trace:       $LANEKEEP_TRACE_FILE"
 
 # VULN-10: Set umask before socat creates socket to restrict to owner-only
 SOCAT_T=$(( ${LANEKEEP_HOOK_TIMEOUT:-2} + 1 ))
@@ -152,6 +160,11 @@ _start_socat() {
 }
 
 _start_socat
+
+# Register socket in XDG state dir for cross-worktree discovery (AG-004)
+(install -d -m 0700 "$_SOCKET_REGISTRY" && \
+  ln -sf "$(readlink -f "$SOCKET" 2>/dev/null || printf '%s' "$SOCKET")" \
+    "$_SOCKET_REGISTRY/${LANEKEEP_CORRELATION_ID}.sock") 2>/dev/null || true
 
 # Verify socat started
 for _v in 1 2 3 4 5; do

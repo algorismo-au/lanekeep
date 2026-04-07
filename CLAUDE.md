@@ -69,7 +69,7 @@ lanekeep/
 |--------|---------|
 | `config.sh` | Config loader — merges defaults + project + TaskSpec + env vars |
 | `dispatcher.sh` | Formats denial messages with evaluator summary |
-| `trace.sh` | Append-only JSONL audit log with locking and redaction |
+| `trace.sh` | Append-only JSONL audit log with locking, redaction, and multi-agent correlation |
 | `cumulative.sh` | Cross-session metrics (action count, tokens, time) |
 | `license.sh` | License tier resolution (community/pro/enterprise) |
 | `hooks.sh` | Hook registration and execution |
@@ -217,9 +217,9 @@ bats --verbose-run lanekeep/tests/pipeline/test-handler.bats
 |----------|-----------|------:|-------|
 | Config | `tests/config/` | 4 | Loading, integrity, layering, schema |
 | Evaluators | `tests/evaluators/` | 3 | Hardblock, codediff, result-transform |
-| Rules | `tests/rules/` | 5 | Patterns, custom rules, CLI, update, signing |
+| Rules | `tests/rules/` | 7 | Patterns, custom rules, CLI, update, signing, compliance tags, enterprise |
 | Plugins | `tests/plugins/` | 4 | Commands, decisions, polyglot, webhook |
-| Hooks | `tests/hooks/` | 4 | Protocol, post-handler, stop, init |
+| Hooks | `tests/hooks/` | 6 | Protocol, post-handler, stop, init, agent logging, concurrency |
 | Pipeline | `tests/pipeline/` | 6 | Handler, dispatcher, concurrency, session, context |
 | Observability | `tests/observability/` | 3 | Trace, trace-clear, insights metrics |
 | UI | `tests/ui/` | 2 | Server API tests (Python) |

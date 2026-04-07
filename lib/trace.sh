@@ -143,6 +143,16 @@ write_trace() {
     --arg chash "${LANEKEEP_CONFIG_HASH:-unknown}" \
     --arg tuid "$tool_use_id" \
     --arg ud "${_TRACE_USER_DENIED:-false}" \
+    --arg cc_sid "${_TRACE_CC_SESSION_ID:-}" \
+    --arg agent_id "${_TRACE_AGENT_ID:-}" \
+    --arg parent_sid "${_TRACE_PARENT_SESSION_ID:-}" \
+    --arg spawned_by "${_TRACE_SPAWNED_BY:-}" \
+    --arg agent_depth "${_TRACE_AGENT_DEPTH:-}" \
+    --arg agent_type "${_TRACE_AGENT_TYPE:-}" \
+    --arg isolation_type "${_TRACE_ISOLATION_TYPE:-}" \
+    --arg is_bg "${_TRACE_IS_BACKGROUND:-}" \
+    --arg corr_id "${LANEKEEP_CORRELATION_ID:-}" \
+    --arg proj_dir "${PROJECT_DIR:-}" \
     '. as $evals |
      ([.[].compliance? // [] | .[]] | unique | if length == 0 then null else . end) as $comp |
      ([.[].compliance_tags? // [] | .[]] | unique | if length == 0 then null else . end) as $comp_tags |
@@ -153,7 +163,17 @@ write_trace() {
      | if $comp_tags then .compliance_tags = $comp_tags else . end
      | if $tuid != "" then .tool_use_id = $tuid else . end
      | if $ud == "true" then .user_denied = true else . end
-     | if ($ti | type == "object") and ($ti.file_path? // "" | length > 0) then .file_path = $ti.file_path else . end')
+     | if ($ti | type == "object") and ($ti.file_path? // "" | length > 0) then .file_path = $ti.file_path else . end
+     | if $cc_sid != "" then .cc_session_id = $cc_sid else . end
+     | if $agent_id != "" then .agent_id = $agent_id else . end
+     | if $parent_sid != "" then .parent_session_id = $parent_sid else . end
+     | if $spawned_by != "" then .spawned_by = $spawned_by else . end
+     | if $agent_depth != "" then ($agent_depth | tonumber? // null) as $d | if $d != null then .agent_depth = $d else . end else . end
+     | if $agent_type != "" then .agent_type = $agent_type else . end
+     | if $isolation_type != "" then .isolation_type = $isolation_type else . end
+     | if $is_bg == "true" then .is_background = true else . end
+     | if $corr_id != "" then .correlation_id = $corr_id else . end
+     | if $proj_dir != "" then .project_dir = $proj_dir else . end')
   _locked_append "$LANEKEEP_TRACE_FILE" "$entry"
 }
 
@@ -177,7 +197,13 @@ write_policy_event() {
     --arg typ "$type" \
     --arg usr "$user" \
     --arg rea "$reason" \
-    '{timestamp:$ts,source:"lanekeep",session_id:$sid,event:$ev,policy:$pol,type:$typ,user:$usr,reason:$rea}')
+    --arg cc_sid "${_TRACE_CC_SESSION_ID:-}" \
+    --arg corr_id "${LANEKEEP_CORRELATION_ID:-}" \
+    --arg proj_dir "${PROJECT_DIR:-}" \
+    '{timestamp:$ts,source:"lanekeep",session_id:$sid,event:$ev,policy:$pol,type:$typ,user:$usr,reason:$rea}
+     | if $cc_sid != "" then .cc_session_id = $cc_sid else . end
+     | if $corr_id != "" then .correlation_id = $corr_id else . end
+     | if $proj_dir != "" then .project_dir = $proj_dir else . end')
   _locked_append "$LANEKEEP_TRACE_FILE" "$entry"
 }
 
@@ -200,7 +226,13 @@ write_rule_event() {
     --arg typ "$type" \
     --arg usr "$user" \
     --arg rea "$reason" \
-    '{timestamp:$ts,source:"lanekeep",session_id:$sid,event:$ev,rule_index:$idx,type:$typ,user:$usr,reason:$rea}')
+    --arg cc_sid "${_TRACE_CC_SESSION_ID:-}" \
+    --arg corr_id "${LANEKEEP_CORRELATION_ID:-}" \
+    --arg proj_dir "${PROJECT_DIR:-}" \
+    '{timestamp:$ts,source:"lanekeep",session_id:$sid,event:$ev,rule_index:$idx,type:$typ,user:$usr,reason:$rea}
+     | if $cc_sid != "" then .cc_session_id = $cc_sid else . end
+     | if $corr_id != "" then .correlation_id = $corr_id else . end
+     | if $proj_dir != "" then .project_dir = $proj_dir else . end')
   _locked_append "$LANEKEEP_TRACE_FILE" "$entry"
 }
 

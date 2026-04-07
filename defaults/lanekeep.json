@@ -1634,8 +1634,8 @@
     {
       "id": "sec-039",
       "match": {
-        "target": "lanekeep\\.json|\\.lanekeep/(resolved-config|state|session)",
-        "tool": "^(Read|Glob)$"
+        "target": "lanekeep\\.json|\\.lanekeep/|\\.claude/settings",
+        "tool": "^(Read|Glob|Grep)$"
       },
       "decision": "deny",
       "reason": "Reading LaneKeep configuration blocked — governance rules must remain opaque to the governed agent",
@@ -1650,7 +1650,7 @@
     {
       "id": "sec-040",
       "match": {
-        "pattern": "(cat|head|tail|less|more|strings|jq|python|node)\\s+.*(\\.lanekeep/|lanekeep\\.json)"
+        "pattern": "(cat|head|tail|less|more|strings|jq|python|node|sed|awk|grep|rg|perl|ruby|od|xxd|file|stat)\\s+.*(\\.lanekeep/|lanekeep\\.json|\\.claude/settings)"
       },
       "decision": "deny",
       "reason": "Reading LaneKeep configuration via shell blocked — governance rules must remain opaque to the governed agent",

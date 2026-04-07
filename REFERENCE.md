@@ -260,8 +260,8 @@ reverse-engineer match patterns and craft evasions. Two rules enforce this:
 
 | Rule | Tool | Target | Blocks |
 |------|------|--------|--------|
-| `sec-039` | Read, Glob | `lanekeep.json`, `.lanekeep/resolved-config\|state\|session` | Direct file reads and glob searches |
-| `sec-040` | Bash | `cat\|head\|tail\|jq\|python\|node` + config paths | Shell-based config reads |
+| `sec-039` | Read, Glob, Grep | `lanekeep.json`, `.lanekeep/`, `.claude/settings` | Direct file reads, glob searches, and content searches |
+| `sec-040` | Bash | `cat\|head\|tail\|less\|more\|strings\|jq\|python\|node\|sed\|awk\|grep\|rg\|perl\|ruby\|od\|xxd\|file\|stat` + config paths | Shell-based config reads (includes `.claude/settings`) |
 
 > **Note:** LaneKeep's source code (`bin/`, `lib/`, `hooks/`) remains readable —
 > security of the engine depends on blocking modifications, not hiding the code.

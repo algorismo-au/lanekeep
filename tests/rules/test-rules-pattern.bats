@@ -132,10 +132,10 @@ EOF
   [[ "$RULES_REASON" == *"governance_paths"* ]]
 }
 
-@test "governance_paths: Read tool not blocked for .lanekeep/ (only Write/Edit)" {
+@test "governance_paths: Read tool blocked for .lanekeep/ (config opacity)" {
   export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
   rules_eval "Read" '{"file_path":".lanekeep/state.json"}' || true
-  [ "$RULES_PASSED" = "true" ]
+  [ "$RULES_PASSED" = "false" ]
 }
 
 @test "governance_paths: Write to lanekeep/plugins.d/ denied" {

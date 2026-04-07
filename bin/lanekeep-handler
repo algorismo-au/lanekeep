@@ -40,7 +40,14 @@ _REQ_EXTRACT=$(printf '%s' "$RAW_INPUT" | jq -r '
     "TOOL_USE_ID=" + (.tool_use_id // "" | @sh),
     "HOOK_EVENT=" + (.hook_event_name // "PreToolUse" | @sh),
     "SESSION_ID=" + (.session_id // "" | @sh),
-    "TRANSCRIPT_PATH=" + (.transcript_path // "" | @sh)
+    "TRANSCRIPT_PATH=" + (.transcript_path // "" | @sh),
+    "_TRACE_AGENT_ID=" + (.agent_id // "" | @sh),
+    "_TRACE_PARENT_SESSION_ID=" + (.parent_session_id // "" | @sh),
+    "_TRACE_SPAWNED_BY=" + (.spawned_by // "" | @sh),
+    "_TRACE_AGENT_DEPTH=" + (if has("agent_depth") then .agent_depth | tostring else "" end | @sh),
+    "_TRACE_AGENT_TYPE=" + (.agent_type // "" | @sh),
+    "_TRACE_ISOLATION_TYPE=" + (.isolation_type // "" | @sh),
+    "_TRACE_IS_BACKGROUND=" + (if .is_background == true then "true" elif .is_background == false then "false" else "" end | @sh)
   end' 2>/dev/null) || _REQ_EXTRACT=""
 
 if [ -z "$_REQ_EXTRACT" ]; then
@@ -48,6 +55,18 @@ if [ -z "$_REQ_EXTRACT" ]; then
   exit 0
 fi
 eval "$_REQ_EXTRACT"
+
+# AG-002/003: Set trace context vars for cc_session_id and agent metadata
+_TRACE_CC_SESSION_ID="$SESSION_ID"
+
+# Truncate agent metadata to prevent resource exhaustion from malicious input
+[[ ${#_TRACE_CC_SESSION_ID} -le 256 ]] || _TRACE_CC_SESSION_ID="${_TRACE_CC_SESSION_ID:0:256}"
+[[ ${#_TRACE_AGENT_ID} -le 128 ]] || _TRACE_AGENT_ID="${_TRACE_AGENT_ID:0:128}"
+[[ ${#_TRACE_PARENT_SESSION_ID} -le 128 ]] || _TRACE_PARENT_SESSION_ID="${_TRACE_PARENT_SESSION_ID:0:128}"
+[[ ${#_TRACE_SPAWNED_BY} -le 128 ]] || _TRACE_SPAWNED_BY="${_TRACE_SPAWNED_BY:0:128}"
+[[ ${#_TRACE_AGENT_TYPE} -le 64 ]] || _TRACE_AGENT_TYPE="${_TRACE_AGENT_TYPE:0:64}"
+[[ ${#_TRACE_ISOLATION_TYPE} -le 32 ]] || _TRACE_ISOLATION_TYPE="${_TRACE_ISOLATION_TYPE:0:32}"
+[[ "${_TRACE_AGENT_DEPTH:-}" =~ ^[0-9]+$ ]] || _TRACE_AGENT_DEPTH=""
 
 # P1: Pre-extract all config flags in one jq call
 # Eliminates ~8 downstream jq calls that each parse the full config

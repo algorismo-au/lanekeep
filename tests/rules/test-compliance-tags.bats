@@ -318,7 +318,7 @@ EOF
 @test "defaults: 70 rules have compliance_tags" {
   count=$(jq '[.rules[] | select(has("compliance_tags"))] | length' \
     "$LANEKEEP_DIR/defaults/lanekeep.json")
-  [ "$count" -eq 70 ]
+  [ "$count" -eq 72 ]
 }
 
 @test "defaults: all compliance_tags values are non-empty arrays" {
