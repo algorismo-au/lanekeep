@@ -120,6 +120,63 @@ Denied actions show a reason. Allowed actions proceed silently. View decisions i
 
 ---
 
+## Managing LaneKeep
+
+### Enable & Disable
+
+`lanekeep init` registers hooks automatically, but you can manage hook registration independently:
+
+```bash
+lanekeep enable          # Register hooks in Claude Code settings
+lanekeep disable         # Remove hooks from Claude Code settings
+lanekeep status          # Check if LaneKeep is active and show governance state
+```
+
+**Restart Claude Code after `enable` or `disable` for changes to take effect.**
+
+`enable` writes three hooks (PreToolUse, PostToolUse, Stop) into your Claude Code
+settings file — project-local `.claude/settings.local.json` if it exists, otherwise
+`~/.claude/settings.json`. `disable` removes them cleanly.
+
+### Start & Stop
+
+Hooks alone work — every tool call is evaluated inline. The sidecar adds a
+persistent background process for faster evaluation and the web dashboard:
+
+```bash
+lanekeep start           # Sidecar + web dashboard (recommended)
+lanekeep serve           # Sidecar only (no dashboard)
+lanekeep stop            # Shut down sidecar and dashboard
+lanekeep status          # Check running state
+```
+
+### Temporarily Disabling LaneKeep
+
+There are two levels of "disable":
+
+| Scope | Command | What it does |
+|-------|---------|-------------|
+| **Entire system** | `lanekeep disable` | Removes all hooks — no evaluation happens. Restart Claude Code. |
+| **One policy** | `lanekeep policy disable <category> --reason "..."` | Disables a single policy category (e.g. `governance_paths`) while everything else stays enforced. |
+
+To pause a single policy and re-enable it:
+
+```bash
+lanekeep policy disable governance_paths --reason "Updating CLAUDE.md"
+# ... make changes ...
+lanekeep policy enable governance_paths
+```
+
+To disable LaneKeep entirely and bring it back:
+
+```bash
+lanekeep disable         # Remove hooks — restart Claude Code
+# ... work without governance ...
+lanekeep enable          # Re-register hooks — restart Claude Code
+```
+
+---
+
 ## What Gets Blocked
 
 See [Configuration](#configuration) to override, extend, or disable anything.

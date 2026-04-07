@@ -437,7 +437,9 @@ options at [info@algorismo.com](mailto:info@algorismo.com).
 ## CLI Reference
 
 ```bash
-lanekeep init [dir]          # Initialize in a project
+lanekeep enable              # Register hooks in Claude Code settings
+lanekeep disable             # Remove hooks from Claude Code settings
+lanekeep init [dir]          # Initialize in a project (also runs enable)
 lanekeep start               # Start sidecar + dashboard
 lanekeep serve [--spec FILE] # Start sidecar only
 lanekeep demo                # Run demo
