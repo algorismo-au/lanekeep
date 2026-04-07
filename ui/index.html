@@ -1478,6 +1478,8 @@ let govTimestampInterval = null;
 let statusInterval = null;
 let activityInterval = null;
 let activityLastHash = '';
+let widgetStatusLastHash = '';
+let widgetSparklineLastHash = '';
 
 // Debounce utility — delays fn by ms, resetting on each call
 function debounce(fn, ms) {
@@ -1524,7 +1526,7 @@ function showView(view, skipPush) {
   settings.classList.remove('visible');
   if (governanceInterval) { clearInterval(governanceInterval); governanceInterval = null; }
   if (insightsInterval) { clearInterval(insightsInterval); insightsInterval = null; insightsLastHash = ''; }
-  if (activityInterval) { clearInterval(activityInterval); activityInterval = null; activityLastHash = ''; }
+  if (activityInterval) { clearInterval(activityInterval); activityInterval = null; activityLastHash = ''; widgetStatusLastHash = ''; widgetSparklineLastHash = ''; }
   if (govTimestampInterval) { clearInterval(govTimestampInterval); govTimestampInterval = null; }
   govLastHash = '';
   insights.classList.remove('no-entrance-anim');
@@ -1853,11 +1855,26 @@ async function loadHomeActivity() {
     }
     try {
       var sRes = await statusRes;
-      if (sRes.ok) { var sData = await sRes.json(); renderActivityLeftWidgets(sData); renderActivityWidgets(sData); }
+      if (sRes.ok) {
+        var sData = await sRes.json();
+        var sHash = JSON.stringify(sData.budget) + '|' + JSON.stringify(sData.session);
+        if (sHash !== widgetStatusLastHash) {
+          widgetStatusLastHash = sHash;
+          renderActivityLeftWidgets(sData);
+          renderActivityWidgets(sData);
+        }
+      }
     } catch (e) { /* status fetch non-critical */ }
     try {
       var tRes = await trendRes;
-      if (tRes.ok) { var tData = await tRes.json(); renderActivitySparkline(tData); }
+      if (tRes.ok) {
+        var tData = await tRes.json();
+        var tHash = JSON.stringify(tData.buckets?.length) + '|' + JSON.stringify(tData.buckets?.[tData.buckets?.length - 1]);
+        if (tHash !== widgetSparklineLastHash) {
+          widgetSparklineLastHash = tHash;
+          renderActivitySparkline(tData);
+        }
+      }
     } catch (e) { /* trend fetch non-critical */ }
   } catch (e) { /* non-critical */ }
 }
@@ -4128,8 +4145,7 @@ function renderTrendCharts(data) {
 }
 
 function renderActivityHeatmap(data) {
-  const el = document.getElementById('insights-trends');
-  if (!data || !data.days || !data.days.length) return;
+  if (!data || !data.days || !data.days.length) return '';
   const maxCount = data.max_count || 1;
   function cellColor(count, maxCount) {
     if (count === 0 || maxCount === 0) return 'var(--bg-hover)';
@@ -4161,12 +4177,11 @@ function renderActivityHeatmap(data) {
       <span>${numWeeks} ${weekLabel} ago</span>
     </div>
   </div>`;
-  el.innerHTML += section;
+  return section;
 }
 
 function renderHourlyUsageChart(allTimeDist) {
-  const el = document.getElementById('insights-trends');
-  if (!allTimeDist || allTimeDist.length !== 24) return;
+  if (!allTimeDist || allTimeDist.length !== 24) return '';
   const maxCount = Math.max(...allTimeDist, 1);
   const W = 1200, H = 76, barW = W / 24;
   const BAR_BOTTOM = 52, BAR_AREA = 44;
@@ -4188,7 +4203,7 @@ function renderHourlyUsageChart(allTimeDist) {
     <div class="trend-header"><h3 class="trend-title">Usage by time of day</h3></div>
     ${svg}
   </div>`;
-  el.innerHTML += section;
+  return section;
 }
 
 async function loadInsights() {
@@ -4224,9 +4239,11 @@ async function loadInsights() {
     if (newHash === insightsLastHash) return;
     insightsLastHash = newHash;
     window._trendData = trendsData;
-    renderTrendCharts(trendsData);
-    renderActivityHeatmap(heatmapData);
-    renderHourlyUsageChart(insightsStatusData.cumulative?.hourly_distribution || null);
+    var trendsHtml = (renderTrendCharts(trendsData) || '')
+      + (renderActivityHeatmap(heatmapData) || '')
+      + (renderHourlyUsageChart(insightsStatusData.cumulative?.hourly_distribution || null) || '');
+    // Sanitize assembled HTML through DOMPurify before DOM insertion; svg profile preserves chart SVGs
+    document.getElementById('insights-trends').innerHTML = DOMPurify.sanitize(trendsHtml, { USE_PROFILES: { svg: true, html: true } });
     const cardsEl = document.getElementById('insights-cards');
     const bodyEl = document.getElementById('insights-body');
     const bannerEl = document.getElementById('insights-offline-banner');
