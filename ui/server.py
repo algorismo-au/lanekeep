@@ -830,6 +830,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             with open(CONFIG_PATH) as f:
                 config = json.load(f)
+            config = _resolve_config(config)
             data = json.dumps(config, indent=2).encode()
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
@@ -2636,12 +2637,13 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(hbo, dict):
                 return False, 'hard_block_overrides must be an object'
             VALID_OVERRIDE_VALUES = {'warn', 'disable'}
-            # Load configurable list from current config
+            # Load configurable list from resolved config (includes defaults)
             configurable = set()
             try:
                 with open(CONFIG_PATH) as f:
                     cfg = json.load(f)
-                configurable = set(cfg.get('configurable_hard_blocks', []))
+                resolved = _resolve_config(cfg)
+                configurable = set(resolved.get('configurable_hard_blocks', []))
             except Exception:
                 pass
             for pat, val in hbo.items():
