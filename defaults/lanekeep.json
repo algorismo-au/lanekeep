@@ -553,7 +553,13 @@
         "lanekeep/hooks/",
         "lanekeep/defaults/",
         "\\.lanekeep/",
-        "lanekeep/plugins\\.d/"
+        "lanekeep/plugins\\.d/",
+        "lanekeep/ee/",
+        "lanekeep/ui/",
+        "lanekeep/data/",
+        "lanekeep/keys/",
+        "lanekeep/scripts/",
+        "lanekeep/images/"
       ],
       "allowed": []
     },
@@ -819,6 +825,28 @@
       "reason": "Mass file destruction via find pipeline — review carefully",
       "category": "system",
       "intent": "Using find with -delete, -exec rm/shred/truncate, or piping to xargs achieves uncontrolled mass file destruction",
+      "type": "free"
+    },
+    {
+      "id": "sys-053",
+      "match": {
+        "pattern": "\\bshred\\b"
+      },
+      "decision": "deny",
+      "reason": "Destructive file shredding blocked — irrecoverable data destruction",
+      "category": "system",
+      "intent": "shred overwrites file contents with random data making recovery impossible — used for anti-forensic log tampering, never needed in coding workflows",
+      "type": "free"
+    },
+    {
+      "id": "sys-054",
+      "match": {
+        "pattern": "\\btruncate\\b.*-s\\s*0\\b"
+      },
+      "decision": "deny",
+      "reason": "Truncating file to zero bytes blocked — silent data destruction",
+      "category": "system",
+      "intent": "truncate -s 0 empties a file while leaving it in place — commonly used to wipe logs after exploitation while evading existence checks",
       "type": "free"
     },
     {
@@ -1614,12 +1642,89 @@
     {
       "id": "sec-040",
       "match": {
-        "pattern": "(cat|head|tail|less|more|strings|jq|python|node|sed|awk|grep|rg|perl|ruby|od|xxd|file|stat)\\s+.*(\\.lanekeep/|lanekeep\\.json|\\.claude/settings)"
+        "pattern": "(cat|head|tail|less|more|strings|jq|python[23]?|node|sed|awk|grep|rg|perl|ruby|od|xxd|file|stat|find|ls|tree|wc|bat|diff|hexdump|readlink|realpath|du|sha256sum|md5sum|base64)\\s+.*(\\.lanekeep/|lanekeep\\.json|\\.claude/settings)"
       },
       "decision": "deny",
       "reason": "Reading LaneKeep configuration via shell blocked — governance rules must remain opaque to the governed agent",
       "category": "security",
       "intent": "Shell commands reading config files bypass Read tool protections — both vectors must be closed",
+      "type": "free",
+      "compliance_tags": [
+        "atlas:t0051",
+        "nist-ai100-2:prompt-injection"
+      ]
+    },
+    {
+      "id": "sec-041",
+      "match": {
+        "target": "lanekeep/(bin|lib|hooks|defaults|plugins\\.d|ee|ui|data|keys|scripts|images)/",
+        "tool": "^(Read|Glob|Grep)$"
+      },
+      "decision": "deny",
+      "reason": "Reading LaneKeep installation source blocked — governance implementation must remain opaque to the governed agent",
+      "category": "security",
+      "intent": "If the agent can read evaluator source, hook scripts, or default rules, it can reverse-engineer detection logic and craft evasions",
+      "type": "free",
+      "compliance_tags": [
+        "atlas:t0051",
+        "nist-ai100-2:prompt-injection"
+      ]
+    },
+    {
+      "id": "sec-042",
+      "match": {
+        "pattern": "(cat|head|tail|less|more|strings|jq|python[23]?|node|sed|awk|grep|rg|perl|ruby|od|xxd|file|stat|find|ls|tree|wc|bat|diff|hexdump|readlink|realpath|du|sha256sum|md5sum|base64)\\s+.*lanekeep/(bin|lib|hooks|defaults|plugins\\.d|ee|ui|data|keys|scripts|images)/"
+      },
+      "decision": "deny",
+      "reason": "Reading LaneKeep installation via shell blocked — governance implementation must remain opaque to the governed agent",
+      "category": "security",
+      "intent": "Shell commands reading installation files bypass Read/Glob/Grep tool protections — both vectors must be closed",
+      "type": "free",
+      "compliance_tags": [
+        "atlas:t0051",
+        "nist-ai100-2:prompt-injection"
+      ]
+    },
+    {
+      "id": "sec-043",
+      "match": {
+        "pattern": "(\\$\\{?LANEKEEP_(DIR|SOCKET|CONFIG|STATE|TRACE|SESSION|TASKSPEC|ENV|LICENSE|PROFILE)|\\bLANEKEEP_(DIR|SOCKET|CONFIG_FILE|STATE_FILE|TRACE_FILE|SESSION_ID|TASKSPEC_FILE|ENV|LICENSE_TIER|PROFILE)\\b|ps\\s+.*lanekeep|/proc/\\d+/.*lanekeep)"
+      },
+      "decision": "deny",
+      "reason": "Inspecting LaneKeep environment variables or processes blocked — installation paths must remain opaque",
+      "category": "security",
+      "intent": "Environment variables and process listings reveal the installation path, enabling the agent to locate and read governance source",
+      "type": "free",
+      "compliance_tags": [
+        "atlas:t0051",
+        "nist-ai100-2:prompt-injection"
+      ]
+    },
+    {
+      "id": "sec-044",
+      "match": {
+        "pattern": "(which|whereis|type\\s+-[atp]|command\\s+-v|readlink\\s+-f|realpath)\\s+.*\\blanekeep\\b"
+      },
+      "decision": "deny",
+      "reason": "Introspecting LaneKeep binary location blocked — install path must remain opaque",
+      "category": "security",
+      "intent": "Commands like 'which lanekeep' reveal the install path, enabling the agent to navigate to governance source",
+      "type": "free",
+      "compliance_tags": [
+        "atlas:t0051",
+        "nist-ai100-2:prompt-injection"
+      ]
+    },
+    {
+      "id": "sec-045",
+      "match": {
+        "target": "lanekeep/(README|CLAUDE|REFERENCE|SECURITY|CONTRIBUTING|NOTICE|LICENSE|THIRD-PARTY)",
+        "tool": "^(Read|Glob|Grep)$"
+      },
+      "decision": "deny",
+      "reason": "Reading LaneKeep documentation blocked — governance architecture details must remain opaque",
+      "category": "security",
+      "intent": "Documentation describes evaluator pipelines, rule formats, and hook protocols — knowledge enabling evasion",
       "type": "free",
       "compliance_tags": [
         "atlas:t0051",
