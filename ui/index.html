@@ -1117,7 +1117,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
     <div class="section-actions" id="rules-actions">
       <span id="status" class="status"></span>
       <button class="update-btn" title="Check for rule updates" id="update-rules-btn" style="display:none">Update Rules<span class="update-badge" id="update-badge"></span></button>
-      <button id="add-rule-btn" title="Add new rule">+ Add Rule</button>
+      <button id="add-rule-btn" class="primary" title="Add new rule">+ Add Rule</button>
       <button class="btn-discard" id="discard-rules-btn" disabled>Discard</button>
       <button class="btn-save primary" id="save-rules-btn" disabled>Save</button>
     </div>
@@ -3883,7 +3883,6 @@ function renderInsightsTable() {
 }
 
 function renderTrendCharts(data) {
-  const el = document.getElementById('insights-trends');
   const rangeOpts = [['1h','1 hr'],['6h','6 hr'],['24h','24 hr'],['7d','7 days'],['30d','30 days'],['all','All']];
   const rangeBar = '<div class="trend-range-bar">' + rangeOpts.map(([v, lbl]) =>
     `<button class="trend-range-btn${trendRange === v ? ' active' : ''}" data-action="setTrendRange" data-range="${v}">${esc(lbl)}</button>`
@@ -3900,9 +3899,8 @@ function renderTrendCharts(data) {
       if (data && data.latest_timestamp) {
         hint += ' Latest data is from ' + _relativeTime(data.latest_timestamp) + '.';
       }
-      el.innerHTML = '<div class="trend-section"><div class="trend-header"><h3 class="trend-title">Trends</h3>' + rangeBar + '</div>'
+      return '<div class="trend-section"><div class="trend-header"><h3 class="trend-title">Trends</h3>' + rangeBar + '</div>'
         + '<div style="color:var(--text-muted);font-size:12px;padding:12px 0">' + esc(hint) + '</div></div>';
-      return;
     }
   } else {
     // Non-empty response — cache it
@@ -3924,7 +3922,7 @@ function renderTrendCharts(data) {
     const latText = 'P50: ' + (b.latency_p50 || 0) + ' \u00b7 P95: ' + (b.latency_p95 || 0);
     var staleClass1 = data._stale ? ' trend-section-stale' : '';
     var staleHint1 = data._stale ? '<div class="trend-stale-hint">Showing last known data \u2014 latest entry was ' + esc(b.t) + '</div>' : '';
-    el.innerHTML = '<div class="trend-section' + staleClass1 + '">'
+    return '<div class="trend-section' + staleClass1 + '">'
       + '<div class="trend-header"><h3 class="trend-title">Trends</h3>'
       + rangeBar + '</div>'
       + staleHint1
@@ -3939,7 +3937,6 @@ function renderTrendCharts(data) {
       + '<div class="trend-card"><h4>Cost (Est)</h4><div style="font-size:28px;font-weight:700;padding:12px 0">' + fmtCost(b.cost || 0) + '</div></div>'
       + '<div class="trend-card"><h4>Burn Rate (Est)</h4><div style="font-size:14px;padding:12px 0;color:var(--text-secondary)">Insufficient data</div></div>'
       + '</div></div>';
-    return;
   }
   const buckets = data.buckets;
   const W = 600, H = 80, PAD = 2;
@@ -4116,7 +4113,7 @@ function renderTrendCharts(data) {
   var staleClass = data._stale ? ' trend-section-stale' : '';
   var staleHint = data._stale ? '<div class="trend-stale-hint">Showing last known data \u2014 latest entry was ' + esc(last) + '</div>' : '';
   // All values are derived from server-side aggregation of trace data — no user-supplied strings interpolated
-  el.innerHTML = '<div class="trend-section' + staleClass + '">'
+  return '<div class="trend-section' + staleClass + '">'
     + '<div class="trend-header"><h3 class="trend-title">Trends</h3>' + rangeBar + '</div>'
     + staleHint
     + '<div class="trend-grid">'
