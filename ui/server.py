@@ -831,6 +831,16 @@ class Handler(BaseHTTPRequestHandler):
             with open(CONFIG_PATH) as f:
                 config = json.load(f)
             config = _resolve_config(config)
+            # Always include engine-level configurable hard-blocks from defaults
+            if 'configurable_hard_blocks' not in config:
+                defaults_path = LANEKEEP_DIR / 'defaults' / 'lanekeep.json'
+                try:
+                    with open(defaults_path) as df:
+                        defaults = json.load(df)
+                    config['configurable_hard_blocks'] = defaults.get(
+                        'configurable_hard_blocks', [])
+                except (OSError, json.JSONDecodeError):
+                    pass
             data = json.dumps(config, indent=2).encode()
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')

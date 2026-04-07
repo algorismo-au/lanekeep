@@ -141,7 +141,7 @@ case "${1:-help}" in
     echo "LaneKeep enabled in $SETTINGS"
     echo "Restart Claude Code for changes to take effect."
     ;;
-  disable)
+  disable|uninstall)
     SETTINGS=$(_lanekeep_settings_file)
     if [ ! -f "$SETTINGS" ]; then
       echo "No settings file found — LaneKeep is not enabled."
@@ -210,7 +210,7 @@ case "${1:-help}" in
     echo ""
     echo "Commands:"
     echo "  enable                  Register LaneKeep hooks in Claude Code settings"
-    echo "  disable                 Remove LaneKeep hooks from Claude Code settings"
+    echo "  disable|uninstall       Remove LaneKeep hooks from Claude Code settings"
     echo "  start                   Start sidecar + UI together"
     echo "  stop                    Stop running sidecar"
     echo "  status                  Show governance state as JSON"

@@ -1419,6 +1419,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
       <h3>Hard-Block Overrides</h3>
       <p class="settings-hint">Configurable hard-block patterns. Override to <strong>Warn</strong> (flag but allow) or <strong>Disable</strong> (skip entirely). Catastrophic patterns (rm&nbsp;-rf&nbsp;/, fork bombs, etc.) cannot be overridden.</p>
       <div id="hardblock-overrides-list"></div>
+      <div style="height:4em;"></div>
     </div>
 
   </div>
@@ -5834,6 +5835,7 @@ async function loadSettings() {
       pricing_overrides: Object.assign({}, (cfg.budget && cfg.budget.pricing_overrides) || {}),
       hard_block_overrides: Object.assign({}, cfg.hard_block_overrides || {}),
       _configurable_hard_blocks: cfg.configurable_hard_blocks || [],
+      _rules: cfg.rules || [],
     };
     // Backward compat: migrate old platforms object to single platform string
     const n = settingsData.notifications;
@@ -5978,11 +5980,29 @@ async function renderPricingSettings() {
   }
 }
 
+function _findConflictingRules(pat, rules) {
+  var patLower = pat.toLowerCase();
+  var conflicts = [];
+  var words = patLower.split(/\s+/).filter(function(w) { return w.length > 1; });
+  rules.forEach(function(rule) {
+    if (rule.decision !== 'deny') return;
+    var m = rule.match || {};
+    var cmd = (m.command || '').toLowerCase();
+    var target = (m.target || '').toLowerCase();
+    var combined = cmd + ' ' + target;
+    // Check if the hard-block pattern's key terms appear in the rule's match fields
+    var matched = words.every(function(w) { return combined.indexOf(w) !== -1; });
+    if (matched) conflicts.push(rule);
+  });
+  return conflicts;
+}
+
 function renderHardblockOverrides() {
   var container = document.getElementById('hardblock-overrides-list');
   if (!container) return;
   var patterns = settingsData._configurable_hard_blocks || [];
   var overrides = settingsData.hard_block_overrides || {};
+  var rules = settingsData._rules || [];
   container.textContent = '';
   if (patterns.length === 0) {
     var empty = document.createElement('span');
@@ -5993,12 +6013,21 @@ function renderHardblockOverrides() {
   }
   patterns.forEach(function(pat) {
     var current = overrides[pat] || 'block';
+    var conflicts = _findConflictingRules(pat, rules);
     var row = document.createElement('div');
     row.className = 'settings-row';
     var label = document.createElement('span');
     label.className = 'settings-label';
     label.style.cssText = 'font-family:var(--font-mono);font-size:12px;';
     label.textContent = pat;
+    if (conflicts.length > 0) {
+      var warn = document.createElement('span');
+      warn.style.cssText = 'color:var(--accent-warn, #e8a838);margin-left:8px;font-size:11px;cursor:help;';
+      var ruleIds = conflicts.map(function(r) { return r.id; }).join(', ');
+      warn.title = 'Also blocked by rule' + (conflicts.length > 1 ? 's' : '') + ' ' + ruleIds + ' \u2014 override may not take effect unless the rule is also disabled';
+      warn.textContent = '\u26a0 rule conflict';
+      label.appendChild(warn);
+    }
     var sel = document.createElement('select');
     sel.className = 'settings-select hb-override-select';
     sel.dataset.pattern = pat;
