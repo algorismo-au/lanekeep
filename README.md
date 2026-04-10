@@ -24,7 +24,10 @@
   <a href="translations/README.pt-BR.md">Português</a> ·
   <a href="translations/README.de.md">Deutsch</a> ·
   <a href="translations/README.fr.md">Français</a> ·
-  <a href="translations/README.ru.md">Русский</a>
+  <a href="translations/README.ru.md">Русский</a> ·
+  <a href="translations/README.tr.md">Türkçe</a> ·
+  <a href="translations/README.ar.md">العربية</a> ·
+  <a href="translations/README.vi.md">Tiếng Việt</a>
 </p>
 
 # LaneKeep
