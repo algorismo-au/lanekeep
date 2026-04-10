@@ -2,12 +2,12 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="images/lanekeep-logo-mark.svg" />
     <source media="(prefers-color-scheme: light)" srcset="images/lanekeep-logo-mark-light.svg" />
-    <img src="images/lanekeep-logo-mark-light.svg" alt="LaneKeep" width="120" />
+    <img src="../images/lanekeep-logo-mark-light.svg" alt="LaneKeep" width="120" />
   </picture>
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0" /></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0" /></a>
   <a href="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml"><img src="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
   <img src="https://img.shields.io/badge/version-1.0.4-green.svg" alt="Version: 1.0.4" />
   <img src="https://img.shields.io/badge/Made_with-Bash-1f425f.svg?logo=gnubash&logoColor=white" alt="Made with Bash" />
@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="README.md">English</a> ·
+  <a href="../README.md">English</a> ·
   <a href="README.zh-CN.md">简体中文</a> ·
   <a href="README.ja.md">日本語</a> ·
   <a href="README.es.md">Español</a> ·
@@ -47,7 +47,7 @@ Compatible con Claude Code CLI en Linux, macOS y Windows (via WSL o Git Bash). O
 Para mas detalles consulta [Configuracion](#configuración).
 
 <p align="center">
-  <img src="images/readme/lanekeep_home.png" alt="Panel de LaneKeep" width="749" />
+  <img src="../images/readme/lanekeep_home.png" alt="Panel de LaneKeep" width="749" />
 </p>
 
 ## Inicio rapido
@@ -127,9 +127,9 @@ Las acciones denegadas muestran un motivo. Las acciones permitidas proceden sile
 
 | | |
 |:---:|:---:|
-| <img src="images/readme/lanekeep_in_action4.png" alt="Git rebase — requiere aprobacion" width="486" /> | <img src="images/readme/lanekeep_in_action7.png" alt="Destruccion de base de datos — denegado" width="486" /> |
-| <img src="images/readme/lanekeep_in_action8.png" alt="Netcat — requiere aprobacion" width="486" /> | <img src="images/readme/lanekeep_in_action12.png" alt="git push --force — bloqueado" width="486" /> |
-| <img src="images/readme/lanekeep_in_action13.png" alt="chmod 777 — bloqueado" width="486" /> | <img src="images/readme/lanekeep_in_action15.png" alt="Evasion de TLS — requiere aprobacion" width="486" /> |
+| <img src="../images/readme/lanekeep_in_action4.png" alt="Git rebase — requiere aprobacion" width="486" /> | <img src="../images/readme/lanekeep_in_action7.png" alt="Destruccion de base de datos — denegado" width="486" /> |
+| <img src="../images/readme/lanekeep_in_action8.png" alt="Netcat — requiere aprobacion" width="486" /> | <img src="../images/readme/lanekeep_in_action12.png" alt="git push --force — bloqueado" width="486" /> |
+| <img src="../images/readme/lanekeep_in_action13.png" alt="chmod 777 — bloqueado" width="486" /> | <img src="../images/readme/lanekeep_in_action15.png" alt="Evasion de TLS — requiere aprobacion" width="486" /> |
 
 ---
 
@@ -214,7 +214,7 @@ LaneKeep se protege a si mismo y a los archivos de gobernanza del agente contra 
 | `plugins.d/` | Evaluadores de plugins |
 
 Las **escrituras** son bloqueadas por la politica `governance_paths` (herramientas Write/Edit).
-Las **lecturas** de la configuracion activa (`lanekeep.json`, archivos de estado en `.lanekeep/`) son bloqueadas por las reglas `sec-039` y `sec-040`. Exponer el conjunto de reglas permitiria al agente hacer ingenieria inversa de los patrones de coincidencia y crear evasiones. El codigo fuente de LaneKeep (`bin/`, `lib/`) permanece legible; la seguridad del motor es abierta, pero la configuracion activa es opaca para el agente gobernado. Consulta [REFERENCE.md](REFERENCE.md#self-protection-governance_paths--rules) para mas detalles.
+Las **lecturas** de la configuracion activa (`lanekeep.json`, archivos de estado en `.lanekeep/`) son bloqueadas por las reglas `sec-039` y `sec-040`. Exponer el conjunto de reglas permitiria al agente hacer ingenieria inversa de los patrones de coincidencia y crear evasiones. El codigo fuente de LaneKeep (`bin/`, `lib/`) permanece legible; la seguridad del motor es abierta, pero la configuracion activa es opaca para el agente gobernado. Consulta [REFERENCE.md](../REFERENCE.md#self-protection-governance_paths--rules) para mas detalles.
 
 ---
 
@@ -235,9 +235,9 @@ Se conecta al [hook PreToolUse](https://docs.anthropic.com/en/docs/claude-code/h
 | 7 | Semantic | Verificacion de intencion por LLM — desalineacion de objetivos, violaciones del espiritu de la tarea, exfiltracion disfrazada (opcional) |
 | Post | ResultTransform | Secretos/inyeccion en la salida |
 
-El evaluador semantico lee el objetivo de la tarea desde TaskSpec — configuralo con `lanekeep serve --spec DESIGN.md` o escribe `.lanekeep/taskspec.json` directamente. Consulta [REFERENCE.md](REFERENCE.md#budget--taskspec) para mas detalles.
+El evaluador semantico lee el objetivo de la tarea desde TaskSpec — configuralo con `lanekeep serve --spec DESIGN.md` o escribe `.lanekeep/taskspec.json` directamente. Consulta [REFERENCE.md](../REFERENCE.md#budget--taskspec) para mas detalles.
 
-Consulta [CLAUDE.md](CLAUDE.md) para descripciones detalladas de los niveles y el flujo de datos.
+Consulta [CLAUDE.md](../CLAUDE.md) para descripciones detalladas de los niveles y el flujo de datos.
 
 ## Conceptos fundamentales
 
@@ -350,13 +350,13 @@ lanekeep rules whatsnew --acknowledge    # Registrar el estado actual (limpia av
 
 Se configura mediante la variable de entorno `LANEKEEP_PROFILE` o `"profile"` en `lanekeep.json`.
 
-Consulta [REFERENCE.md](REFERENCE.md) para campos de reglas, categorias de politicas, configuraciones y variables de entorno.
+Consulta [REFERENCE.md](../REFERENCE.md) para campos de reglas, categorias de politicas, configuraciones y variables de entorno.
 
 ---
 
 ## Referencia de la CLI
 
-Consulta [REFERENCE.md — CLI Reference](REFERENCE.md#cli-reference) para la lista completa de comandos.
+Consulta [REFERENCE.md — CLI Reference](../REFERENCE.md#cli-reference) para la lista completa de comandos.
 
 ---
 
@@ -369,7 +369,7 @@ Ve exactamente lo que tu agente esta haciendo mientras construye: decisiones en 
 Contadores de tokens de entrada/salida en tiempo real, porcentaje de uso de la ventana de contexto y barras de progreso del presupuesto. Detecta sesiones que se desvian antes de que desperdicien tiempo y dinero. Establece limites estrictos de acciones, tokens y tiempo que se aplican automaticamente al alcanzarse.
 
 <p align="center">
-  <img src="images/readme/lanekeep_governance.png" alt="Gobernanza de LaneKeep — presupuesto y estadisticas de sesion" width="749" />
+  <img src="../images/readme/lanekeep_governance.png" alt="Gobernanza de LaneKeep — presupuesto y estadisticas de sesion" width="749" />
 </p>
 
 ### Informacion detallada
@@ -377,13 +377,13 @@ Contadores de tokens de entrada/salida en tiempo real, porcentaje de uso de la v
 Feed de decisiones en tiempo real, tendencias de denegaciones, actividad por archivo, percentiles de latencia y una linea de tiempo de decisiones a lo largo de tu sesion.
 
 <p align="center">
-  <img src="images/readme/lanekeep_insights1.png" alt="Informacion de LaneKeep — tendencias y principales denegaciones" width="749" />
+  <img src="../images/readme/lanekeep_insights1.png" alt="Informacion de LaneKeep — tendencias y principales denegaciones" width="749" />
 </p>
 <p align="center">
-  <img src="images/readme/lanekeep_insights2.png" alt="Informacion de LaneKeep — actividad de archivos y latencia" width="749" />
+  <img src="../images/readme/lanekeep_insights2.png" alt="Informacion de LaneKeep — actividad de archivos y latencia" width="749" />
 </p>
 <p align="center">
-  <img src="images/readme/lanekeep_insights3.png" alt="Informacion de LaneKeep — linea de tiempo de decisiones" width="749" />
+  <img src="../images/readme/lanekeep_insights3.png" alt="Informacion de LaneKeep — linea de tiempo de decisiones" width="749" />
 </p>
 
 ### Auditoria y cobertura
@@ -391,13 +391,13 @@ Feed de decisiones en tiempo real, tendencias de denegaciones, actividad por arc
 Validacion de configuracion con un clic, ademas de un mapa de cobertura que vincula reglas con marcos regulatorios (PCI-DSS, HIPAA, GDPR, NIST SP800-53, SOC2, OWASP, CWE, AU Privacy Act), con resaltado de brechas y analisis de impacto de reglas.
 
 <p align="center">
-  <img src="images/readme/lanekeep_audit1.png" alt="Auditoria de LaneKeep — validacion de configuracion" width="749" />
+  <img src="../images/readme/lanekeep_audit1.png" alt="Auditoria de LaneKeep — validacion de configuracion" width="749" />
 </p>
 <p align="center">
-  <img src="images/readme/lanekeep_audit2.png" alt="Cobertura de LaneKeep — cadena de evidencia" width="749" />
+  <img src="../images/readme/lanekeep_audit2.png" alt="Cobertura de LaneKeep — cadena de evidencia" width="749" />
 </p>
 <p align="center">
-  <img src="images/readme/lanekeep_audit3.png" alt="Cobertura de LaneKeep — analisis de impacto de reglas" width="749" />
+  <img src="../images/readme/lanekeep_audit3.png" alt="Cobertura de LaneKeep — analisis de impacto de reglas" width="749" />
 </p>
 
 ### Archivos
@@ -405,7 +405,7 @@ Validacion de configuracion con un clic, ademas de un mapa de cobertura que vinc
 Cada archivo que tu agente lee o escribe, con tamanos de tokens por archivo para ver que esta consumiendo tu ventana de contexto. Ademas: conteos de operaciones, historial de denegaciones y un editor en linea.
 
 <p align="center">
-  <img src="images/readme/lanekeep_files.png" alt="Archivos de LaneKeep — arbol de archivos y editor" width="749" />
+  <img src="../images/readme/lanekeep_files.png" alt="Archivos de LaneKeep — arbol de archivos y editor" width="749" />
 </p>
 
 ### Configuracion
@@ -413,13 +413,13 @@ Cada archivo que tu agente lee o escribe, con tamanos de tokens por archivo para
 Configura perfiles de aplicacion, alterna politicas y ajusta limites de presupuesto, todo desde el panel. Los cambios surten efecto inmediatamente sin reiniciar el sidecar.
 
 <p align="center">
-  <img src="images/readme/lanekeep_settings1.png" alt="Configuracion de LaneKeep" width="749" />
+  <img src="../images/readme/lanekeep_settings1.png" alt="Configuracion de LaneKeep" width="749" />
 </p>
 <p align="center">
-  <img src="images/readme/lanekeep_settings2.png" alt="Configuracion de LaneKeep" width="749" />
+  <img src="../images/readme/lanekeep_settings2.png" alt="Configuracion de LaneKeep" width="749" />
 </p>
 <p align="center">
-  <img src="images/readme/lanekeep_settings3.png" alt="Configuracion de LaneKeep" width="749" />
+  <img src="../images/readme/lanekeep_settings3.png" alt="Configuracion de LaneKeep" width="749" />
 </p>
 
 ---
@@ -435,13 +435,13 @@ Configura perfiles de aplicacion, alterna politicas y ajusta limites de presupue
 - **Auditoria solo de anexado** — los registros de trazas no pueden ser alterados por el agente
 - **Sin dependencia de red** — Bash puro + jq, sin cadena de suministro
 
-Consulta [SECURITY.md](SECURITY.md) para reportar vulnerabilidades.
+Consulta [SECURITY.md](../SECURITY.md) para reportar vulnerabilidades.
 
 ---
 
 ## Desarrollo
 
-Consulta [CLAUDE.md](CLAUDE.md) para arquitectura y convenciones. Ejecuta las pruebas con `bats tests/` o `lanekeep selftest`. Adaptador de Cursor incluido (sin probar).
+Consulta [CLAUDE.md](../CLAUDE.md) para arquitectura y convenciones. Ejecuta las pruebas con `bats tests/` o `lanekeep selftest`. Adaptador de Cursor incluido (sin probar).
 
 ---
 

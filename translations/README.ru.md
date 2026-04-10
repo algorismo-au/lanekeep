@@ -2,12 +2,12 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="images/lanekeep-logo-mark.svg" />
     <source media="(prefers-color-scheme: light)" srcset="images/lanekeep-logo-mark-light.svg" />
-    <img src="images/lanekeep-logo-mark-light.svg" alt="LaneKeep — управление ИИ-агентом" width="120" />
+    <img src="../images/lanekeep-logo-mark-light.svg" alt="LaneKeep — управление ИИ-агентом" width="120" />
   </picture>
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0" /></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0" /></a>
   <a href="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml"><img src="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
   <img src="https://img.shields.io/badge/version-1.0.4-green.svg" alt="Version: 1.0.4" />
   <img src="https://img.shields.io/badge/Made_with-Bash-1f425f.svg?logo=gnubash&logoColor=white" alt="Made with Bash" />
@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="README.md">English</a> ·
+  <a href="../README.md">English</a> ·
   <a href="README.zh-CN.md">简体中文</a> ·
   <a href="README.ja.md">日本語</a> ·
   <a href="README.es.md">Español</a> ·
@@ -47,7 +47,7 @@ LaneKeep позволяет вашему ИИ-агенту для написан
 Подробности см. в разделе [Конфигурация](#конфигурация).
 
 <p align="center">
-  <img src="images/readme/lanekeep_home.png" alt="Панель управления LaneKeep" width="749" />
+  <img src="../images/readme/lanekeep_home.png" alt="Панель управления LaneKeep" width="749" />
 </p>
 
 ## Быстрый старт
@@ -127,9 +127,9 @@ lanekeep serve       # sidecar only
 
 | | |
 |:---:|:---:|
-| <img src="images/readme/lanekeep_in_action4.png" alt="Git rebase — требуется подтверждение" width="486" /> | <img src="images/readme/lanekeep_in_action7.png" alt="Удаление базы данных — заблокировано" width="486" /> |
-| <img src="images/readme/lanekeep_in_action8.png" alt="Netcat — требуется подтверждение" width="486" /> | <img src="images/readme/lanekeep_in_action12.png" alt="git push --force — жёстко заблокировано" width="486" /> |
-| <img src="images/readme/lanekeep_in_action13.png" alt="chmod 777 — жёстко заблокировано" width="486" /> | <img src="images/readme/lanekeep_in_action15.png" alt="Обход TLS — требуется подтверждение" width="486" /> |
+| <img src="../images/readme/lanekeep_in_action4.png" alt="Git rebase — требуется подтверждение" width="486" /> | <img src="../images/readme/lanekeep_in_action7.png" alt="Удаление базы данных — заблокировано" width="486" /> |
+| <img src="../images/readme/lanekeep_in_action8.png" alt="Netcat — требуется подтверждение" width="486" /> | <img src="../images/readme/lanekeep_in_action12.png" alt="git push --force — жёстко заблокировано" width="486" /> |
+| <img src="../images/readme/lanekeep_in_action13.png" alt="chmod 777 — жёстко заблокировано" width="486" /> | <img src="../images/readme/lanekeep_in_action15.png" alt="Обход TLS — требуется подтверждение" width="486" /> |
 
 ---
 
@@ -214,7 +214,7 @@ LaneKeep защищает себя и файлы управления агент
 | `plugins.d/` | Плагины-оценщики |
 
 **Запись** блокируется политикой `governance_paths` (инструменты Write/Edit).
-**Чтение** активной конфигурации (`lanekeep.json`, файлы состояния `.lanekeep/`) блокируется правилами `sec-039` и `sec-040`. Раскрытие набора правил позволило бы агенту реконструировать шаблоны сопоставления и обойти проверки. Исходный код LaneKeep (`bin/`, `lib/`) остаётся доступным для чтения; безопасность движка открыта, но активная конфигурация непрозрачна для управляемого агента. Подробности см. в [REFERENCE.md](REFERENCE.md#self-protection-governance_paths--rules).
+**Чтение** активной конфигурации (`lanekeep.json`, файлы состояния `.lanekeep/`) блокируется правилами `sec-039` и `sec-040`. Раскрытие набора правил позволило бы агенту реконструировать шаблоны сопоставления и обойти проверки. Исходный код LaneKeep (`bin/`, `lib/`) остаётся доступным для чтения; безопасность движка открыта, но активная конфигурация непрозрачна для управляемого агента. Подробности см. в [REFERENCE.md](../REFERENCE.md#self-protection-governance_paths--rules).
 
 ---
 
@@ -235,9 +235,9 @@ LaneKeep защищает себя и файлы управления агент
 | 7 | Semantic | LLM-проверка намерений — отклонение от цели, нарушение духа задачи, замаскированная эксфильтрация (по подписке) |
 | Post | ResultTransform | Секреты/инъекции в выходных данных |
 
-Семантический оценщик считывает цель задачи из TaskSpec — задайте её с помощью `lanekeep serve --spec DESIGN.md` или запишите напрямую в `.lanekeep/taskspec.json`. Подробности см. в [REFERENCE.md](REFERENCE.md#budget--taskspec).
+Семантический оценщик считывает цель задачи из TaskSpec — задайте её с помощью `lanekeep serve --spec DESIGN.md` или запишите напрямую в `.lanekeep/taskspec.json`. Подробности см. в [REFERENCE.md](../REFERENCE.md#budget--taskspec).
 
-Подробные описания уровней и потока данных см. в [CLAUDE.md](CLAUDE.md).
+Подробные описания уровней и потока данных см. в [CLAUDE.md](../CLAUDE.md).
 
 ## Основные понятия
 
@@ -352,13 +352,13 @@ lanekeep rules whatsnew --acknowledge    # Record current state (clears future n
 
 Задаётся через переменную окружения `LANEKEEP_PROFILE` или `"profile"` в `lanekeep.json`.
 
-Подробности о полях правил, категориях политик, настройках и переменных окружения см. в [REFERENCE.md](REFERENCE.md).
+Подробности о полях правил, категориях политик, настройках и переменных окружения см. в [REFERENCE.md](../REFERENCE.md).
 
 ---
 
 ## Справочник CLI
 
-Полный список команд см. в [REFERENCE.md — CLI Reference](REFERENCE.md#cli-reference).
+Полный список команд см. в [REFERENCE.md — CLI Reference](../REFERENCE.md#cli-reference).
 
 ---
 
@@ -371,7 +371,7 @@ lanekeep rules whatsnew --acknowledge    # Record current state (clears future n
 Счётчики входных/выходных токенов в реальном времени, процент использования контекстного окна и индикаторы бюджета. Отслеживайте сессии, которые идут не по плану, до того как они потратят время и деньги. Установите жёсткие лимиты на действия, токены и время, которые автоматически применяются при достижении.
 
 <p align="center">
-  <img src="images/readme/lanekeep_governance.png" alt="LaneKeep Governance — бюджет и статистика сессии" width="749" />
+  <img src="../images/readme/lanekeep_governance.png" alt="LaneKeep Governance — бюджет и статистика сессии" width="749" />
 </p>
 
 ### Insights
@@ -379,13 +379,13 @@ lanekeep rules whatsnew --acknowledge    # Record current state (clears future n
 Лента решений в реальном времени, тренды блокировок, активность по файлам, перцентили задержки и временная шкала решений за сессию.
 
 <p align="center">
-  <img src="images/readme/lanekeep_insights1.png" alt="LaneKeep Insights — тренды и наиболее частые блокировки" width="749" />
+  <img src="../images/readme/lanekeep_insights1.png" alt="LaneKeep Insights — тренды и наиболее частые блокировки" width="749" />
 </p>
 <p align="center">
-  <img src="images/readme/lanekeep_insights2.png" alt="LaneKeep Insights — активность файлов и задержка" width="749" />
+  <img src="../images/readme/lanekeep_insights2.png" alt="LaneKeep Insights — активность файлов и задержка" width="749" />
 </p>
 <p align="center">
-  <img src="images/readme/lanekeep_insights3.png" alt="LaneKeep Insights — временная шкала решений" width="749" />
+  <img src="../images/readme/lanekeep_insights3.png" alt="LaneKeep Insights — временная шкала решений" width="749" />
 </p>
 
 ### Audit и Coverage
@@ -393,13 +393,13 @@ lanekeep rules whatsnew --acknowledge    # Record current state (clears future n
 Валидация конфигурации в один клик, а также карта покрытия, связывающая правила с нормативными стандартами (PCI-DSS, HIPAA, GDPR, NIST SP800-53, SOC2, OWASP, CWE, AU Privacy Act), с подсветкой пробелов и анализом влияния правил.
 
 <p align="center">
-  <img src="images/readme/lanekeep_audit1.png" alt="LaneKeep Audit — валидация конфигурации" width="749" />
+  <img src="../images/readme/lanekeep_audit1.png" alt="LaneKeep Audit — валидация конфигурации" width="749" />
 </p>
 <p align="center">
-  <img src="images/readme/lanekeep_audit2.png" alt="LaneKeep Coverage — цепочка доказательств" width="749" />
+  <img src="../images/readme/lanekeep_audit2.png" alt="LaneKeep Coverage — цепочка доказательств" width="749" />
 </p>
 <p align="center">
-  <img src="images/readme/lanekeep_audit3.png" alt="LaneKeep Coverage — анализ влияния правил" width="749" />
+  <img src="../images/readme/lanekeep_audit3.png" alt="LaneKeep Coverage — анализ влияния правил" width="749" />
 </p>
 
 ### Files
@@ -407,7 +407,7 @@ lanekeep rules whatsnew --acknowledge    # Record current state (clears future n
 Каждый файл, который ваш агент читает или записывает, с размерами в токенах для каждого файла, чтобы видеть, что расходует контекстное окно. Плюс счётчики операций, история блокировок и встроенный редактор.
 
 <p align="center">
-  <img src="images/readme/lanekeep_files.png" alt="LaneKeep Files — дерево файлов и редактор" width="749" />
+  <img src="../images/readme/lanekeep_files.png" alt="LaneKeep Files — дерево файлов и редактор" width="749" />
 </p>
 
 ### Settings
@@ -415,13 +415,13 @@ lanekeep rules whatsnew --acknowledge    # Record current state (clears future n
 Настраивайте профили применения, переключайте политики и регулируйте лимиты бюджета, всё из панели управления. Изменения вступают в силу немедленно без перезапуска sidecar.
 
 <p align="center">
-  <img src="images/readme/lanekeep_settings1.png" alt="Настройки LaneKeep" width="749" />
+  <img src="../images/readme/lanekeep_settings1.png" alt="Настройки LaneKeep" width="749" />
 </p>
 <p align="center">
-  <img src="images/readme/lanekeep_settings2.png" alt="Настройки LaneKeep" width="749" />
+  <img src="../images/readme/lanekeep_settings2.png" alt="Настройки LaneKeep" width="749" />
 </p>
 <p align="center">
-  <img src="images/readme/lanekeep_settings3.png" alt="Настройки LaneKeep" width="749" />
+  <img src="../images/readme/lanekeep_settings3.png" alt="Настройки LaneKeep" width="749" />
 </p>
 
 ---
@@ -437,13 +437,13 @@ lanekeep rules whatsnew --acknowledge    # Record current state (clears future n
 - **Журнал только на добавление** — записи трассировки не могут быть изменены агентом
 - **Нет сетевых зависимостей** — чистый Bash + jq, без цепочки поставок
 
-О сообщении об уязвимостях см. [SECURITY.md](SECURITY.md).
+О сообщении об уязвимостях см. [SECURITY.md](../SECURITY.md).
 
 ---
 
 ## Разработка
 
-Архитектура и соглашения описаны в [CLAUDE.md](CLAUDE.md). Запуск тестов: `bats tests/` или `lanekeep selftest`. Адаптер для Cursor включён (не тестировался).
+Архитектура и соглашения описаны в [CLAUDE.md](../CLAUDE.md). Запуск тестов: `bats tests/` или `lanekeep selftest`. Адаптер для Cursor включён (не тестировался).
 
 ---
 
