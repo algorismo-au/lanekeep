@@ -35,12 +35,12 @@ LaneKeep allows your AI coding agent to run within boundaries that you control.
 
 **Every policy and rule is controlled by you.**
 
-- **Live dashboard** — every decision logged locally
-- **Budget limits** — usage patterns, cost caps, token and action limits
-- **Full audit trail** — every tool call logged with matched rule and reason
-- **Defense in depth** — extendable policy layers: 9+ deterministic evaluators and an optional semantic layer (another LLM) as an evaluator; PII detection, config integrity checks, and injection detection
-- **Agent memory/knowledge view** — see what your agent sees
-- **Coverage and alignment** — built-in compliance tags (NIST, OWASP, CWE, ATT&CK); add your own
+- **Live dashboard:** every decision logged locally
+- **Budget limits:** usage patterns, cost caps, token and action limits
+- **Full audit trail:** every tool call logged with matched rule and reason
+- **Defense in depth:** extendable policy layers: 9+ deterministic evaluators and an optional semantic layer (another LLM) as an evaluator; PII detection, config integrity checks, and injection detection
+- **Agent memory/knowledge view:** see what your agent sees
+- **Coverage and alignment:** built-in compliance tags (NIST, OWASP, CWE, ATT&CK); add your own
 
 Supports Claude Code CLI on Linux, macOS, and Windows (via WSL or Git Bash). Other platforms coming soon.
 
@@ -235,16 +235,16 @@ Hooks into the [PreToolUse hook](https://docs.anthropic.com/en/docs/claude-code/
 |------|-----------|----------------|
 | 0 | Config Integrity | Config hash unchanged since startup |
 | 0.5 | Schema | Tool against TaskSpec allowlist/denylist |
-| 1 | Hardblock | Fast substring match — always runs |
+| 1 | Hardblock | Fast substring match; always runs |
 | 2 | Rules Engine | Policies, first-match-wins rules |
 | 3 | Hidden Text | CSS/ANSI injection, zero-width chars |
 | 4 | Input PII | PII in tool input (SSNs, credit cards) |
 | 5 | Budget | Action count, token tracking, cost limits, wall-clock time |
 | 6 | Plugins | Custom evaluators (subshell isolated) |
-| 7 | Semantic | LLM intent check — goal misalignment, spirit-of-task violations, disguised exfiltration (opt-in) |
+| 7 | Semantic | LLM intent check: goal misalignment, spirit-of-task violations, disguised exfiltration (opt-in) |
 | Post | ResultTransform | Secrets/injection in output |
 
-The Semantic evaluator reads the task goal from TaskSpec — set it with
+The Semantic evaluator reads the task goal from TaskSpec. Set it with
 `lanekeep serve --spec DESIGN.md` or write `.lanekeep/taskspec.json` directly.
 See [REFERENCE.md](REFERENCE.md#budget--taskspec) for details.
 
@@ -254,16 +254,16 @@ See [CLAUDE.md](CLAUDE.md) for detailed tier descriptions and data flow.
 
 | Term | What it is |
 |------|------------|
-| **Event** | A raw tool call occurrence — one record per hook fire (`PreToolUse` or `PostToolUse`). `total_events` always increments regardless of outcome. |
+| **Event** | A raw tool call occurrence: one record per hook fire (`PreToolUse` or `PostToolUse`). `total_events` always increments regardless of outcome. |
 | **Evaluation** | An individual check within the pipeline. Each evaluator module (`eval-hardblock.sh`, `eval-rules.sh`, `eval-budget.sh`, etc.) independently examines the event and sets `EVAL_PASSED`/`EVAL_REASON`. A single event triggers many evaluations; results recorded in the trace `evaluators[]` array with `name`, `tier`, and `passed`. |
 | **Decision** | The final pipeline verdict: `allow`, `deny`, `warn`, or `ask`. Stored in the `decision` field of each trace entry and counted in `decisions.deny / warn / ask / allow` in cumulative metrics. |
-| **Action** | An event where the tool actually ran (`allow` or `warn`). Denied and pending-ask calls don't count. `action_count` is what `budget.max_actions` measures — when it hits the cap, the budget evaluator starts blocking. |
+| **Action** | An event where the tool actually ran (`allow` or `warn`). Denied and pending-ask calls don't count. `action_count` is what `budget.max_actions` measures; when it hits the cap, the budget evaluator starts blocking. |
 
 ```
 Event (raw hook call)
   └── Evaluations (N checks run against it)
         └── Decision (single verdict: allow/deny/warn/ask)
-              └── Action (only if tool actually ran — counts against max_actions)
+              └── Action (only if tool actually ran; counts against max_actions)
 ```
 
 ---
@@ -378,7 +378,7 @@ and environment variables.
 
 ## CLI Reference
 
-See [REFERENCE.md — CLI Reference](REFERENCE.md#cli-reference) for the full command list.
+See [REFERENCE.md: CLI Reference](REFERENCE.md#cli-reference) for the full command list.
 
 ---
 
@@ -450,12 +450,12 @@ Configure enforcement profiles, toggle policies, and tune budget limits, all fro
 
 **LaneKeep runs entirely on your machine. No cloud, no telemetry, no account.**
 
-- **Config integrity** — hash-checked at startup; mid-session changes deny all calls
-- **Fail-closed** — any evaluation error results in a deny
-- **Immutable TaskSpec** — session contracts can't be changed after startup
-- **Plugin sandboxing** — subshell isolation, no access to LaneKeep internals
-- **Append-only audit** — trace logs can't be altered by the agent
-- **No network dependency** — pure Bash + jq, no supply chain
+- **Config integrity:** hash-checked at startup; mid-session changes deny all calls
+- **Fail-closed:** any evaluation error results in a deny
+- **Immutable TaskSpec:** session contracts can't be changed after startup
+- **Plugin sandboxing:** subshell isolation, no access to LaneKeep internals
+- **Append-only audit:** trace logs can't be altered by the agent
+- **No network dependency:** pure Bash + jq, no supply chain
 
 See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
