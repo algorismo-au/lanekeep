@@ -148,12 +148,12 @@ lanekeep status          # Check if LaneKeep is active and show governance state
 **Restart Claude Code after `enable` or `disable` for changes to take effect.**
 
 `enable` writes three hooks (PreToolUse, PostToolUse, Stop) into your Claude Code
-settings file — project-local `.claude/settings.local.json` if it exists, otherwise
+settings file: project-local `.claude/settings.local.json` if it exists, otherwise
 `~/.claude/settings.json`. `disable` removes them cleanly.
 
 ### Start & Stop
 
-Hooks alone work — every tool call is evaluated inline. The sidecar adds a
+Hooks alone work: every tool call is evaluated inline. The sidecar adds a
 persistent background process for faster evaluation and the web dashboard:
 
 ```bash
@@ -169,7 +169,7 @@ There are two levels of "disable":
 
 | Scope | Command | What it does |
 |-------|---------|-------------|
-| **Entire system** | `lanekeep disable` | Removes all hooks — no evaluation happens. Restart Claude Code. |
+| **Entire system** | `lanekeep disable` | Removes all hooks. No evaluation happens. Restart Claude Code. |
 | **One policy** | `lanekeep policy disable <category> --reason "..."` | Disables a single policy category (e.g. `governance_paths`) while everything else stays enforced. |
 
 To pause a single policy and re-enable it:
@@ -220,7 +220,7 @@ could disable enforcement, tamper with audit logs, or bypass budget limits.
 
 **Writes** are blocked by the `governance_paths` policy (Write/Edit tools).
 **Reads** of the active configuration (`lanekeep.json`, `.lanekeep/` state files)
-are blocked by rules `sec-039` and `sec-040` — exposing the ruleset would let
+are blocked by rules `sec-039` and `sec-040`. Exposing the ruleset would let
 the agent reverse-engineer match patterns and craft evasions. LaneKeep source
 code (`bin/`, `lib/`) remains readable; security of the engine is open, but the
 active configuration is opaque to the governed agent. See [REFERENCE.md](REFERENCE.md#self-protection-governance_paths--rules) for details.
@@ -270,22 +270,22 @@ Event (raw hook call)
 
 ## Configuration
 
-Everything is configurable — built-in defaults, user-defined rules, and
+Everything is configurable: built-in defaults, user-defined rules, and
 community-sourced packs all merge into a single policy. Override any default,
 add your own rules, or disable what you don't need.
 
 Config resolves: `$PROJECT_DIR/lanekeep.json` -> `$LANEKEEP_DIR/defaults/lanekeep.json`.
-Config is hash-checked at startup — mid-session modifications deny all calls.
+Config is hash-checked at startup; mid-session modifications deny all calls.
 
 ### Policies
 
-Evaluated before rules. 20 built-in categories — each with dedicated extraction
+Evaluated before rules. 20 built-in categories, each with dedicated extraction
 logic (e.g. `domains` parses URLs, `branches` extracts git branch names).
 Categories: `tools`, `extensions`, `paths`, `commands`, `domains`,
 `mcp_servers`, and more. Toggle with `lanekeep policy` or from the **Governance** tab in the dashboard.
 
 **Policies vs Rules:** Policies are structured, typed controls for predefined
-categories. Rules are the flexible catch-all — they match any tool name + any
+categories. Rules are the flexible catch-all: they match any tool name + any
 regex pattern against the full tool input. If your use case doesn't fit a policy
 category, write a rule instead.
 
@@ -330,7 +330,7 @@ Or use the CLI:
 lanekeep rules add --match-command "docker compose down" --decision deny --reason "..."
 ```
 
-Rules can also be added, edited, and dry-run in the **Rules** tab of the dashboard — or test from the CLI first:
+Rules can also be added, edited, and dry-run in the **Rules** tab of the dashboard, or test from the CLI first:
 
 ```bash
 lanekeep rules test "docker compose down"
@@ -338,7 +338,7 @@ lanekeep rules test "docker compose down"
 
 ### Updating LaneKeep
 
-When you install a new version of LaneKeep, new default rules become active automatically — **your customizations (`extra_rules`, `rule_overrides`, `disabled_rules`) are never touched**.
+When you install a new version of LaneKeep, new default rules become active automatically. **Your customizations (`extra_rules`, `rule_overrides`, `disabled_rules`) are never touched.**
 
 On the first sidecar start after an upgrade, you'll see a one-time notice:
 
@@ -384,11 +384,11 @@ See [REFERENCE.md — CLI Reference](REFERENCE.md#cli-reference) for the full co
 
 ## Dashboard
 
-See exactly what your agent is doing while it builds — live decisions, token usage, file activity, and audit trail in one place.
+See exactly what your agent is doing while it builds: live decisions, token usage, file activity, and audit trail in one place.
 
 ### Governance
 
-Live input/output token counters, context window usage %, and budget progress bars. Catch sessions heading off the rails before they burn time and money — set hard caps on actions, tokens, and time that auto-enforce when hit.
+Live input/output token counters, context window usage %, and budget progress bars. Catch sessions heading off the rails before they burn time and money. Set hard caps on actions, tokens, and time that auto-enforce when hit.
 
 <p align="center">
   <img src="images/readme/lanekeep_governance.png" alt="LaneKeep Governance — budget and session stats" width="749" />
@@ -410,7 +410,7 @@ Live decision feed, denial trends, per-file activity, latency percentiles, and a
 
 ### Audit & Coverage
 
-One-click config validation, plus a coverage map linking rules to regulatory frameworks (PCI-DSS, HIPAA, GDPR, NIST SP800-53, SOC2, OWASP, CWE, AU Privacy Act) — with gap highlighting and rule impact analysis.
+One-click config validation, plus a coverage map linking rules to regulatory frameworks (PCI-DSS, HIPAA, GDPR, NIST SP800-53, SOC2, OWASP, CWE, AU Privacy Act), with gap highlighting and rule impact analysis.
 
 <p align="center">
   <img src="images/readme/lanekeep_audit1.png" alt="LaneKeep Audit — config validation" width="749" />
@@ -424,7 +424,7 @@ One-click config validation, plus a coverage map linking rules to regulatory fra
 
 ### Files
 
-Every file your agent reads or writes — with per-file token sizes to see what's eating your context window. Plus operation counts, denial history, and an inline editor.
+Every file your agent reads or writes, with per-file token sizes to see what's eating your context window. Plus operation counts, denial history, and an inline editor.
 
 <p align="center">
   <img src="images/readme/lanekeep_files.png" alt="LaneKeep Files — file tree and editor" width="749" />
@@ -432,7 +432,7 @@ Every file your agent reads or writes — with per-file token sizes to see what'
 
 ### Settings
 
-Configure enforcement profiles, toggle policies, and tune budget limits — all from the dashboard. Changes take effect immediately without restarting the sidecar.
+Configure enforcement profiles, toggle policies, and tune budget limits, all from the dashboard. Changes take effect immediately without restarting the sidecar.
 
 <p align="center">
   <img src="images/readme/lanekeep_settings1.png" alt="LaneKeep Settings" width="749" />

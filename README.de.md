@@ -42,7 +42,7 @@ LaneKeep ermöglicht es Ihrem KI-Coding-Agenten, innerhalb von Grenzen zu arbeit
 - **Agenten-Gedächtnis/Wissensansicht** — sehen Sie, was Ihr Agent sieht
 - **Abdeckung und Konformität** — integrierte Compliance-Tags (NIST, OWASP, CWE, ATT&CK); eigene hinzufügen möglich
 
-Claude Code CLI, weitere Plattformen folgen in Kürze.
+Unterstützt Claude Code CLI unter Linux, macOS und Windows (via WSL oder Git Bash). Weitere Plattformen folgen in Kürze.
 
 Weitere Details finden Sie unter [Konfiguration](#konfiguration).
 
@@ -64,6 +64,7 @@ Weitere Details finden Sie unter [Konfiguration](#konfiguration).
 ```bash
 sudo apt install jq socat        # Debian/Ubuntu
 brew install bash jq socat       # macOS (bash 4+ erforderlich)
+sudo apt install jq socat        # Windows (inside WSL)
 ```
 
 ### Installation
@@ -147,12 +148,12 @@ lanekeep status          # Check if LaneKeep is active and show governance state
 **Starten Sie Claude Code nach `enable` oder `disable` neu, damit die Änderungen wirksam werden.**
 
 `enable` schreibt drei Hooks (PreToolUse, PostToolUse, Stop) in Ihre Claude Code
-Einstellungsdatei — projektlokal `.claude/settings.local.json` falls vorhanden, andernfalls
+Einstellungsdatei: projektlokal `.claude/settings.local.json` falls vorhanden, andernfalls
 `~/.claude/settings.json`. `disable` entfernt sie sauber.
 
 ### Starten und Stoppen
 
-Hooks allein funktionieren — jeder Tool-Aufruf wird inline ausgewertet. Der Sidecar fügt einen
+Hooks allein funktionieren: jeder Tool-Aufruf wird inline ausgewertet. Der Sidecar fügt einen
 persistenten Hintergrundprozess für schnellere Auswertung und das Web-Dashboard hinzu:
 
 ```bash
@@ -168,7 +169,7 @@ Es gibt zwei Stufen der Deaktivierung:
 
 | Umfang | Befehl | Was es bewirkt |
 |--------|--------|---------------|
-| **Gesamtes System** | `lanekeep disable` | Entfernt alle Hooks — keine Auswertung findet statt. Claude Code neu starten. |
+| **Gesamtes System** | `lanekeep disable` | Entfernt alle Hooks. Keine Auswertung findet statt. Claude Code neu starten. |
 | **Einzelne Richtlinie** | `lanekeep policy disable <category> --reason "..."` | Deaktiviert eine einzelne Richtlinienkategorie (z.B. `governance_paths`), während alles andere aktiv bleibt. |
 
 Um eine einzelne Richtlinie zu pausieren und wieder zu aktivieren:
@@ -220,7 +221,7 @@ manipulieren oder Budgetlimits umgehen.
 
 **Schreibzugriffe** werden durch die `governance_paths`-Richtlinie blockiert (Write/Edit-Tools).
 **Lesezugriffe** auf die aktive Konfiguration (`lanekeep.json`, `.lanekeep/`-Zustandsdateien)
-werden durch die Regeln `sec-039` und `sec-040` blockiert — die Offenlegung des Regelwerks würde
+werden durch die Regeln `sec-039` und `sec-040` blockiert. Die Offenlegung des Regelwerks würde
 es dem Agenten ermöglichen, Muster zu rekonstruieren und Umgehungen zu entwickeln. Der LaneKeep-Quellcode
 (`bin/`, `lib/`) bleibt lesbar; die Sicherheit der Engine ist offen, aber die
 aktive Konfiguration ist für den überwachten Agenten nicht einsehbar. Siehe [REFERENCE.md](REFERENCE.md#self-protection-governance_paths--rules) für Details.
@@ -270,22 +271,22 @@ Event (roher Hook-Aufruf)
 
 ## Konfiguration
 
-Alles ist konfigurierbar — integrierte Standardwerte, benutzerdefinierte Regeln und
+Alles ist konfigurierbar: integrierte Standardwerte, benutzerdefinierte Regeln und
 Community-Pakete werden zu einer einzigen Richtlinie zusammengeführt. Überschreiben Sie
 beliebige Standardwerte, fügen Sie eigene Regeln hinzu oder deaktivieren Sie, was Sie nicht benötigen.
 
 Konfigurationsauflösung: `$PROJECT_DIR/lanekeep.json` -> `$LANEKEEP_DIR/defaults/lanekeep.json`.
-Die Konfiguration wird beim Start per Hash geprüft — Änderungen während der Sitzung lehnen alle Aufrufe ab.
+Die Konfiguration wird beim Start per Hash geprüft; Änderungen während der Sitzung lehnen alle Aufrufe ab.
 
 ### Richtlinien
 
-Werden vor Regeln ausgewertet. 20 integrierte Kategorien — jede mit dedizierter Extraktionslogik
+Werden vor Regeln ausgewertet. 20 integrierte Kategorien, jede mit dedizierter Extraktionslogik
 (z.B. `domains` analysiert URLs, `branches` extrahiert Git-Branch-Namen).
 Kategorien: `tools`, `extensions`, `paths`, `commands`, `domains`,
 `mcp_servers` und weitere. Umschalten mit `lanekeep policy` oder über den **Governance**-Tab im Dashboard.
 
 **Richtlinien vs. Regeln:** Richtlinien sind strukturierte, typisierte Kontrollen für vordefinierte
-Kategorien. Regeln sind der flexible Auffangmechanismus — sie gleichen jeden Tool-Namen und jedes
+Kategorien. Regeln sind der flexible Auffangmechanismus: sie gleichen jeden Tool-Namen und jedes
 Regex-Muster gegen die vollständige Tool-Eingabe ab. Wenn Ihr Anwendungsfall nicht in eine
 Richtlinienkategorie passt, schreiben Sie stattdessen eine Regel.
 
@@ -330,7 +331,7 @@ Oder verwenden Sie die CLI:
 lanekeep rules add --match-command "docker compose down" --decision deny --reason "..."
 ```
 
-Regeln können auch im **Rules**-Tab des Dashboards hinzugefügt, bearbeitet und testweise ausgeführt werden — oder testen Sie zuerst über die CLI:
+Regeln können auch im **Rules**-Tab des Dashboards hinzugefügt, bearbeitet und testweise ausgeführt werden, oder testen Sie zuerst über die CLI:
 
 ```bash
 lanekeep rules test "docker compose down"
@@ -338,7 +339,7 @@ lanekeep rules test "docker compose down"
 
 ### LaneKeep aktualisieren
 
-Wenn Sie eine neue Version von LaneKeep installieren, werden neue Standardregeln automatisch aktiv — **Ihre Anpassungen (`extra_rules`, `rule_overrides`, `disabled_rules`) werden niemals verändert**.
+Wenn Sie eine neue Version von LaneKeep installieren, werden neue Standardregeln automatisch aktiv. **Ihre Anpassungen (`extra_rules`, `rule_overrides`, `disabled_rules`) werden niemals verändert**.
 
 Beim ersten Sidecar-Start nach einem Upgrade sehen Sie einen einmaligen Hinweis:
 
@@ -384,11 +385,11 @@ Siehe [REFERENCE.md — CLI-Referenz](REFERENCE.md#cli-reference) für die volls
 
 ## Dashboard
 
-Sehen Sie genau, was Ihr Agent tut, während er arbeitet — Live-Entscheidungen, Token-Verbrauch, Dateiaktivität und Audit-Trail an einem Ort.
+Sehen Sie genau, was Ihr Agent tut, während er arbeitet: Live-Entscheidungen, Token-Verbrauch, Dateiaktivität und Audit-Trail an einem Ort.
 
 ### Governance
 
-Live-Zähler für Ein-/Ausgabe-Token, Kontextfenster-Auslastung in % und Budget-Fortschrittsbalken. Erkennen Sie Sitzungen, die aus dem Ruder laufen, bevor sie Zeit und Geld verbrennen — setzen Sie harte Limits für Aktionen, Token und Zeit, die bei Erreichen automatisch durchgesetzt werden.
+Live-Zähler für Ein-/Ausgabe-Token, Kontextfenster-Auslastung in % und Budget-Fortschrittsbalken. Erkennen Sie Sitzungen, die aus dem Ruder laufen, bevor sie Zeit und Geld verbrennen. Setzen Sie harte Limits für Aktionen, Token und Zeit, die bei Erreichen automatisch durchgesetzt werden.
 
 <p align="center">
   <img src="images/readme/lanekeep_governance.png" alt="LaneKeep Governance — Budget und Sitzungsstatistiken" width="749" />
@@ -410,7 +411,7 @@ Live-Entscheidungsfeed, Ablehnungstrends, Dateiaktivität pro Datei, Latenz-Perz
 
 ### Audit und Abdeckung
 
-Ein-Klick-Konfigurationsvalidierung, plus eine Abdeckungskarte, die Regeln mit regulatorischen Rahmenwerken verknüpft (PCI-DSS, HIPAA, GDPR, NIST SP800-53, SOC2, OWASP, CWE, AU Privacy Act) — mit Lückenhervorhebung und Regel-Wirkungsanalyse.
+Ein-Klick-Konfigurationsvalidierung, plus eine Abdeckungskarte, die Regeln mit regulatorischen Rahmenwerken verknüpft (PCI-DSS, HIPAA, GDPR, NIST SP800-53, SOC2, OWASP, CWE, AU Privacy Act), mit Lückenhervorhebung und Regel-Wirkungsanalyse.
 
 <p align="center">
   <img src="images/readme/lanekeep_audit1.png" alt="LaneKeep Audit — Konfigurationsvalidierung" width="749" />
@@ -424,7 +425,7 @@ Ein-Klick-Konfigurationsvalidierung, plus eine Abdeckungskarte, die Regeln mit r
 
 ### Dateien
 
-Jede Datei, die Ihr Agent liest oder schreibt — mit Token-Größen pro Datei, um zu sehen, was Ihr Kontextfenster verbraucht. Dazu Operationszähler, Ablehnungsverlauf und ein integrierter Editor.
+Jede Datei, die Ihr Agent liest oder schreibt, mit Token-Größen pro Datei, um zu sehen, was Ihr Kontextfenster verbraucht. Dazu Operationszähler, Ablehnungsverlauf und ein integrierter Editor.
 
 <p align="center">
   <img src="images/readme/lanekeep_files.png" alt="LaneKeep Dateien — Dateibaum und Editor" width="749" />
@@ -432,7 +433,7 @@ Jede Datei, die Ihr Agent liest oder schreibt — mit Token-Größen pro Datei, 
 
 ### Einstellungen
 
-Konfigurieren Sie Durchsetzungsprofile, schalten Sie Richtlinien um und passen Sie Budgetlimits an — alles über das Dashboard. Änderungen werden sofort wirksam, ohne den Sidecar neu starten zu müssen.
+Konfigurieren Sie Durchsetzungsprofile, schalten Sie Richtlinien um und passen Sie Budgetlimits an, alles über das Dashboard. Änderungen werden sofort wirksam, ohne den Sidecar neu starten zu müssen.
 
 <p align="center">
   <img src="images/readme/lanekeep_settings1.png" alt="LaneKeep Einstellungen" width="749" />

@@ -42,7 +42,7 @@ LaneKeep permite que tu agente de IA para programar opere dentro de los limites 
 - **Vista de memoria/conocimiento del agente** — ve lo que tu agente ve
 - **Cobertura y alineacion** — etiquetas de cumplimiento integradas (NIST, OWASP, CWE, ATT&CK); agrega las tuyas
 
-Claude Code CLI, otras plataformas proximamente.
+Compatible con Claude Code CLI en Linux, macOS y Windows (via WSL o Git Bash). Otras plataformas proximamente.
 
 Para mas detalles consulta [Configuracion](#configuración).
 
@@ -64,6 +64,7 @@ Para mas detalles consulta [Configuracion](#configuración).
 ```bash
 sudo apt install jq socat        # Debian/Ubuntu
 brew install bash jq socat       # macOS (se requiere bash 4+)
+sudo apt install jq socat        # Windows (inside WSL)
 ```
 
 ### Instalacion
@@ -146,11 +147,11 @@ lanekeep status          # Verificar si LaneKeep esta activo y mostrar el estado
 
 **Reinicia Claude Code despues de `enable` o `disable` para que los cambios surtan efecto.**
 
-`enable` escribe tres hooks (PreToolUse, PostToolUse, Stop) en tu archivo de configuracion de Claude Code — `.claude/settings.local.json` del proyecto si existe, de lo contrario `~/.claude/settings.json`. `disable` los elimina limpiamente.
+`enable` escribe tres hooks (PreToolUse, PostToolUse, Stop) en tu archivo de configuracion de Claude Code: `.claude/settings.local.json` del proyecto si existe, de lo contrario `~/.claude/settings.json`. `disable` los elimina limpiamente.
 
 ### Iniciar y detener
 
-Los hooks por si solos funcionan — cada llamada a herramienta se evalua en linea. El sidecar agrega un proceso persistente en segundo plano para una evaluacion mas rapida y el panel web:
+Los hooks por si solos funcionan: cada llamada a herramienta se evalua en linea. El sidecar agrega un proceso persistente en segundo plano para una evaluacion mas rapida y el panel web:
 
 ```bash
 lanekeep start           # Sidecar + panel web (recomendado)
@@ -165,7 +166,7 @@ Hay dos niveles de desactivacion:
 
 | Alcance | Comando | Que hace |
 |---------|---------|----------|
-| **Sistema completo** | `lanekeep disable` | Elimina todos los hooks — no se ejecuta ninguna evaluacion. Reinicia Claude Code. |
+| **Sistema completo** | `lanekeep disable` | Elimina todos los hooks. No se ejecuta ninguna evaluacion. Reinicia Claude Code. |
 | **Una politica** | `lanekeep policy disable <categoria> --reason "..."` | Desactiva una categoria de politica individual (ej. `governance_paths`) mientras todo lo demas sigue aplicandose. |
 
 Para pausar una sola politica y reactivarla:
@@ -213,7 +214,7 @@ LaneKeep se protege a si mismo y a los archivos de gobernanza del agente contra 
 | `plugins.d/` | Evaluadores de plugins |
 
 Las **escrituras** son bloqueadas por la politica `governance_paths` (herramientas Write/Edit).
-Las **lecturas** de la configuracion activa (`lanekeep.json`, archivos de estado en `.lanekeep/`) son bloqueadas por las reglas `sec-039` y `sec-040` — exponer el conjunto de reglas permitiria al agente hacer ingenieria inversa de los patrones de coincidencia y crear evasiones. El codigo fuente de LaneKeep (`bin/`, `lib/`) permanece legible; la seguridad del motor es abierta, pero la configuracion activa es opaca para el agente gobernado. Consulta [REFERENCE.md](REFERENCE.md#self-protection-governance_paths--rules) para mas detalles.
+Las **lecturas** de la configuracion activa (`lanekeep.json`, archivos de estado en `.lanekeep/`) son bloqueadas por las reglas `sec-039` y `sec-040`. Exponer el conjunto de reglas permitiria al agente hacer ingenieria inversa de los patrones de coincidencia y crear evasiones. El codigo fuente de LaneKeep (`bin/`, `lib/`) permanece legible; la seguridad del motor es abierta, pero la configuracion activa es opaca para el agente gobernado. Consulta [REFERENCE.md](REFERENCE.md#self-protection-governance_paths--rules) para mas detalles.
 
 ---
 
@@ -258,16 +259,16 @@ Event (llamada bruta del hook)
 
 ## Configuracion
 
-Todo es configurable — los valores predeterminados, las reglas definidas por el usuario y los paquetes de la comunidad se fusionan en una sola politica. Anula cualquier valor predeterminado, agrega tus propias reglas o desactiva lo que no necesites.
+Todo es configurable: los valores predeterminados, las reglas definidas por el usuario y los paquetes de la comunidad se fusionan en una sola politica. Anula cualquier valor predeterminado, agrega tus propias reglas o desactiva lo que no necesites.
 
 La configuracion se resuelve: `$PROJECT_DIR/lanekeep.json` -> `$LANEKEEP_DIR/defaults/lanekeep.json`.
-La configuracion se verifica por hash al inicio — las modificaciones durante la sesion deniegan todas las llamadas.
+La configuracion se verifica por hash al inicio; las modificaciones durante la sesion deniegan todas las llamadas.
 
 ### Politicas
 
-Se evaluan antes que las reglas. 20 categorias integradas — cada una con logica de extraccion dedicada (ej. `domains` analiza URLs, `branches` extrae nombres de ramas git). Categorias: `tools`, `extensions`, `paths`, `commands`, `domains`, `mcp_servers` y mas. Alterna con `lanekeep policy` o desde la pestana **Governance** del panel.
+Se evaluan antes que las reglas. 20 categorias integradas, cada una con logica de extraccion dedicada (ej. `domains` analiza URLs, `branches` extrae nombres de ramas git). Categorias: `tools`, `extensions`, `paths`, `commands`, `domains`, `mcp_servers` y mas. Alterna con `lanekeep policy` o desde la pestana **Governance** del panel.
 
-**Politicas vs Reglas:** Las politicas son controles estructurados y tipados para categorias predefinidas. Las reglas son el mecanismo flexible general — coinciden con cualquier nombre de herramienta + cualquier patron regex contra la entrada completa de la herramienta. Si tu caso de uso no encaja en una categoria de politica, escribe una regla en su lugar.
+**Politicas vs Reglas:** Las politicas son controles estructurados y tipados para categorias predefinidas. Las reglas son el mecanismo flexible general: coinciden con cualquier nombre de herramienta + cualquier patron regex contra la entrada completa de la herramienta. Si tu caso de uso no encaja en una categoria de politica, escribe una regla en su lugar.
 
 Para desactivar temporalmente una politica (ej. para actualizar `CLAUDE.md`):
 
@@ -310,7 +311,7 @@ O usa la CLI:
 lanekeep rules add --match-command "docker compose down" --decision deny --reason "..."
 ```
 
-Las reglas tambien se pueden agregar, editar y probar en seco en la pestana **Rules** del panel — o prueba primero desde la CLI:
+Las reglas tambien se pueden agregar, editar y probar en seco en la pestana **Rules** del panel, o prueba primero desde la CLI:
 
 ```bash
 lanekeep rules test "docker compose down"
@@ -318,7 +319,7 @@ lanekeep rules test "docker compose down"
 
 ### Actualizar LaneKeep
 
-Cuando instalas una nueva version de LaneKeep, las nuevas reglas predeterminadas se activan automaticamente — **tus personalizaciones (`extra_rules`, `rule_overrides`, `disabled_rules`) nunca se modifican**.
+Cuando instalas una nueva version de LaneKeep, las nuevas reglas predeterminadas se activan automaticamente. **Tus personalizaciones (`extra_rules`, `rule_overrides`, `disabled_rules`) nunca se modifican**.
 
 En el primer inicio del sidecar despues de una actualizacion, veras un aviso unico:
 
@@ -361,11 +362,11 @@ Consulta [REFERENCE.md — CLI Reference](REFERENCE.md#cli-reference) para la li
 
 ## Panel
 
-Ve exactamente lo que tu agente esta haciendo mientras construye — decisiones en tiempo real, uso de tokens, actividad de archivos y registro de auditoria en un solo lugar.
+Ve exactamente lo que tu agente esta haciendo mientras construye: decisiones en tiempo real, uso de tokens, actividad de archivos y registro de auditoria en un solo lugar.
 
 ### Gobernanza
 
-Contadores de tokens de entrada/salida en tiempo real, porcentaje de uso de la ventana de contexto y barras de progreso del presupuesto. Detecta sesiones que se desvian antes de que desperdicien tiempo y dinero — establece limites estrictos de acciones, tokens y tiempo que se aplican automaticamente al alcanzarse.
+Contadores de tokens de entrada/salida en tiempo real, porcentaje de uso de la ventana de contexto y barras de progreso del presupuesto. Detecta sesiones que se desvian antes de que desperdicien tiempo y dinero. Establece limites estrictos de acciones, tokens y tiempo que se aplican automaticamente al alcanzarse.
 
 <p align="center">
   <img src="images/readme/lanekeep_governance.png" alt="Gobernanza de LaneKeep — presupuesto y estadisticas de sesion" width="749" />
@@ -387,7 +388,7 @@ Feed de decisiones en tiempo real, tendencias de denegaciones, actividad por arc
 
 ### Auditoria y cobertura
 
-Validacion de configuracion con un clic, ademas de un mapa de cobertura que vincula reglas con marcos regulatorios (PCI-DSS, HIPAA, GDPR, NIST SP800-53, SOC2, OWASP, CWE, AU Privacy Act) — con resaltado de brechas y analisis de impacto de reglas.
+Validacion de configuracion con un clic, ademas de un mapa de cobertura que vincula reglas con marcos regulatorios (PCI-DSS, HIPAA, GDPR, NIST SP800-53, SOC2, OWASP, CWE, AU Privacy Act), con resaltado de brechas y analisis de impacto de reglas.
 
 <p align="center">
   <img src="images/readme/lanekeep_audit1.png" alt="Auditoria de LaneKeep — validacion de configuracion" width="749" />
@@ -401,7 +402,7 @@ Validacion de configuracion con un clic, ademas de un mapa de cobertura que vinc
 
 ### Archivos
 
-Cada archivo que tu agente lee o escribe — con tamanos de tokens por archivo para ver que esta consumiendo tu ventana de contexto. Ademas: conteos de operaciones, historial de denegaciones y un editor en linea.
+Cada archivo que tu agente lee o escribe, con tamanos de tokens por archivo para ver que esta consumiendo tu ventana de contexto. Ademas: conteos de operaciones, historial de denegaciones y un editor en linea.
 
 <p align="center">
   <img src="images/readme/lanekeep_files.png" alt="Archivos de LaneKeep — arbol de archivos y editor" width="749" />
@@ -409,7 +410,7 @@ Cada archivo que tu agente lee o escribe — con tamanos de tokens por archivo p
 
 ### Configuracion
 
-Configura perfiles de aplicacion, alterna politicas y ajusta limites de presupuesto — todo desde el panel. Los cambios surten efecto inmediatamente sin reiniciar el sidecar.
+Configura perfiles de aplicacion, alterna politicas y ajusta limites de presupuesto, todo desde el panel. Los cambios surten efecto inmediatamente sin reiniciar el sidecar.
 
 <p align="center">
   <img src="images/readme/lanekeep_settings1.png" alt="Configuracion de LaneKeep" width="749" />
