@@ -11,7 +11,7 @@
   <a href="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml"><img src="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
   <img src="https://img.shields.io/badge/version-1.0.4-green.svg" alt="Version: 1.0.4" />
   <img src="https://img.shields.io/badge/Made_with-Bash-1f425f.svg?logo=gnubash&logoColor=white" alt="Made with Bash" />
-  <img src="https://img.shields.io/badge/platform-Linux_·_macOS-informational.svg" alt="Platform: Linux · macOS" />
+  <img src="https://img.shields.io/badge/platform-Linux_·_macOS_·_Windows_(WSL)-informational.svg" alt="Platform: Linux · macOS · Windows (WSL)" />
   <img src="https://img.shields.io/badge/network_calls-zero-brightgreen.svg" alt="Zero Network Calls" />
 </p>
 
@@ -42,7 +42,7 @@ LaneKeep allows your AI coding agent to run within boundaries that you control.
 - **Agent memory/knowledge view** — see what your agent sees
 - **Coverage and alignment** — built-in compliance tags (NIST, OWASP, CWE, ATT&CK); add your own
 
-Claude Code CLI, other platforms coming soon.
+Supports Claude Code CLI on Linux, macOS, and Windows (via WSL or Git Bash). Other platforms coming soon.
 
 For more details see [Configuration](#configuration).
 
@@ -64,6 +64,7 @@ For more details see [Configuration](#configuration).
 ```bash
 sudo apt install jq socat        # Debian/Ubuntu
 brew install bash jq socat       # macOS (bash 4+ required)
+sudo apt install jq socat        # Windows (inside WSL)
 ```
 
 ### Install
