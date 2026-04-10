@@ -27,7 +27,8 @@
   <a href="translations/README.ru.md">Русский</a> ·
   <a href="translations/README.tr.md">Türkçe</a> ·
   <a href="translations/README.ar.md">العربية</a> ·
-  <a href="translations/README.vi.md">Tiếng Việt</a>
+  <a href="translations/README.vi.md">Tiếng Việt</a> ·
+  <a href="translations/README.it.md">Italiano</a>
 </p>
 
 # LaneKeep
