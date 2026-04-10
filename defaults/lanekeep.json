@@ -19,7 +19,10 @@
     "max_total_time_seconds": 17280000,
     "max_total_tokens": 100000000,
     "max_total_cost": 4000,
-    "timeout_seconds": 864000
+    "timeout_seconds": 864000,
+    "context_window_size": 200000,
+    "context_soft_percent": 80,
+    "context_hard_percent": 95
   },
   "evaluators": {
     "codediff": {
@@ -294,6 +297,39 @@
           "CWE-78",
           "PCI-DSS 6.2.4",
           "OWASP CI/CD-SEC-4"
+        ]
+      }
+    },
+    "context_budget": {
+      "enabled": true,
+      "decision": "ask",
+      "compliance_by_category": {
+        "resource_limit": [
+          "CWE-770"
+        ]
+      }
+    },
+    "session_patterns": {
+      "enabled": true,
+      "evasion_threshold": 3,
+      "denial_cluster_threshold": 5,
+      "time_window_seconds": 120,
+      "compliance_by_category": {
+        "behavior": [
+          "CWE-799"
+        ]
+      }
+    },
+    "multi_session": {
+      "enabled": true,
+      "deny_rate_threshold": 5,
+      "tool_deny_threshold": 100,
+      "cost_warn_percent": 80,
+      "min_sessions": 3,
+      "compliance_by_category": {
+        "resource_limit": [
+          "CWE-770",
+          "CWE-799"
         ]
       }
     },

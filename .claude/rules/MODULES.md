@@ -8,9 +8,12 @@
 | `eval-hardblock.sh` | 1 | Fast substring match against blocklist — always runs |
 | `eval-rules.sh` | 2 | Unified rule engine — policies, first-match-wins rules |
 | `eval-codediff.sh` | 2 | Legacy static pattern detection — fallback only; runs when the rules array is empty or missing (not when individual rules are deactivated). Superseded by Rules Engine which ships with 165 default rules. |
+| `eval-session-patterns.sh` | 2.6 | Session anti-pattern detection — evasion attempts, denial clustering |
 | `eval-hidden-text.sh` | 3 | CSS/ANSI injection, zero-width char detection |
 | `eval-input-pii.sh` | 4 | Input-side PII: SSNs, credit cards, emails, phone numbers |
 | `eval-budget.sh` | 5 | Action count, token tracking, cost limits, wall-clock time limits |
+| `eval-context-budget.sh` | 5.5 | Context window saturation — ask at 80%, deny at 95% utilization |
+| `eval-multi-session.sh` | 5.6 | Cross-session governance — deny rate trends, tool probing, cost escalation |
 | `eval-semantic.sh` | 7 | LLM-based intent check (opt-in, disabled by default) |
 | `eval-result-transform.sh` | Post | Output masking — secrets/injection in tool results |
 
