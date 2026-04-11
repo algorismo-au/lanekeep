@@ -147,7 +147,7 @@ load_config() {
   source "$LANEKEEP_DIR/lib/trace.sh"
   local _trace_ret_days _trace_max_sess
   _trace_ret_days=$(jq -r '.trace.retention_days // 365' "$LANEKEEP_CONFIG_FILE" 2>/dev/null) || _trace_ret_days=365
-  _trace_max_sess=$(jq -r '.trace.max_sessions // 100' "$LANEKEEP_CONFIG_FILE" 2>/dev/null) || _trace_max_sess=100
+  _trace_max_sess=$(jq -r '.trace.max_sessions // 5000' "$LANEKEEP_CONFIG_FILE" 2>/dev/null) || _trace_max_sess=5000
   prune_traces "$project_dir/.lanekeep/traces" "$_trace_ret_days" "$_trace_max_sess" true "${LANEKEEP_SESSION_ID:-}" || true
 
   # --- Parse TaskSpec if spec file provided ---
