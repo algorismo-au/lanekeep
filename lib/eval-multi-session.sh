@@ -132,7 +132,7 @@ Compliance: CWE-799 (Improper Control of Interaction Frequency)"
   if [ -n "$max_total_cost" ] && [ "$max_total_cost" != "null" ]; then
     # Use jq for float comparison (cum_cost may be decimal)
     local cost_exceeded
-    cost_exceeded=$(jq -n \
+    cost_exceeded=$(jq -rn \
       --argjson cost "$cum_cost" \
       --argjson max "$max_total_cost" \
       --argjson pct "$cost_warn_percent" \
