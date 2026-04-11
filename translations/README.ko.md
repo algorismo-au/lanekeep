@@ -28,7 +28,8 @@
   <a href="README.tr.md">Türkçe</a> ·
   <a href="README.ar.md">العربية</a> ·
   <a href="README.vi.md">Tiếng Việt</a> ·
-  <a href="README.it.md">Italiano</a>
+  <a href="README.it.md">Italiano</a> ·
+  <a href="README.hi.md">हिन्दी</a>
 </p>
 
 # LaneKeep
