@@ -310,7 +310,7 @@
       }
     },
     "session_patterns": {
-      "enabled": false,
+      "enabled": true,
       "evasion_threshold": 3,
       "denial_cluster_threshold": 5,
       "time_window_seconds": 120,

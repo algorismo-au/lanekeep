@@ -362,21 +362,28 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
       fi
     fi
 
-    # --- Tier 2.6: Session anti-pattern detection ---
-    if [ "$BLOCKED" = false ] && [ "$_CFG_SESSION_PATTERNS_ENABLED" != "false" ]; then
+    # --- Tier 2.6: Session anti-pattern detection (always runs, even if already blocked) ---
+    if [ "$_CFG_SESSION_PATTERNS_ENABLED" != "false" ]; then
       if declare -f session_pattern_eval >/dev/null 2>&1; then
         if ! session_pattern_eval "$TOOL_NAME" "$TOOL_INPUT"; then
-          if [ "$SESSION_PATTERN_DECISION" = "ask" ]; then
-            if [ "$BLOCK_DECISION" = "ask" ]; then
-              BLOCK_REASON="${BLOCK_REASON}; ${SESSION_PATTERN_REASON}"
+          if [ "$BLOCKED" = false ]; then
+            # Not yet blocked — session_patterns controls the decision
+            if [ "$SESSION_PATTERN_DECISION" = "ask" ]; then
+              if [ "$BLOCK_DECISION" = "ask" ]; then
+                BLOCK_REASON="${BLOCK_REASON}; ${SESSION_PATTERN_REASON}"
+              else
+                BLOCK_DECISION="ask"
+                BLOCK_REASON="$SESSION_PATTERN_REASON"
+              fi
             else
-              BLOCK_DECISION="ask"
+              BLOCKED=true
               BLOCK_REASON="$SESSION_PATTERN_REASON"
+              BLOCK_DECISION="$SESSION_PATTERN_DECISION"
             fi
           else
-            BLOCKED=true
-            BLOCK_REASON="$SESSION_PATTERN_REASON"
-            BLOCK_DECISION="$SESSION_PATTERN_DECISION"
+            # Already blocked — append evasion warning so it shows in eval summary
+            BLOCK_REASON="${BLOCK_REASON}
+${SESSION_PATTERN_REASON}"
           fi
         fi
         _sp_score="0.8"; [ "$SESSION_PATTERN_PASSED" = true ] && _sp_score="0"
