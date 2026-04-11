@@ -49,15 +49,15 @@ multi_session_eval() {
   fi
 
   # Defaults
-  deny_rate_threshold="${deny_rate_threshold:-5}"   # 5% deny rate triggers
-  tool_deny_threshold="${tool_deny_threshold:-100}"  # 100 denials of one tool
+  deny_rate_threshold="${deny_rate_threshold:-10}"   # 10% deny rate triggers
+  tool_deny_threshold="${tool_deny_threshold:-30}"   # 30 denials of one tool
   cost_warn_percent="${cost_warn_percent:-80}"        # warn at 80% of total cost budget
-  min_sessions="${min_sessions:-3}"                   # need 3+ sessions for meaningful data
+  min_sessions="${min_sessions:-5}"                   # need 5+ sessions for meaningful data
 
-  [[ "$deny_rate_threshold" =~ ^[0-9]+$ ]] || deny_rate_threshold=5
-  [[ "$tool_deny_threshold" =~ ^[0-9]+$ ]] || tool_deny_threshold=100
+  [[ "$deny_rate_threshold" =~ ^[0-9]+$ ]] || deny_rate_threshold=10
+  [[ "$tool_deny_threshold" =~ ^[0-9]+$ ]] || tool_deny_threshold=30
   [[ "$cost_warn_percent" =~ ^[0-9]+$ ]] || cost_warn_percent=80
-  [[ "$min_sessions" =~ ^[0-9]+$ ]] || min_sessions=3
+  [[ "$min_sessions" =~ ^[0-9]+$ ]] || min_sessions=5
 
   # Read cumulative stats in one jq call
   local total_sessions=0 total_actions=0

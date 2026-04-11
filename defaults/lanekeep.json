@@ -322,10 +322,10 @@
     },
     "multi_session": {
       "enabled": false,
-      "deny_rate_threshold": 5,
-      "tool_deny_threshold": 100,
+      "deny_rate_threshold": 10,
+      "tool_deny_threshold": 30,
       "cost_warn_percent": 80,
-      "min_sessions": 3,
+      "min_sessions": 5,
       "compliance_by_category": {
         "resource_limit": [
           "CWE-770",

@@ -1269,7 +1269,7 @@ class TestEvaluatorSettings(_ServerTestCase):
             'evaluators': {
                 'context_budget': {'enabled': False, 'decision': 'ask'},
                 'session_patterns': {'enabled': False, 'evasion_threshold': 3, 'denial_cluster_threshold': 5, 'time_window_seconds': 120},
-                'multi_session': {'enabled': False, 'deny_rate_threshold': 5, 'tool_deny_threshold': 100, 'cost_warn_percent': 80, 'min_sessions': 3},
+                'multi_session': {'enabled': False, 'deny_rate_threshold': 10, 'tool_deny_threshold': 30, 'cost_warn_percent': 80, 'min_sessions': 5},
             },
         }
         (cls._project_dir / 'lanekeep.json').write_text(json.dumps(config, indent=2))

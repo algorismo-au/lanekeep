@@ -60,8 +60,8 @@ _write_cumulative() {
   [ "$MULTI_SESSION_PASSED" = "true" ]
 }
 
-# AC2: min_sessions gate — fewer than 3 sessions, skip regardless of deny rate
-@test "multi_session_eval passes when session count below min_sessions (default 3)" {
+# AC2: min_sessions gate — fewer than 5 sessions, skip regardless of deny rate
+@test "multi_session_eval passes when session count below min_sessions (default 5)" {
   _write_cumulative 2 10 50 0   # 2 sessions, 83% deny rate — would trigger if counted
   run multi_session_eval "Bash" '{}'
   [ "$status" -eq 0 ]
@@ -73,9 +73,9 @@ _write_cumulative() {
   [ "$status" -eq 0 ]
 }
 
-# AC3: All-clear — 3+ sessions, low deny rate, no probing — passes
+# AC3: All-clear — 5+ sessions, low deny rate, no probing — passes
 @test "multi_session_eval passes with healthy stats (low deny rate, 5 sessions)" {
-  _write_cumulative 5 200 5 0   # 5 sessions, deny rate ~2.4% — below 5% default
+  _write_cumulative 5 200 5 0   # 5 sessions, deny rate ~2.4% — below 10% default
   run multi_session_eval "Bash" '{}'
   [ "$status" -eq 0 ]
 }
@@ -86,36 +86,36 @@ _write_cumulative() {
   [ "$MULTI_SESSION_PASSED" = "true" ]
 }
 
-# AC4: Deny rate anomaly — 5%+ triggers
-@test "multi_session_eval returns 1 when deny rate meets threshold (5%)" {
-  # 10 deny / 200 total = 5% — meets threshold
-  _write_cumulative 5 190 10 0
+# AC4: Deny rate anomaly — 10%+ triggers
+@test "multi_session_eval returns 1 when deny rate meets threshold (10%)" {
+  # 20 deny / 200 total = 10% — meets threshold
+  _write_cumulative 5 180 20 0
   run multi_session_eval "Bash" '{}'
   [ "$status" -eq 1 ]
 }
 
 @test "multi_session_eval sets MULTI_SESSION_PASSED=false on high deny rate" {
-  _write_cumulative 5 190 10 0
+  _write_cumulative 5 180 20 0
   multi_session_eval "Bash" '{}' || true
   [ "$MULTI_SESSION_PASSED" = "false" ]
 }
 
 @test "multi_session_eval reason mentions deny rate" {
-  _write_cumulative 5 190 10 0
+  _write_cumulative 5 180 20 0
   multi_session_eval "Bash" '{}' || true
   [[ "$MULTI_SESSION_REASON" == *"deny rate"* ]]
 }
 
 @test "multi_session_eval reason mentions CWE-799 on deny rate trigger" {
-  _write_cumulative 5 190 10 0
+  _write_cumulative 5 180 20 0
   multi_session_eval "Bash" '{}' || true
   [[ "$MULTI_SESSION_REASON" == *"CWE-799"* ]]
 }
 
-# AC5: 4% deny rate — below threshold, passes
-@test "multi_session_eval passes with 4% deny rate (below 5% threshold)" {
-  # 8 deny / 200 total = 4%
-  _write_cumulative 5 192 8 0
+# AC5: 9% deny rate — below 10% threshold, passes
+@test "multi_session_eval passes with 9% deny rate (below 10% threshold)" {
+  # 18 deny / 200 total = 9%
+  _write_cumulative 5 182 18 0
   run multi_session_eval "Bash" '{}'
   [ "$status" -eq 0 ]
 }
