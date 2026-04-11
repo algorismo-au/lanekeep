@@ -4923,6 +4923,7 @@ function renderPolicies() {
         <span style="color:var(--text-muted);font-size:11px;min-width:32px">#${ci + 1}</span>
         <label style="display:flex;align-items:center;cursor:pointer;margin:0"><input type="checkbox" ${enabled ? 'checked' : ''} data-on-change="togglePolicy" data-cat="${esc(cat)}" style="margin:0"></label>
         <h4>${esc(getPolicyLabel(cat))}</h4>
+        ${POLICY_TOOL_SCOPE[cat] ? `<span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);opacity:0.6;white-space:nowrap">${esc(POLICY_TOOL_SCOPE[cat])}</span>` : ''}
         <select class="policy-default-select ${def}" data-on-change="updatePolicyDefault" data-cat="${esc(cat)}">
           <option value="allow" ${def === 'allow' ? 'selected' : ''}>default: allow</option>
           <option value="deny" ${def === 'deny' ? 'selected' : ''}>default: deny</option>
@@ -5047,6 +5048,22 @@ function updatePolicyDefault(cat, val) {
   policies[cat].default = val;
   markPoliciesDirty();
 }
+
+const POLICY_TOOL_SCOPE = {
+  governance_paths: 'Write · Edit · Read',
+  paths:            'Write · Edit · Read',
+  shell_configs:    'Write · Edit · Read · Bash',
+  registry_configs: 'Write · Edit · Read · Bash',
+  hidden_chars:     'Write · Edit',
+  env_vars:         'Bash',
+  commands:         'Bash',
+  repos:            'Bash',
+  branches:         'Bash',
+  registries:       'Bash',
+  packages:         'Bash',
+  docker:           'Bash',
+  mcp_servers:      'MCP tools',
+};
 
 const POLICY_HINTS = {
   governance_paths: 'Write · Edit · Read — regex or glob matching file path, e.g. \\.md$ or src/**',
