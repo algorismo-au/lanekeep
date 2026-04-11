@@ -1411,6 +1411,90 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
     </div>
 
     <div class="settings-card">
+      <h3>Context Budget</h3>
+      <p class="settings-hint">Monitors context window utilization. Triggers when transcript token usage crosses soft/hard thresholds (configured in Budget above). Prevents silent quality degradation at high context saturation.</p>
+      <div class="settings-row">
+        <span class="settings-label">Enabled</span>
+        <label class="settings-toggle"><input type="checkbox" id="set-context-budget-enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+      </div>
+      <div class="settings-row" id="set-context-budget-decision-row">
+        <span class="settings-label">Decision at soft threshold</span>
+        <select class="settings-select" id="set-context-budget-decision" style="width:220px;">
+          <option value="ask">Ask (prompt user)</option>
+          <option value="warn">Warn (allow with warning)</option>
+          <option value="deny">Deny (block action)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <h3>Session Patterns</h3>
+      <p class="settings-hint">Detects behavioral anti-patterns within a session: repeated denial evasion (trying variants of blocked commands) and rapid denial clustering (brute-force boundary probing).</p>
+      <div class="settings-row">
+        <span class="settings-label">Enabled</span>
+        <label class="settings-toggle"><input type="checkbox" id="set-session-patterns-enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">Evasion threshold</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="settings-hint" style="margin:0;">denials of same tool before flagging evasion</span>
+          <input type="number" class="settings-input" id="set-session-patterns-evasion_threshold" min="1" style="width:80px;">
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">Denial cluster</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="settings-hint" style="margin:0;">denials within time window before flagging</span>
+          <input type="number" class="settings-input" id="set-session-patterns-denial_cluster_threshold" min="1" style="width:80px;">
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">Time window</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="settings-hint" style="margin:0;">seconds</span>
+          <input type="number" class="settings-input" id="set-session-patterns-time_window_seconds" min="1" style="width:80px;">
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <h3>Multi-Session Governance</h3>
+      <p class="settings-hint">Detects anomalies across sessions by analyzing cumulative history: persistent high deny rates, targeted tool probing, and cost escalation trends invisible to single-session evaluators.</p>
+      <div class="settings-row">
+        <span class="settings-label">Enabled</span>
+        <label class="settings-toggle"><input type="checkbox" id="set-multi-session-enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">Deny rate alert</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="settings-hint" style="margin:0;">% overall deny rate before flagging</span>
+          <input type="number" class="settings-input" id="set-multi-session-deny_rate_threshold" min="0" max="100" style="width:80px;">
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">Tool deny threshold</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="settings-hint" style="margin:0;">per-tool denial count before flagging probing</span>
+          <input type="number" class="settings-input" id="set-multi-session-tool_deny_threshold" min="1" style="width:80px;">
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">Cost warn at</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="settings-hint" style="margin:0;">% of all-time cost limit</span>
+          <input type="number" class="settings-input" id="set-multi-session-cost_warn_percent" min="0" max="100" style="width:80px;">
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">Min sessions</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="settings-hint" style="margin:0;">sessions of history required before activating</span>
+          <input type="number" class="settings-input" id="set-multi-session-min_sessions" min="1" style="width:80px;">
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-card">
       <h3>Hard-Block Overrides</h3>
       <p class="settings-hint">Configurable hard-block patterns. Override to <strong>Warn</strong> (flag but allow) or <strong>Disable</strong> (skip entirely). Catastrophic patterns (rm&nbsp;-rf&nbsp;/, fork bombs, etc.) cannot be overridden.</p>
       <div id="hardblock-overrides-list"></div>
@@ -5892,6 +5976,9 @@ async function loadSettings() {
       autoformat: Object.assign({ enabled: true }, cfg.autoformat || {}),
       evaluators_semantic: Object.assign({ enabled: false, model: 'claude-haiku-4-5-20251001' }, (cfg.evaluators && cfg.evaluators.semantic) || {}),
       evaluators_input_pii: Object.assign({ enabled: true, on_detect: 'ask', pii_patterns: [] }, (cfg.evaluators && cfg.evaluators.input_pii) || {}),
+      evaluators_context_budget: Object.assign({ enabled: false, decision: 'ask' }, (cfg.evaluators && cfg.evaluators.context_budget) || {}),
+      evaluators_session_patterns: Object.assign({ enabled: false, evasion_threshold: 3, denial_cluster_threshold: 5, time_window_seconds: 120 }, (cfg.evaluators && cfg.evaluators.session_patterns) || {}),
+      evaluators_multi_session: Object.assign({ enabled: false, deny_rate_threshold: 5, tool_deny_threshold: 100, cost_warn_percent: 80, min_sessions: 3 }, (cfg.evaluators && cfg.evaluators.multi_session) || {}),
       pricing_overrides: Object.assign({}, (cfg.budget && cfg.budget.pricing_overrides) || {}),
       hard_block_overrides: Object.assign({}, cfg.hard_block_overrides || {}),
       _configurable_hard_blocks: cfg.configurable_hard_blocks || [],
@@ -5979,6 +6066,23 @@ function renderSettings() {
   document.getElementById('set-pii-on_detect').value = pii.on_detect || 'ask';
   document.getElementById('set-pii-patterns').value = (pii.pii_patterns || []).join('\n');
   togglePiiEnabled();
+  const cb = settingsData.evaluators_context_budget;
+  document.getElementById('set-context-budget-enabled').checked = cb.enabled === true;
+  document.getElementById('set-context-budget-decision').value = cb.decision || 'ask';
+  toggleContextBudget();
+  const sp = settingsData.evaluators_session_patterns;
+  document.getElementById('set-session-patterns-enabled').checked = sp.enabled === true;
+  document.getElementById('set-session-patterns-evasion_threshold').value = sp.evasion_threshold != null ? sp.evasion_threshold : 3;
+  document.getElementById('set-session-patterns-denial_cluster_threshold').value = sp.denial_cluster_threshold != null ? sp.denial_cluster_threshold : 5;
+  document.getElementById('set-session-patterns-time_window_seconds').value = sp.time_window_seconds != null ? sp.time_window_seconds : 120;
+  toggleSessionPatterns();
+  const ms = settingsData.evaluators_multi_session;
+  document.getElementById('set-multi-session-enabled').checked = ms.enabled === true;
+  document.getElementById('set-multi-session-deny_rate_threshold').value = ms.deny_rate_threshold != null ? ms.deny_rate_threshold : 5;
+  document.getElementById('set-multi-session-tool_deny_threshold').value = ms.tool_deny_threshold != null ? ms.tool_deny_threshold : 100;
+  document.getElementById('set-multi-session-cost_warn_percent').value = ms.cost_warn_percent != null ? ms.cost_warn_percent : 80;
+  document.getElementById('set-multi-session-min_sessions').value = ms.min_sessions != null ? ms.min_sessions : 3;
+  toggleMultiSession();
   renderPricingSettings();
   renderHardblockOverrides();
 }
@@ -6121,6 +6225,25 @@ function togglePiiEnabled() {
   sel.querySelector('option[value="allow"]').hidden = on;
 }
 
+function toggleContextBudget() {
+  var on = document.getElementById('set-context-budget-enabled').checked;
+  document.getElementById('set-context-budget-decision').disabled = !on;
+}
+
+function toggleSessionPatterns() {
+  var on = document.getElementById('set-session-patterns-enabled').checked;
+  ['set-session-patterns-evasion_threshold','set-session-patterns-denial_cluster_threshold','set-session-patterns-time_window_seconds'].forEach(function(id) {
+    document.getElementById(id).disabled = !on;
+  });
+}
+
+function toggleMultiSession() {
+  var on = document.getElementById('set-multi-session-enabled').checked;
+  ['set-multi-session-deny_rate_threshold','set-multi-session-tool_deny_threshold','set-multi-session-cost_warn_percent','set-multi-session-min_sessions'].forEach(function(id) {
+    document.getElementById(id).disabled = !on;
+  });
+}
+
 function markSettingsDirty() {
   settingsDirty = true;
   document.getElementById('settings-save-btn').disabled = false;
@@ -6204,6 +6327,17 @@ function collectSettingsFromForm() {
   settingsData.evaluators_input_pii.on_detect = document.getElementById('set-pii-on_detect').value;
   settingsData.evaluators_input_pii.pii_patterns = document.getElementById('set-pii-patterns').value
     .split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+  settingsData.evaluators_context_budget.enabled = document.getElementById('set-context-budget-enabled').checked;
+  settingsData.evaluators_context_budget.decision = document.getElementById('set-context-budget-decision').value;
+  settingsData.evaluators_session_patterns.enabled = document.getElementById('set-session-patterns-enabled').checked;
+  settingsData.evaluators_session_patterns.evasion_threshold = parseInt(document.getElementById('set-session-patterns-evasion_threshold').value) || 3;
+  settingsData.evaluators_session_patterns.denial_cluster_threshold = parseInt(document.getElementById('set-session-patterns-denial_cluster_threshold').value) || 5;
+  settingsData.evaluators_session_patterns.time_window_seconds = parseInt(document.getElementById('set-session-patterns-time_window_seconds').value) || 120;
+  settingsData.evaluators_multi_session.enabled = document.getElementById('set-multi-session-enabled').checked;
+  settingsData.evaluators_multi_session.deny_rate_threshold = parseFloat(document.getElementById('set-multi-session-deny_rate_threshold').value) || 5;
+  settingsData.evaluators_multi_session.tool_deny_threshold = parseInt(document.getElementById('set-multi-session-tool_deny_threshold').value) || 100;
+  settingsData.evaluators_multi_session.cost_warn_percent = parseFloat(document.getElementById('set-multi-session-cost_warn_percent').value) || 80;
+  settingsData.evaluators_multi_session.min_sessions = parseInt(document.getElementById('set-multi-session-min_sessions').value) || 3;
   // Collect pricing overrides — only save rates that differ from bundled defaults
   const pricingOverrides = {};
   document.querySelectorAll('.pricing-rate-input').forEach(inp => {
@@ -6530,6 +6664,9 @@ document.addEventListener('visibilitychange', function() {
       var target = e.target;
       if (target.id === 'set-semantic-enabled') { markSettingsDirty(); toggleSemanticModel(); }
       else if (target.id === 'set-pii-enabled') { markSettingsDirty(); togglePiiEnabled(); }
+      else if (target.id === 'set-context-budget-enabled') { markSettingsDirty(); toggleContextBudget(); }
+      else if (target.id === 'set-session-patterns-enabled') { markSettingsDirty(); toggleSessionPatterns(); }
+      else if (target.id === 'set-multi-session-enabled') { markSettingsDirty(); toggleMultiSession(); }
       else if (target.id === 'set-profile') { markSettingsDirty(); updateProfileDesc(true); }
       else if (target.id && target.id.startsWith('set-')) { markSettingsDirty(); }
       // Budget sum updates

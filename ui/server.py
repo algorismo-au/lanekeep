@@ -2641,6 +2641,44 @@ class Handler(BaseHTTPRequestHandler):
             if 'model' in es and not isinstance(es['model'], str):
                 return False, 'evaluators_semantic.model must be a string'
 
+        # Evaluators context_budget
+        if 'evaluators_context_budget' in body:
+            ecb = body['evaluators_context_budget']
+            if not isinstance(ecb, dict):
+                return False, 'evaluators_context_budget must be an object'
+            if 'enabled' in ecb and not isinstance(ecb['enabled'], bool):
+                return False, 'evaluators_context_budget.enabled must be a boolean'
+            if 'decision' in ecb and ecb['decision'] not in ('ask', 'warn', 'deny'):
+                return False, 'evaluators_context_budget.decision must be ask, warn, or deny'
+
+        # Evaluators session_patterns
+        if 'evaluators_session_patterns' in body:
+            esp = body['evaluators_session_patterns']
+            if not isinstance(esp, dict):
+                return False, 'evaluators_session_patterns must be an object'
+            if 'enabled' in esp and not isinstance(esp['enabled'], bool):
+                return False, 'evaluators_session_patterns.enabled must be a boolean'
+            for field in ('evasion_threshold', 'denial_cluster_threshold', 'time_window_seconds'):
+                if field in esp:
+                    if not isinstance(esp[field], int) or esp[field] < 1:
+                        return False, f'evaluators_session_patterns.{field} must be a positive integer'
+
+        # Evaluators multi_session
+        if 'evaluators_multi_session' in body:
+            ems = body['evaluators_multi_session']
+            if not isinstance(ems, dict):
+                return False, 'evaluators_multi_session must be an object'
+            if 'enabled' in ems and not isinstance(ems['enabled'], bool):
+                return False, 'evaluators_multi_session.enabled must be a boolean'
+            for field in ('deny_rate_threshold', 'cost_warn_percent'):
+                if field in ems:
+                    if not isinstance(ems[field], (int, float)) or not (0 <= ems[field] <= 100):
+                        return False, f'evaluators_multi_session.{field} must be a number between 0 and 100'
+            for field in ('tool_deny_threshold', 'min_sessions'):
+                if field in ems:
+                    if not isinstance(ems[field], int) or ems[field] < 1:
+                        return False, f'evaluators_multi_session.{field} must be a positive integer'
+
         # Hard-block overrides
         if 'hard_block_overrides' in body:
             hbo = body['hard_block_overrides']
@@ -2729,6 +2767,15 @@ class Handler(BaseHTTPRequestHandler):
                     config['evaluators'] = {}
                 existing = config['evaluators'].get('input_pii', {})
                 config['evaluators']['input_pii'] = self._deep_merge(existing, body['evaluators_input_pii'])
+
+            # evaluators_context_budget / session_patterns / multi_session -> config.evaluators.* (deep merge)
+            for key in ('context_budget', 'session_patterns', 'multi_session'):
+                payload_key = f'evaluators_{key}'
+                if payload_key in body:
+                    if 'evaluators' not in config:
+                        config['evaluators'] = {}
+                    existing = config['evaluators'].get(key, {})
+                    config['evaluators'][key] = self._deep_merge(existing, body[payload_key])
 
             new_content = json.dumps(config, indent=2) + '\n'
             new_hash = hashlib.sha256(new_content.encode()).hexdigest()

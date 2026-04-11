@@ -397,6 +397,49 @@ beyond pattern matching. The goal is read from [TaskSpec](#budget--taskspec)
 | `evaluators.semantic.timeout` | number | `10` | Request timeout (seconds) |
 | `evaluators.semantic.on_error` | string | `"deny"` | On LLM error: `"deny"` or `"allow"` |
 
+### Context Budget
+
+Monitors context window utilization via transcript token counts. Fires when
+token usage crosses the soft or hard threshold, giving teams a governance knob
+to prevent silent output-quality degradation at high context saturation.
+Context thresholds are configured in the [Budget](#budget--taskspec) section
+(`budget.context_soft_percent`, `budget.context_hard_percent`).
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `evaluators.context_budget.enabled` | bool | `false` | Enable context window governance |
+| `evaluators.context_budget.decision` | string | `"ask"` | Action at soft threshold: `"ask"`, `"warn"`, or `"deny"` |
+
+### Session Patterns
+
+Detects behavioral anti-patterns within a single session by analysing the
+sequence of tool calls and decisions: **evasion** (repeated denials of the same
+tool followed by variants) and **denial clustering** (N denials within a short
+time window, indicating boundary probing).
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `evaluators.session_patterns.enabled` | bool | `false` | Enable session anti-pattern detection |
+| `evaluators.session_patterns.evasion_threshold` | number | `3` | Denials of the same tool before evasion flag |
+| `evaluators.session_patterns.denial_cluster_threshold` | number | `5` | Denials within the time window before cluster flag |
+| `evaluators.session_patterns.time_window_seconds` | number | `120` | Time window for denial cluster detection (seconds) |
+
+### Multi-Session Governance
+
+Analyses cumulative history across sessions to detect trends invisible to
+single-session evaluators: persistent high deny rates, targeted tool probing
+(one tool accounts for a disproportionate share of denials), and cost
+escalation relative to the all-time limit. Requires at least `min_sessions` of
+history before activating.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `evaluators.multi_session.enabled` | bool | `false` | Enable cross-session governance |
+| `evaluators.multi_session.deny_rate_threshold` | number | `5` | Overall deny rate (%) that triggers the check |
+| `evaluators.multi_session.tool_deny_threshold` | number | `100` | Per-tool denial count that triggers probing detection |
+| `evaluators.multi_session.cost_warn_percent` | number | `80` | % of `budget.max_total_cost` at which cost escalation fires |
+| `evaluators.multi_session.min_sessions` | number | `3` | Minimum completed sessions before the evaluator activates |
+
 ## Environment Variables
 
 | Variable | Description | Default |

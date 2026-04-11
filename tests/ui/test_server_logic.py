@@ -1258,5 +1258,150 @@ class TestGraphsExtendsDefaults(_ServerTestCase):
         self.assertGreater(len(cwe_fws), 0)
 
 
+class TestEvaluatorSettings(_ServerTestCase):
+    """Verify POST /api/settings saves and validates the three new evaluator configs."""
+
+    @classmethod
+    def _setup_project(cls):
+        config = {
+            'rules': [],
+            'policies': {},
+            'evaluators': {
+                'context_budget': {'enabled': False, 'decision': 'ask'},
+                'session_patterns': {'enabled': False, 'evasion_threshold': 3, 'denial_cluster_threshold': 5, 'time_window_seconds': 120},
+                'multi_session': {'enabled': False, 'deny_rate_threshold': 5, 'tool_deny_threshold': 100, 'cost_warn_percent': 80, 'min_sessions': 3},
+            },
+        }
+        (cls._project_dir / 'lanekeep.json').write_text(json.dumps(config, indent=2))
+
+    def _read_config(self):
+        return json.loads((self._project_dir / 'lanekeep.json').read_text())
+
+    # ── context_budget ──────────────────────────────────────────────
+
+    def test_context_budget_save_enabled_and_decision(self):
+        """POST /api/settings persists context_budget.enabled and decision."""
+        status, _ = self.post('/api/settings', {
+            'evaluators_context_budget': {'enabled': True, 'decision': 'deny'},
+        })
+        self.assertEqual(status, 200)
+        cfg = self._read_config()
+        self.assertTrue(cfg['evaluators']['context_budget']['enabled'])
+        self.assertEqual(cfg['evaluators']['context_budget']['decision'], 'deny')
+
+    def test_context_budget_invalid_decision_rejected(self):
+        """Invalid decision value returns 400."""
+        status, body = self.post('/api/settings', {
+            'evaluators_context_budget': {'decision': 'block'},
+        })
+        self.assertEqual(status, 400)
+        self.assertIn('decision', body.get('error', ''))
+
+    def test_context_budget_enabled_not_bool_rejected(self):
+        """Non-boolean enabled returns 400."""
+        status, body = self.post('/api/settings', {
+            'evaluators_context_budget': {'enabled': 'yes'},
+        })
+        self.assertEqual(status, 400)
+
+    # ── session_patterns ────────────────────────────────────────────
+
+    def test_session_patterns_save_thresholds(self):
+        """POST /api/settings persists session_patterns thresholds."""
+        status, _ = self.post('/api/settings', {
+            'evaluators_session_patterns': {
+                'enabled': True,
+                'evasion_threshold': 5,
+                'denial_cluster_threshold': 10,
+                'time_window_seconds': 300,
+            },
+        })
+        self.assertEqual(status, 200)
+        cfg = self._read_config()
+        sp = cfg['evaluators']['session_patterns']
+        self.assertTrue(sp['enabled'])
+        self.assertEqual(sp['evasion_threshold'], 5)
+        self.assertEqual(sp['denial_cluster_threshold'], 10)
+        self.assertEqual(sp['time_window_seconds'], 300)
+
+    def test_session_patterns_zero_threshold_rejected(self):
+        """Threshold of 0 (not positive) returns 400."""
+        status, _ = self.post('/api/settings', {
+            'evaluators_session_patterns': {'evasion_threshold': 0},
+        })
+        self.assertEqual(status, 400)
+
+    def test_session_patterns_negative_threshold_rejected(self):
+        """Negative threshold returns 400."""
+        status, _ = self.post('/api/settings', {
+            'evaluators_session_patterns': {'time_window_seconds': -60},
+        })
+        self.assertEqual(status, 400)
+
+    # ── multi_session ───────────────────────────────────────────────
+
+    def test_multi_session_save_all_fields(self):
+        """POST /api/settings persists all multi_session fields."""
+        status, _ = self.post('/api/settings', {
+            'evaluators_multi_session': {
+                'enabled': True,
+                'deny_rate_threshold': 10,
+                'tool_deny_threshold': 50,
+                'cost_warn_percent': 75,
+                'min_sessions': 5,
+            },
+        })
+        self.assertEqual(status, 200)
+        cfg = self._read_config()
+        ms = cfg['evaluators']['multi_session']
+        self.assertTrue(ms['enabled'])
+        self.assertEqual(ms['deny_rate_threshold'], 10)
+        self.assertEqual(ms['tool_deny_threshold'], 50)
+        self.assertEqual(ms['cost_warn_percent'], 75)
+        self.assertEqual(ms['min_sessions'], 5)
+
+    def test_multi_session_deny_rate_over_100_rejected(self):
+        """deny_rate_threshold > 100 returns 400."""
+        status, _ = self.post('/api/settings', {
+            'evaluators_multi_session': {'deny_rate_threshold': 150},
+        })
+        self.assertEqual(status, 400)
+
+    def test_multi_session_cost_warn_negative_rejected(self):
+        """Negative cost_warn_percent returns 400."""
+        status, _ = self.post('/api/settings', {
+            'evaluators_multi_session': {'cost_warn_percent': -5},
+        })
+        self.assertEqual(status, 400)
+
+    def test_multi_session_min_sessions_zero_rejected(self):
+        """min_sessions of 0 returns 400."""
+        status, _ = self.post('/api/settings', {
+            'evaluators_multi_session': {'min_sessions': 0},
+        })
+        self.assertEqual(status, 400)
+
+    # ── deep merge ──────────────────────────────────────────────────
+
+    def test_evaluator_save_deep_merges_existing_fields(self):
+        """Saving one field preserves other fields in the evaluator config."""
+        # Set a full config first
+        self.post('/api/settings', {
+            'evaluators_session_patterns': {
+                'enabled': True, 'evasion_threshold': 7,
+                'denial_cluster_threshold': 8, 'time_window_seconds': 90,
+            },
+        })
+        # Now only update one field
+        self.post('/api/settings', {
+            'evaluators_session_patterns': {'evasion_threshold': 4},
+        })
+        cfg = self._read_config()
+        sp = cfg['evaluators']['session_patterns']
+        self.assertEqual(sp['evasion_threshold'], 4)
+        self.assertEqual(sp['denial_cluster_threshold'], 8, 'other fields should be preserved')
+        self.assertEqual(sp['time_window_seconds'], 90, 'other fields should be preserved')
+
+
 if __name__ == '__main__':
     unittest.main()
