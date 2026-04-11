@@ -487,9 +487,9 @@ policies_check() {
       else . end
     else . end |
 
-    # governance_paths: Write/Edit only, regex match on file_path
+    # governance_paths: Write/Edit/Read, regex match on file_path
     if .ok then
-      if ($p | has("governance_paths")) and (if ($p.governance_paths | has("enabled")) then $p.governance_paths.enabled else true end) and ($lower_tool | test("^(write|edit)$")) and $file_path != "" then
+      if ($p | has("governance_paths")) and (if ($p.governance_paths | has("enabled")) then $p.governance_paths.enabled else true end) and ($lower_tool | test("^(write|edit|read)$")) and $file_path != "" then
         ($p.governance_paths) as $cat |
         ($cat.default // "allow") as $def |
         ($cat.denied // [] | map(select(. as $pat | $pat | path_match($file_path))) | first // null) as $matched_denied |

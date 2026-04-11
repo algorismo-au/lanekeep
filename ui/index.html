@@ -5049,7 +5049,7 @@ function updatePolicyDefault(cat, val) {
 }
 
 const POLICY_HINTS = {
-  governance_paths: 'regex or glob matching file path, e.g. \\.md$ or src/**',
+  governance_paths: 'Write · Edit · Read — regex or glob matching file path, e.g. \\.md$ or src/**',
   shell_configs: 'regex or glob matching file path, e.g. \\.bashrc$',
   registry_configs: 'regex or glob matching file path, e.g. \\.npmrc$',
   paths: 'regex or glob matching file path, e.g. src/secrets/**',
@@ -5206,7 +5206,7 @@ function testPolicies(tool, input) {
     registries: /^Bash$/i,
     packages: /^Bash$/i,
     docker: /^Bash$/i,
-    governance_paths: /^(Write|Edit)$/i,
+    governance_paths: /^(Write|Edit|Read)$/i,
     shell_configs: /^(Write|Edit|Read|Bash)$/i,
     registry_configs: /^(Write|Edit|Read|Bash)$/i,
     hidden_chars: /^(Write|Edit)$/i,
