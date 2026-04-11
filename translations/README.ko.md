@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="images/lanekeep-logo-mark.svg" />
-    <source media="(prefers-color-scheme: light)" srcset="images/lanekeep-logo-mark-light.svg" />
+    <source media="(prefers-color-scheme: dark)" srcset="../images/lanekeep-logo-mark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="../images/lanekeep-logo-mark-light.svg" />
     <img src="../images/lanekeep-logo-mark-light.svg" alt="LaneKeep" width="120" />
   </picture>
 </p>
