@@ -1573,6 +1573,9 @@ function showView(view, skipPush) {
   if (view === 'editor' || view === 'context') view = 'files';
   if (view === 'learn') view = 'docs';
   if (view === 'compliance') view = 'audit';
+  if (activeView === 'settings' && view !== 'settings' && settingsDirty) {
+    if (!confirm('You have unsaved settings changes. Leave without saving?')) return;
+  }
   activeView = view;
   if (!skipPush) history.pushState(null, '', '#' + view);
   // Update nav
@@ -5547,7 +5550,7 @@ function setStatus(id, msg, cls) {
   else el.removeAttribute('role');
 }
 
-window.addEventListener('beforeunload', e => { if (rulesDirty || policiesDirty || editorDirty || editorTabs.some(t => t.dirty)) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', e => { if (rulesDirty || policiesDirty || editorDirty || settingsDirty || editorTabs.some(t => t.dirty)) { e.preventDefault(); e.returnValue = ''; } });
 
 // --- Column resizing ---
 function initColumnResize(tableSelector, storageKey) {
