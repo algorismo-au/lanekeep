@@ -373,7 +373,7 @@ LANEKEEP_MAX_ACTIONS=50 LANEKEEP_TIMEOUT_SECONDS=900 lanekeep serve
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `trace.retention_days` | number | `365` | Days to keep audit logs |
-| `trace.max_sessions` | number | `100` | Max session logs to retain |
+| `trace.max_sessions` | number | `5000` | Max session logs to retain |
 
 ### Semantic Evaluator
 
@@ -409,20 +409,6 @@ Context thresholds are configured in the [Budget](#budget--taskspec) section
 |-----|------|---------|-------------|
 | `evaluators.context_budget.enabled` | bool | `false` | Enable context window governance |
 | `evaluators.context_budget.decision` | string | `"ask"` | Action at soft threshold: `"ask"`, `"warn"`, or `"deny"` |
-
-### Session Patterns
-
-Detects behavioral anti-patterns within a single session by analysing the
-sequence of tool calls and decisions: **evasion** (repeated denials of the same
-tool followed by variants) and **denial clustering** (N denials within a short
-time window, indicating boundary probing).
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `evaluators.session_patterns.enabled` | bool | `false` | Enable session anti-pattern detection |
-| `evaluators.session_patterns.evasion_threshold` | number | `3` | Denials of the same tool before evasion flag |
-| `evaluators.session_patterns.denial_cluster_threshold` | number | `5` | Denials within the time window before cluster flag |
-| `evaluators.session_patterns.time_window_seconds` | number | `120` | Time window for denial cluster detection (seconds) |
 
 ### Multi-Session Governance
 

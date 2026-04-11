@@ -465,11 +465,9 @@ tbody tr.selected { background: var(--bg-hover); }
 .insight-card.warn .card-value { color: var(--color-warn); }
 .insight-card.ask .card-value { color: var(--color-ask); }
 .insight-card.pii .card-value { color: var(--color-pii); }
-.insight-card.evasion .card-value { color: var(--color-warn); }
-.nav-evasion-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 16px; padding: 0 5px; border-radius: 8px; font-size: 10px; font-weight: 700; background: rgba(212,68,46,0.2); color: var(--color-deny); border: 1px solid rgba(212,68,46,0.4); margin-left: auto; line-height: 1; }
 .insights-separator { display: none; }
 .insight-card.pii { position: relative; }
-.insight-card.pii::before { content: ''; position: absolute; left: -7px; top: 8px; bottom: 8px; width: 1px; background: var(--border); opacity: 0.5; }
+.insight-card.pii::before { content: ''; position: absolute; left: -8px; top: 0; bottom: 0; width: 3px; background: var(--border-strong); border-radius: 2px; opacity: 0.9; }
 
 .trend-section { margin-bottom: 12px; border: 1px solid var(--border-strong); border-radius: 10px; padding: 16px 18px; background: var(--bg-panel); }
 .trend-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
@@ -969,7 +967,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
   <ul class="sidebar-nav">
     <li id="nav-home" class="active" role="button" aria-label="Home" tabindex="0"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 10v9a1 1 0 001 1h12a1 1 0 001-1v-9"/></svg></span> Home</li>
     <li id="nav-governance" role="button" aria-label="Governance - budgets and limits" tabindex="0"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 9.5-8 11.5-4.5-2-8-6.5-8-11.5V7z"/></svg></span> Governance</li>
-    <li id="nav-insights" role="button" aria-label="Insights - trace log and analytics" tabindex="0"><span class="nav-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> Insights<span class="nav-evasion-badge" id="nav-evasion-badge" style="display:none"></span></li>
+    <li id="nav-insights" role="button" aria-label="Insights - trace log and analytics" tabindex="0"><span class="nav-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> Insights</li>
     <li id="nav-audit" role="button" aria-label="Audit" tabindex="0"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l3 3 5-6"/></svg></span> Audit</li>
     <li id="nav-files" role="button" aria-label="Files" tabindex="0"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20 20a2 2 0 002-2V8a2 2 0 00-2-2h-7.9a2 2 0 01-1.69-.9L9.6 3.9A2 2 0 007.93 3H4a2 2 0 00-2 2v13a2 2 0 002 2z"/></svg></span> Files</li>
     <li id="nav-docs" role="button" aria-label="Documentation" tabindex="0"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 016.5 2H20v20H6.5a2.5 2.5 0 010-5H20"/></svg></span> Docs</li>
@@ -1303,33 +1301,22 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
     </div>
 
     <div class="settings-card">
-      <h3>Notifications</h3>
+      <h3>Features</h3>
       <div class="settings-row">
-        <span class="settings-label">Enabled</span>
-        <label class="settings-toggle"><input type="checkbox" id="set-notif-enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+        <span class="settings-label">Autoformat</span>
+        <label class="settings-toggle"><input type="checkbox" id="set-autoformat-enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
       </div>
       <div class="settings-row">
-        <span class="settings-label">On stop</span>
-        <label class="settings-toggle"><input type="checkbox" id="set-notif-onstop"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+        <span class="settings-label">Semantic evaluator</span>
+        <label class="settings-toggle"><input type="checkbox" id="set-semantic-enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
       </div>
-      <div class="settings-row">
-        <span class="settings-label">Min session seconds</span>
-        <input type="number" class="settings-input" id="set-notif-minsec" min="0">
-      </div>
-      <span class="settings-label" style="margin-top:6px;color:var(--text-secondary)">OS</span>
-      <div class="settings-sub">
-        <div class="settings-row">
-          <span class="settings-label" id="set-notif-label-linux">Linux</span>
-          <label class="settings-radio"><input type="radio" name="notif-platform" value="linux" id="set-notif-linux"><span class="radio-track"></span><span class="radio-dot"></span></label>
-        </div>
-        <div class="settings-row">
-          <span class="settings-label" id="set-notif-label-macos">macOS</span>
-          <label class="settings-radio"><input type="radio" name="notif-platform" value="macos" id="set-notif-macos"><span class="radio-track"></span><span class="radio-dot"></span></label>
-        </div>
-        <div class="settings-row">
-          <span class="settings-label" id="set-notif-label-windows">Windows</span>
-          <label class="settings-radio"><input type="radio" name="notif-platform" value="windows" id="set-notif-windows"><span class="radio-track"></span><span class="radio-dot"></span></label>
-        </div>
+      <div class="settings-row" id="set-semantic-model-row" style="display:none;">
+        <span class="settings-label">Semantic model</span>
+        <select class="settings-select" id="set-semantic-model">
+          <option value="claude-haiku-4-5-20251001">claude-haiku-4-5</option>
+          <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+          <option value="claude-opus-4-6">claude-opus-4-6</option>
+        </select>
       </div>
     </div>
 
@@ -1361,27 +1348,18 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
     </div>
 
     <div class="settings-card">
-      <h3>Trace Retention</h3>
-      <div class="settings-row"><span class="settings-label">Retention days</span><input type="number" class="settings-input" id="set-trace-retention_days" min="1"></div>
-      <div class="settings-row"><span class="settings-label">Max sessions</span><input type="number" class="settings-input" id="set-trace-max_sessions" min="1"></div>
-    </div>
-
-    <div class="settings-card">
-      <h3>Features</h3>
+      <h3>Context Budget</h3>
+      <p class="settings-hint">Monitors context window utilization. Triggers when transcript token usage crosses soft/hard thresholds (configured in Budget above). Prevents silent quality degradation at high context saturation.</p>
       <div class="settings-row">
-        <span class="settings-label">Autoformat</span>
-        <label class="settings-toggle"><input type="checkbox" id="set-autoformat-enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+        <span class="settings-label">Enabled</span>
+        <label class="settings-toggle"><input type="checkbox" id="set-context-budget-enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
       </div>
-      <div class="settings-row">
-        <span class="settings-label">Semantic evaluator</span>
-        <label class="settings-toggle"><input type="checkbox" id="set-semantic-enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
-      </div>
-      <div class="settings-row" id="set-semantic-model-row" style="display:none;">
-        <span class="settings-label">Semantic model</span>
-        <select class="settings-select" id="set-semantic-model">
-          <option value="claude-haiku-4-5-20251001">claude-haiku-4-5</option>
-          <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
-          <option value="claude-opus-4-6">claude-opus-4-6</option>
+      <div class="settings-row" id="set-context-budget-decision-row">
+        <span class="settings-label">Decision at soft threshold</span>
+        <select class="settings-select" id="set-context-budget-decision" style="width:220px;">
+          <option value="ask">Ask (prompt user)</option>
+          <option value="warn">Warn (allow with warning)</option>
+          <option value="deny">Deny (block action)</option>
         </select>
       </div>
     </div>
@@ -1407,53 +1385,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
         <div style="display:flex;gap:10px;align-items:flex-start;flex:1;max-width:1150px;">
           <span class="settings-hint" style="margin:0;padding-top:4px;white-space:nowrap;flex-shrink:0;">One regex per line.<br>Matched against tool input.</span>
           <textarea class="settings-input" id="set-pii-patterns" rows="5" style="font-family:var(--font-mono);font-size:11px;resize:vertical;flex:1;min-width:0;" spellcheck="false"></textarea>
-        </div>
-      </div>
-    </div>
-
-    <div class="settings-card">
-      <h3>Context Budget</h3>
-      <p class="settings-hint">Monitors context window utilization. Triggers when transcript token usage crosses soft/hard thresholds (configured in Budget above). Prevents silent quality degradation at high context saturation.</p>
-      <div class="settings-row">
-        <span class="settings-label">Enabled</span>
-        <label class="settings-toggle"><input type="checkbox" id="set-context-budget-enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
-      </div>
-      <div class="settings-row" id="set-context-budget-decision-row">
-        <span class="settings-label">Decision at soft threshold</span>
-        <select class="settings-select" id="set-context-budget-decision" style="width:220px;">
-          <option value="ask">Ask (prompt user)</option>
-          <option value="warn">Warn (allow with warning)</option>
-          <option value="deny">Deny (block action)</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="settings-card">
-      <h3>Session Patterns</h3>
-      <p class="settings-hint">Detects behavioral anti-patterns within a session: repeated denial evasion (trying variants of blocked commands) and rapid denial clustering (brute-force boundary probing).</p>
-      <div class="settings-row">
-        <span class="settings-label">Enabled</span>
-        <label class="settings-toggle"><input type="checkbox" id="set-session-patterns-enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
-      </div>
-      <div class="settings-row">
-        <span class="settings-label">Evasion threshold</span>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span class="settings-hint" style="margin:0;">denials of same tool before flagging evasion</span>
-          <input type="number" class="settings-input" id="set-session-patterns-evasion_threshold" min="1" style="width:80px;">
-        </div>
-      </div>
-      <div class="settings-row">
-        <span class="settings-label">Denial cluster</span>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span class="settings-hint" style="margin:0;">denials within time window before flagging</span>
-          <input type="number" class="settings-input" id="set-session-patterns-denial_cluster_threshold" min="1" style="width:80px;">
-        </div>
-      </div>
-      <div class="settings-row">
-        <span class="settings-label">Time window</span>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span class="settings-hint" style="margin:0;">seconds</span>
-          <input type="number" class="settings-input" id="set-session-patterns-time_window_seconds" min="1" style="width:80px;">
         </div>
       </div>
     </div>
@@ -1499,6 +1430,43 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
       <h3>Hard-Block Overrides</h3>
       <p class="settings-hint">Configurable hard-block patterns. Override to <strong>Warn</strong> (flag but allow) or <strong>Disable</strong> (skip entirely). Catastrophic patterns (rm&nbsp;-rf&nbsp;/, fork bombs, etc.) cannot be overridden.</p>
       <div id="hardblock-overrides-list"></div>
+    </div>
+
+    <div class="settings-card">
+      <h3>Notifications</h3>
+      <div class="settings-row">
+        <span class="settings-label">Enabled</span>
+        <label class="settings-toggle"><input type="checkbox" id="set-notif-enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">On stop</span>
+        <label class="settings-toggle"><input type="checkbox" id="set-notif-onstop"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">Min session seconds</span>
+        <input type="number" class="settings-input" id="set-notif-minsec" min="0">
+      </div>
+      <span class="settings-label" style="margin-top:6px;color:var(--text-secondary)">OS</span>
+      <div class="settings-sub">
+        <div class="settings-row">
+          <span class="settings-label" id="set-notif-label-linux">Linux</span>
+          <label class="settings-radio"><input type="radio" name="notif-platform" value="linux" id="set-notif-linux"><span class="radio-track"></span><span class="radio-dot"></span></label>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label" id="set-notif-label-macos">macOS</span>
+          <label class="settings-radio"><input type="radio" name="notif-platform" value="macos" id="set-notif-macos"><span class="radio-track"></span><span class="radio-dot"></span></label>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label" id="set-notif-label-windows">Windows</span>
+          <label class="settings-radio"><input type="radio" name="notif-platform" value="windows" id="set-notif-windows"><span class="radio-track"></span><span class="radio-dot"></span></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <h3>Trace Retention</h3>
+      <div class="settings-row"><span class="settings-label">Retention days</span><input type="number" class="settings-input" id="set-trace-retention_days" min="1"></div>
+      <div class="settings-row"><span class="settings-label">Max sessions</span><input type="number" class="settings-input" id="set-trace-max_sessions" min="1"></div>
       <div style="height:4em;"></div>
     </div>
 
@@ -3754,21 +3722,7 @@ function updateInsightCards() {
     }
     else if (f === 'allow') valEl.textContent = dec.allow;
     else if (f === 'pii_input') valEl.textContent = cumPii;
-    else if (f === 'evasion') {
-      const allEntries = insightsTimelineEntries || (insightsTraceData && insightsTraceData.entries) || [];
-      const evasionCount = allEntries.filter(e => (e.evaluators || []).some(ev => ev.name === 'session_patterns' && ev.passed === false)).length;
-      valEl.textContent = evasionCount;
-      const badge = document.getElementById('nav-evasion-badge');
-      if (badge) { badge.textContent = evasionCount || ''; badge.style.display = evasionCount > 0 ? 'inline-flex' : 'none'; }
-    }
   });
-  // Ensure badge is updated even when evasion card is not visible yet
-  if (!document.querySelector('.insight-card.evasion')) {
-    const allEntries = insightsTimelineEntries || (insightsTraceData && insightsTraceData.entries) || [];
-    const evasionCount = allEntries.filter(e => (e.evaluators || []).some(ev => ev.name === 'session_patterns' && ev.passed === false)).length;
-    const badge = document.getElementById('nav-evasion-badge');
-    if (badge) { badge.textContent = evasionCount || ''; badge.style.display = evasionCount > 0 ? 'inline-flex' : 'none'; }
-  }
 }
 
 function _buildAnalyticsCards(src, sliceLimit, fileIdPrefix) {
@@ -3970,9 +3924,6 @@ function renderInsightsTable() {
   if (!insightsTraceData || !insightsTraceData.entries.length) return;
   renderInsightsAnalytics();
   let pageEntries = insightsTraceData.entries;
-  if (insightsFilter.has('evasion')) {
-    pageEntries = pageEntries.filter(e => (e.evaluators || []).some(ev => ev.name === 'session_patterns' && ev.passed === false));
-  }
   // Server provides total_filtered and total_all for pagination
   const totalFiltered = insightsTraceData.total_filtered || pageEntries.length;
   const startIdx = (insightsPage - 1) * insightsPageSize;
@@ -4361,8 +4312,7 @@ async function loadInsights() {
   try {
     var offset = (insightsPage - 1) * insightsPageSize;
     var filterParam = insightsFilter.has('all') ? '' : [...insightsFilter][0] || '';
-    // Evasion events have decision='ask'; fetch all and filter client-side
-    var serverFilterParam = insightsFilter.has('evasion') ? '' : filterParam;
+    var serverFilterParam = filterParam;
     var traceUrl = API + '/api/trace?limit=' + insightsPageSize + '&offset=' + offset
       + '&sort=' + encodeURIComponent(insightsSortCol) + '&sort_dir=' + encodeURIComponent(insightsSortDir)
       + (serverFilterParam ? '&decision=' + encodeURIComponent(serverFilterParam) : '');
@@ -4417,8 +4367,7 @@ async function loadInsights() {
       '<div class="insight-card ask' + (!isAll && insightsFilter.has('ask') ? ' active' : '') + '" data-filter="ask" data-action="setInsightsFilter"><div class="card-value">0</div><div class="card-label">Ask</div></div>' +
       '<div class="insight-card allow' + (!isAll && insightsFilter.has('allow') ? ' active' : '') + '" data-filter="allow" data-action="setInsightsFilter"><div class="card-value">0</div><div class="card-label">Allow</div></div>' +
       '<div class="insights-separator"></div>' +
-      '<div class="insight-card pii' + (!isAll && insightsFilter.has('pii_input') ? ' active' : '') + '" data-filter="pii_input" data-action="setInsightsFilter"><div class="card-value">0</div><div class="card-label">PII Input</div></div>' +
-      '<div class="insight-card evasion' + (!isAll && insightsFilter.has('evasion') ? ' active' : '') + '" data-filter="evasion" data-action="setInsightsFilter"><div class="card-value">0</div><div class="card-label">Evasion</div></div>'; // safe: no user data interpolated
+      '<div class="insight-card pii' + (!isAll && insightsFilter.has('pii_input') ? ' active' : '') + '" data-filter="pii_input" data-action="setInsightsFilter"><div class="card-value">0</div><div class="card-label">PII Input</div></div>'; // safe: no user data interpolated
     updateInsightCards();
     document.getElementById('section-insights').classList.add('no-entrance-anim');
     if (!data.entries.length) {
@@ -6013,12 +5962,11 @@ async function loadSettings() {
       profile: cfg.profile || 'guided',
       notifications: Object.assign({ enabled: true, on_stop: true, min_session_seconds: 30, platform: detectedPlatform }, cfg.notifications || {}),
       budget: Object.assign({}, cfg.budget || {}),
-      trace: Object.assign({ retention_days: 365, max_sessions: 100 }, cfg.trace || {}),
+      trace: Object.assign({ retention_days: 365, max_sessions: 5000 }, cfg.trace || {}),
       autoformat: Object.assign({ enabled: true }, cfg.autoformat || {}),
       evaluators_semantic: Object.assign({ enabled: false, model: 'claude-haiku-4-5-20251001' }, (cfg.evaluators && cfg.evaluators.semantic) || {}),
       evaluators_input_pii: Object.assign({ enabled: true, on_detect: 'ask', pii_patterns: [] }, (cfg.evaluators && cfg.evaluators.input_pii) || {}),
       evaluators_context_budget: Object.assign({ enabled: false, decision: 'ask' }, (cfg.evaluators && cfg.evaluators.context_budget) || {}),
-      evaluators_session_patterns: Object.assign({ enabled: false, evasion_threshold: 3, denial_cluster_threshold: 5, time_window_seconds: 120 }, (cfg.evaluators && cfg.evaluators.session_patterns) || {}),
       evaluators_multi_session: Object.assign({ enabled: false, deny_rate_threshold: 5, tool_deny_threshold: 100, cost_warn_percent: 80, min_sessions: 3 }, (cfg.evaluators && cfg.evaluators.multi_session) || {}),
       pricing_overrides: Object.assign({}, (cfg.budget && cfg.budget.pricing_overrides) || {}),
       hard_block_overrides: Object.assign({}, cfg.hard_block_overrides || {}),
@@ -6097,7 +6045,7 @@ function renderSettings() {
   document.getElementById('set-budget-max_tokens').value = (parseInt(b.max_input_tokens) || 0) + (parseInt(b.max_output_tokens) || 0);
   document.getElementById('set-budget-max_total_tokens').value = (parseInt(b.max_total_input_tokens) || 0) + (parseInt(b.max_total_output_tokens) || 0);
   document.getElementById('set-trace-retention_days').value = settingsData.trace.retention_days || 365;
-  document.getElementById('set-trace-max_sessions').value = settingsData.trace.max_sessions || 100;
+  document.getElementById('set-trace-max_sessions').value = settingsData.trace.max_sessions || 5000;
   document.getElementById('set-autoformat-enabled').checked = settingsData.autoformat.enabled !== false;
   document.getElementById('set-semantic-enabled').checked = settingsData.evaluators_semantic.enabled === true;
   document.getElementById('set-semantic-model').value = settingsData.evaluators_semantic.model || 'claude-haiku-4-5-20251001';
@@ -6111,12 +6059,6 @@ function renderSettings() {
   document.getElementById('set-context-budget-enabled').checked = cb.enabled === true;
   document.getElementById('set-context-budget-decision').value = cb.decision || 'ask';
   toggleContextBudget();
-  const sp = settingsData.evaluators_session_patterns;
-  document.getElementById('set-session-patterns-enabled').checked = sp.enabled === true;
-  document.getElementById('set-session-patterns-evasion_threshold').value = sp.evasion_threshold != null ? sp.evasion_threshold : 3;
-  document.getElementById('set-session-patterns-denial_cluster_threshold').value = sp.denial_cluster_threshold != null ? sp.denial_cluster_threshold : 5;
-  document.getElementById('set-session-patterns-time_window_seconds').value = sp.time_window_seconds != null ? sp.time_window_seconds : 120;
-  toggleSessionPatterns();
   const ms = settingsData.evaluators_multi_session;
   document.getElementById('set-multi-session-enabled').checked = ms.enabled === true;
   document.getElementById('set-multi-session-deny_rate_threshold').value = ms.deny_rate_threshold != null ? ms.deny_rate_threshold : 5;
@@ -6271,13 +6213,6 @@ function toggleContextBudget() {
   document.getElementById('set-context-budget-decision').disabled = !on;
 }
 
-function toggleSessionPatterns() {
-  var on = document.getElementById('set-session-patterns-enabled').checked;
-  ['set-session-patterns-evasion_threshold','set-session-patterns-denial_cluster_threshold','set-session-patterns-time_window_seconds'].forEach(function(id) {
-    document.getElementById(id).disabled = !on;
-  });
-}
-
 function toggleMultiSession() {
   var on = document.getElementById('set-multi-session-enabled').checked;
   ['set-multi-session-deny_rate_threshold','set-multi-session-tool_deny_threshold','set-multi-session-cost_warn_percent','set-multi-session-min_sessions'].forEach(function(id) {
@@ -6360,7 +6295,7 @@ function collectSettingsFromForm() {
   b.max_tokens = (b.max_input_tokens || 0) + (b.max_output_tokens || 0);
   b.max_total_tokens = (b.max_total_input_tokens || 0) + (b.max_total_output_tokens || 0);
   settingsData.trace.retention_days = parseInt(document.getElementById('set-trace-retention_days').value) || 365;
-  settingsData.trace.max_sessions = parseInt(document.getElementById('set-trace-max_sessions').value) || 100;
+  settingsData.trace.max_sessions = parseInt(document.getElementById('set-trace-max_sessions').value) || 5000;
   settingsData.autoformat.enabled = document.getElementById('set-autoformat-enabled').checked;
   settingsData.evaluators_semantic.enabled = document.getElementById('set-semantic-enabled').checked;
   settingsData.evaluators_semantic.model = document.getElementById('set-semantic-model').value;
@@ -6370,10 +6305,6 @@ function collectSettingsFromForm() {
     .split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
   settingsData.evaluators_context_budget.enabled = document.getElementById('set-context-budget-enabled').checked;
   settingsData.evaluators_context_budget.decision = document.getElementById('set-context-budget-decision').value;
-  settingsData.evaluators_session_patterns.enabled = document.getElementById('set-session-patterns-enabled').checked;
-  settingsData.evaluators_session_patterns.evasion_threshold = parseInt(document.getElementById('set-session-patterns-evasion_threshold').value) || 3;
-  settingsData.evaluators_session_patterns.denial_cluster_threshold = parseInt(document.getElementById('set-session-patterns-denial_cluster_threshold').value) || 5;
-  settingsData.evaluators_session_patterns.time_window_seconds = parseInt(document.getElementById('set-session-patterns-time_window_seconds').value) || 120;
   settingsData.evaluators_multi_session.enabled = document.getElementById('set-multi-session-enabled').checked;
   settingsData.evaluators_multi_session.deny_rate_threshold = parseFloat(document.getElementById('set-multi-session-deny_rate_threshold').value) || 5;
   settingsData.evaluators_multi_session.tool_deny_threshold = parseInt(document.getElementById('set-multi-session-tool_deny_threshold').value) || 100;
@@ -6706,7 +6637,6 @@ document.addEventListener('visibilitychange', function() {
       if (target.id === 'set-semantic-enabled') { markSettingsDirty(); toggleSemanticModel(); }
       else if (target.id === 'set-pii-enabled') { markSettingsDirty(); togglePiiEnabled(); }
       else if (target.id === 'set-context-budget-enabled') { markSettingsDirty(); toggleContextBudget(); }
-      else if (target.id === 'set-session-patterns-enabled') { markSettingsDirty(); toggleSessionPatterns(); }
       else if (target.id === 'set-multi-session-enabled') { markSettingsDirty(); toggleMultiSession(); }
       else if (target.id === 'set-profile') { markSettingsDirty(); updateProfileDesc(true); }
       else if (target.id && target.id.startsWith('set-')) { markSettingsDirty(); }

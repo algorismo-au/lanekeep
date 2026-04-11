@@ -1268,7 +1268,6 @@ class TestEvaluatorSettings(_ServerTestCase):
             'policies': {},
             'evaluators': {
                 'context_budget': {'enabled': False, 'decision': 'ask'},
-                'session_patterns': {'enabled': False, 'evasion_threshold': 3, 'denial_cluster_threshold': 5, 'time_window_seconds': 120},
                 'multi_session': {'enabled': False, 'deny_rate_threshold': 10, 'tool_deny_threshold': 30, 'cost_warn_percent': 80, 'min_sessions': 5},
             },
         }
@@ -1301,40 +1300,6 @@ class TestEvaluatorSettings(_ServerTestCase):
         """Non-boolean enabled returns 400."""
         status, body = self.post('/api/settings', {
             'evaluators_context_budget': {'enabled': 'yes'},
-        })
-        self.assertEqual(status, 400)
-
-    # ── session_patterns ────────────────────────────────────────────
-
-    def test_session_patterns_save_thresholds(self):
-        """POST /api/settings persists session_patterns thresholds."""
-        status, _ = self.post('/api/settings', {
-            'evaluators_session_patterns': {
-                'enabled': True,
-                'evasion_threshold': 5,
-                'denial_cluster_threshold': 10,
-                'time_window_seconds': 300,
-            },
-        })
-        self.assertEqual(status, 200)
-        cfg = self._read_config()
-        sp = cfg['evaluators']['session_patterns']
-        self.assertTrue(sp['enabled'])
-        self.assertEqual(sp['evasion_threshold'], 5)
-        self.assertEqual(sp['denial_cluster_threshold'], 10)
-        self.assertEqual(sp['time_window_seconds'], 300)
-
-    def test_session_patterns_zero_threshold_rejected(self):
-        """Threshold of 0 (not positive) returns 400."""
-        status, _ = self.post('/api/settings', {
-            'evaluators_session_patterns': {'evasion_threshold': 0},
-        })
-        self.assertEqual(status, 400)
-
-    def test_session_patterns_negative_threshold_rejected(self):
-        """Negative threshold returns 400."""
-        status, _ = self.post('/api/settings', {
-            'evaluators_session_patterns': {'time_window_seconds': -60},
         })
         self.assertEqual(status, 400)
 
@@ -1380,27 +1345,6 @@ class TestEvaluatorSettings(_ServerTestCase):
             'evaluators_multi_session': {'min_sessions': 0},
         })
         self.assertEqual(status, 400)
-
-    # ── deep merge ──────────────────────────────────────────────────
-
-    def test_evaluator_save_deep_merges_existing_fields(self):
-        """Saving one field preserves other fields in the evaluator config."""
-        # Set a full config first
-        self.post('/api/settings', {
-            'evaluators_session_patterns': {
-                'enabled': True, 'evasion_threshold': 7,
-                'denial_cluster_threshold': 8, 'time_window_seconds': 90,
-            },
-        })
-        # Now only update one field
-        self.post('/api/settings', {
-            'evaluators_session_patterns': {'evasion_threshold': 4},
-        })
-        cfg = self._read_config()
-        sp = cfg['evaluators']['session_patterns']
-        self.assertEqual(sp['evasion_threshold'], 4)
-        self.assertEqual(sp['denial_cluster_threshold'], 8, 'other fields should be preserved')
-        self.assertEqual(sp['time_window_seconds'], 90, 'other fields should be preserved')
 
 
 if __name__ == '__main__':

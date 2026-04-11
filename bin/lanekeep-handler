@@ -111,11 +111,6 @@ _CFG_CONTEXT_WINDOW_SIZE=""
 _CFG_CONTEXT_SOFT_PERCENT=""
 _CFG_CONTEXT_HARD_PERCENT=""
 _CFG_CONTEXT_BUDGET_DECISION=""
-# Session patterns evaluator config
-_CFG_SESSION_PATTERNS_ENABLED="false"
-_CFG_SESSION_EVASION_THRESHOLD=""
-_CFG_SESSION_DENIAL_CLUSTER=""
-_CFG_SESSION_TIME_WINDOW=""
 # Multi-session evaluator config
 _CFG_MULTI_SESSION_ENABLED="false"
 _CFG_MULTI_DENY_RATE=""
@@ -158,11 +153,6 @@ if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
     "_CFG_CONTEXT_SOFT_PERCENT=" + (.budget.context_soft_percent // "" | tostring | @sh),
     "_CFG_CONTEXT_HARD_PERCENT=" + (.budget.context_hard_percent // "" | tostring | @sh),
     "_CFG_CONTEXT_BUDGET_DECISION=" + (.evaluators.context_budget.decision // "ask" | @sh),
-    # -- Session patterns evaluator --
-    "_CFG_SESSION_PATTERNS_ENABLED=" + (if .evaluators.session_patterns.enabled == false then "false" else "true" end | @sh),
-    "_CFG_SESSION_EVASION_THRESHOLD=" + (.evaluators.session_patterns.evasion_threshold // "" | tostring | @sh),
-    "_CFG_SESSION_DENIAL_CLUSTER=" + (.evaluators.session_patterns.denial_cluster_threshold // "" | tostring | @sh),
-    "_CFG_SESSION_TIME_WINDOW=" + (.evaluators.session_patterns.time_window_seconds // "" | tostring | @sh),
     # -- Multi-session evaluator --
     "_CFG_MULTI_SESSION_ENABLED=" + (if .evaluators.multi_session.enabled == false then "false" else "true" end | @sh),
     "_CFG_MULTI_DENY_RATE=" + (.evaluators.multi_session.deny_rate_threshold // "" | tostring | @sh),
@@ -224,9 +214,6 @@ if [ "$_CFG_RESULT_TRANSFORM_ENABLED" != "false" ]; then
 fi
 if [ "$_CFG_CONTEXT_BUDGET_ENABLED" != "false" ]; then
   source "$LANEKEEP_DIR/lib/eval-context-budget.sh"
-fi
-if [ "$_CFG_SESSION_PATTERNS_ENABLED" != "false" ]; then
-  source "$LANEKEEP_DIR/lib/eval-session-patterns.sh"
 fi
 if [ "$_CFG_MULTI_SESSION_ENABLED" != "false" ]; then
   source "$LANEKEEP_DIR/lib/eval-multi-session.sh"
@@ -359,34 +346,6 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
         _wi_score="0.9"; [ "$WORKFLOW_INJECT_PASSED" = true ] && _wi_score="0"
         RESULTS+=("$(printf '{"name":"WorkflowInjectionEvaluator","tier":2.5,"score":%s,"passed":%s,"detail":"%s"}' \
           "$_wi_score" "$WORKFLOW_INJECT_PASSED" "$(_json_escape "$WORKFLOW_INJECT_REASON")")")
-      fi
-    fi
-
-    # --- Tier 2.6: Session anti-pattern detection (always runs, can escalate to ask) ---
-    if [ "$_CFG_SESSION_PATTERNS_ENABLED" != "false" ]; then
-      if declare -f session_pattern_eval >/dev/null 2>&1; then
-        if ! session_pattern_eval "$TOOL_NAME" "$TOOL_INPUT"; then
-          if [ "$SESSION_PATTERN_DECISION" = "ask" ]; then
-            # Evasion detected — escalate to ask even if already blocked by a lower tier,
-            # so the approval dialog surfaces in the CLI rather than silently denying
-            BLOCK_DECISION="ask"
-            BLOCKED=true
-            if [ -n "$BLOCK_REASON" ] && [ "$BLOCK_REASON" != "$SESSION_PATTERN_REASON" ]; then
-              BLOCK_REASON="${SESSION_PATTERN_REASON}
-
-(Also blocked by: ${BLOCK_REASON})"
-            else
-              BLOCK_REASON="$SESSION_PATTERN_REASON"
-            fi
-          elif [ "$BLOCKED" = false ]; then
-            BLOCKED=true
-            BLOCK_REASON="$SESSION_PATTERN_REASON"
-            BLOCK_DECISION="$SESSION_PATTERN_DECISION"
-          fi
-        fi
-        _sp_score="0.8"; [ "$SESSION_PATTERN_PASSED" = true ] && _sp_score="0"
-        RESULTS+=("$(printf '{"name":"SessionPatternEvaluator","tier":2.6,"score":%s,"passed":%s,"detail":"%s"}' \
-          "$_sp_score" "$SESSION_PATTERN_PASSED" "$(_json_escape "$SESSION_PATTERN_REASON")")")
       fi
     fi
 
@@ -691,11 +650,6 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
     # --- Write trace entry (pass cached timestamp) ---
     write_trace "$_NOW_ISO" "$TOOL_NAME" "$TOOL_INPUT" "$DECISION" "$REASON" "$LATENCY_MS" "PreToolUse" "$TOOL_USE_ID" "${RESULTS[@]}" || true
 
-    # Record event for session pattern analysis (best-effort, non-blocking)
-    if [ "$_CFG_SESSION_PATTERNS_ENABLED" != "false" ] && declare -f session_pattern_record >/dev/null 2>&1; then
-      session_pattern_record "$TOOL_NAME" "$DECISION" "$_NOW_EPOCH" "$TOOL_INPUT" "$SESSION_ID" || true
-    fi
-
     # cumulative_record removed from hot path — qualitative metrics now derived from traces
     ;;
 
@@ -772,11 +726,6 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
     _TRACE_USER_DENIED="$_USER_DENIED"
     write_trace "$_NOW_ISO" "$TOOL_NAME" "$TOOL_INPUT" "$DECISION" "$RESULT_TRANSFORM_REASON" "$LATENCY_MS" "PostToolUse" "$TOOL_USE_ID" "${RESULTS[@]}" || true
 
-    # Record user-initiated denials into session event log so session_pattern_eval
-    # can detect evasion and clustering from user overrides (not just evaluator denials)
-    if [ "$_USER_DENIED" = "true" ] && [ "$_CFG_SESSION_PATTERNS_ENABLED" != "false" ] && declare -f session_pattern_record >/dev/null 2>&1; then
-      session_pattern_record "$TOOL_NAME" "deny" "$_NOW_EPOCH" "$TOOL_INPUT" "$SESSION_ID" || true
-    fi
     ;;
 
   *)

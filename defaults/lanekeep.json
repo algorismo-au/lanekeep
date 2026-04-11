@@ -309,17 +309,6 @@
         ]
       }
     },
-    "session_patterns": {
-      "enabled": true,
-      "evasion_threshold": 3,
-      "denial_cluster_threshold": 5,
-      "time_window_seconds": 120,
-      "compliance_by_category": {
-        "behavior": [
-          "CWE-799"
-        ]
-      }
-    },
     "multi_session": {
       "enabled": false,
       "deny_rate_threshold": 10,
@@ -3184,7 +3173,7 @@
   },
   "trace": {
     "retention_days": 365,
-    "max_sessions": 100
+    "max_sessions": 5000
   },
   "version": "1.0.4",
   "sandbox": {
