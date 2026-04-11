@@ -583,19 +583,8 @@
       "denied": [
         "claude\\.md$",
         "\\.claude/settings",
-        "lanekeep\\.json$",
-        "lanekeep/bin/",
-        "lanekeep/lib/",
-        "lanekeep/hooks/",
-        "lanekeep/defaults/",
         "\\.lanekeep/",
-        "lanekeep/plugins\\.d/",
-        "lanekeep/ee/",
-        "lanekeep/ui/",
-        "lanekeep/data/",
-        "lanekeep/keys/",
-        "lanekeep/scripts/",
-        "lanekeep/images/"
+        "lanekeep"
       ],
       "allowed": []
     },
