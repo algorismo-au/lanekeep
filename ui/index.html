@@ -4361,8 +4361,8 @@ async function loadInsights() {
   try {
     var offset = (insightsPage - 1) * insightsPageSize;
     var filterParam = insightsFilter.has('all') ? '' : [...insightsFilter][0] || '';
-    // Evasion is a client-side filter over deny entries; send 'deny' to server to pre-filter
-    var serverFilterParam = insightsFilter.has('evasion') ? 'deny' : filterParam;
+    // Evasion events have decision='ask'; fetch all and filter client-side
+    var serverFilterParam = insightsFilter.has('evasion') ? '' : filterParam;
     var traceUrl = API + '/api/trace?limit=' + insightsPageSize + '&offset=' + offset
       + '&sort=' + encodeURIComponent(insightsSortCol) + '&sort_dir=' + encodeURIComponent(insightsSortDir)
       + (serverFilterParam ? '&decision=' + encodeURIComponent(serverFilterParam) : '');
