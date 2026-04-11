@@ -301,7 +301,7 @@
       }
     },
     "context_budget": {
-      "enabled": true,
+      "enabled": false,
       "decision": "ask",
       "compliance_by_category": {
         "resource_limit": [
@@ -310,7 +310,7 @@
       }
     },
     "session_patterns": {
-      "enabled": true,
+      "enabled": false,
       "evasion_threshold": 3,
       "denial_cluster_threshold": 5,
       "time_window_seconds": 120,
@@ -321,7 +321,7 @@
       }
     },
     "multi_session": {
-      "enabled": true,
+      "enabled": false,
       "deny_rate_threshold": 5,
       "tool_deny_threshold": 100,
       "cost_warn_percent": 80,
