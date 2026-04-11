@@ -191,11 +191,6 @@ header .header-project { color: var(--text-secondary); max-width: 300px; overflo
 @media (max-width: 800px) { .activity-body { grid-template-columns: 1fr; grid-auto-flow: row; } }
 .activity-row { display: flex; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; animation: fadeUp 0.2s var(--ease-out) both; }
 .activity-row:last-child { border-bottom: none; }
-.activity-row:nth-child(1) { animation-delay: 0s; }
-.activity-row:nth-child(2) { animation-delay: 0.03s; }
-.activity-row:nth-child(3) { animation-delay: 0.04s; }
-.activity-row:nth-child(4) { animation-delay: 0.05s; }
-.activity-row:nth-child(5) { animation-delay: 0.06s; }
 .activity-time { color: var(--text-muted); font-size: 11px; width: 60px; text-align: right; flex-shrink: 0; }
 .activity-tool { color: var(--text-body); width: 60px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-file { color: var(--text-secondary); width: 80px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1480,6 +1475,7 @@ let activityInterval = null;
 let activityLastHash = '';
 let widgetStatusLastHash = '';
 let widgetSparklineLastHash = '';
+let activityRenderedKeys = new Set();
 
 // Debounce utility — delays fn by ms, resetting on each call
 function debounce(fn, ms) {
@@ -1526,7 +1522,7 @@ function showView(view, skipPush) {
   settings.classList.remove('visible');
   if (governanceInterval) { clearInterval(governanceInterval); governanceInterval = null; }
   if (insightsInterval) { clearInterval(insightsInterval); insightsInterval = null; insightsLastHash = ''; }
-  if (activityInterval) { clearInterval(activityInterval); activityInterval = null; activityLastHash = ''; widgetStatusLastHash = ''; widgetSparklineLastHash = ''; }
+  if (activityInterval) { clearInterval(activityInterval); activityInterval = null; activityLastHash = ''; widgetStatusLastHash = ''; widgetSparklineLastHash = ''; activityRenderedKeys = new Set(); }
   if (govTimestampInterval) { clearInterval(govTimestampInterval); govTimestampInterval = null; }
   govLastHash = '';
   insights.classList.remove('no-entrance-anim');
@@ -1884,10 +1880,44 @@ function renderHomeActivity(entries) {
   var feed = document.getElementById('activity-feed');
   if (!feed) return;
   if (!entries.length) {
-    feed.innerHTML = '<div class="activity-empty">No trace activity yet. Activity appears when LaneKeep evaluates tool calls.</div>';
+    feed.textContent = '';
+    var empty = document.createElement('div');
+    empty.className = 'activity-empty';
+    empty.textContent = 'No trace activity yet. Activity appears when LaneKeep evaluates tool calls.';
+    feed.appendChild(empty);
+    activityRenderedKeys = new Set();
     return;
   }
-  feed.innerHTML = entries.map(function(e) {
+
+  // Self-heal: if activityRenderedKeys was reset (e.g. after navigation) but the
+  // DOM still has rows, re-populate from data-key attributes to prevent duplicates.
+  if (activityRenderedKeys.size === 0) {
+    feed.querySelectorAll('.activity-row[data-key]').forEach(function(row) {
+      activityRenderedKeys.add(row.dataset.key);
+    });
+  }
+
+  function mkSpan(cls, text, title) {
+    var s = document.createElement('span');
+    s.className = cls;
+    s.textContent = text;
+    if (title) s.title = title;
+    return s;
+  }
+
+  var newKeys = entries.map(function(e) { return e.timestamp + '|' + e.decision; });
+  var newKeySet = new Set(newKeys);
+
+  // Remove rows that are no longer in the latest entries
+  Array.from(feed.querySelectorAll('.activity-row[data-key]')).forEach(function(row) {
+    if (!newKeySet.has(row.dataset.key)) row.remove();
+  });
+
+  // Prepend new entries (reversed so earliest-new is inserted first,
+  // leaving the most-recent entry at the top after all insertions)
+  entries.filter(function(e) {
+    return !activityRenderedKeys.has(e.timestamp + '|' + e.decision);
+  }).reverse().forEach(function(e) {
     var dec = (e.decision || 'allow').toLowerCase();
     var time = e.timestamp ? _relativeTime(e.timestamp) : '';
     var tool = e.tool_name || e.source || '';
@@ -1895,14 +1925,19 @@ function renderHomeActivity(entries) {
     if (!fp && e.tool_input && typeof e.tool_input === 'object') fp = e.tool_input.file_path || '';
     var fpBase = fp ? fp.split('/').pop() : '';
     var reason = e.reason || '';
-    return '<div class="activity-row">'
-      + '<span class="activity-time">' + esc(time) + '</span>'
-      + '<span class="activity-tool">' + esc(tool) + '</span>'
-      + '<span class="activity-file"' + (fp ? ' title="' + esc(fp) + '"' : '') + '>' + esc(fpBase) + '</span>'
-      + '<span class="activity-decision ' + esc(dec) + '">' + esc(dec) + '</span>'
-      + '<span class="activity-reason"' + (reason ? ' title="' + esc(reason) + '"' : '') + '>' + esc(reason) + '</span>'
-      + '</div>';
-  }).join('');
+    var key = e.timestamp + '|' + e.decision;
+    var row = document.createElement('div');
+    row.className = 'activity-row';
+    row.dataset.key = key;
+    row.appendChild(mkSpan('activity-time', time));
+    row.appendChild(mkSpan('activity-tool', tool));
+    row.appendChild(mkSpan('activity-file', fpBase, fp));
+    row.appendChild(mkSpan('activity-decision ' + dec, dec));
+    row.appendChild(mkSpan('activity-reason', reason, reason));
+    feed.insertBefore(row, feed.firstChild);
+  });
+
+  activityRenderedKeys = new Set(newKeys);
 }
 
 function renderActivityWidgets(statusData) {
