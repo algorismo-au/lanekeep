@@ -693,7 +693,7 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
 
     # Record event for session pattern analysis (best-effort, non-blocking)
     if [ "$_CFG_SESSION_PATTERNS_ENABLED" != "false" ] && declare -f session_pattern_record >/dev/null 2>&1; then
-      session_pattern_record "$TOOL_NAME" "$DECISION" "$_NOW_EPOCH" "$TOOL_INPUT" || true
+      session_pattern_record "$TOOL_NAME" "$DECISION" "$_NOW_EPOCH" "$TOOL_INPUT" "$SESSION_ID" || true
     fi
 
     # cumulative_record removed from hot path — qualitative metrics now derived from traces
@@ -771,6 +771,12 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
     # --- Write trace entry (pass cached timestamp) ---
     _TRACE_USER_DENIED="$_USER_DENIED"
     write_trace "$_NOW_ISO" "$TOOL_NAME" "$TOOL_INPUT" "$DECISION" "$RESULT_TRANSFORM_REASON" "$LATENCY_MS" "PostToolUse" "$TOOL_USE_ID" "${RESULTS[@]}" || true
+
+    # Record user-initiated denials into session event log so session_pattern_eval
+    # can detect evasion and clustering from user overrides (not just evaluator denials)
+    if [ "$_USER_DENIED" = "true" ] && [ "$_CFG_SESSION_PATTERNS_ENABLED" != "false" ] && declare -f session_pattern_record >/dev/null 2>&1; then
+      session_pattern_record "$TOOL_NAME" "deny" "$_NOW_EPOCH" "$TOOL_INPUT" "$SESSION_ID" || true
+    fi
     ;;
 
   *)

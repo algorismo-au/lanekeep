@@ -16,6 +16,18 @@
 #
 # Compliance: CWE-799 (Improper Control of Interaction Frequency)
 
+# Namespaced JSON string escaper — self-contained so this evaluator can be
+# sourced standalone in tests without depending on lanekeep-handler's _json_escape.
+_sp_json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  s="${s//$'\r'/\\r}"
+  s="${s//$'\t'/\\t}"
+  printf '%s' "$s"
+}
+
 SESSION_PATTERN_PASSED=true
 SESSION_PATTERN_REASON="Passed"
 SESSION_PATTERN_DECISION="ask"
@@ -27,6 +39,7 @@ session_pattern_record() {
   local decision="$2"
   local epoch="$3"
   local tool_input="$4"
+  local sid="${5:-}"
 
   local events_file="${LANEKEEP_STATE_FILE%.json}_events.jsonl"
 
@@ -38,8 +51,8 @@ session_pattern_record() {
   fi
 
   # Append event (best-effort, non-blocking)
-  printf '{"tool":"%s","decision":"%s","epoch":%s,"hash":"%s"}\n' \
-    "$(_json_escape "$tool_name")" "$decision" "$epoch" "$input_hash" \
+  printf '{"tool":"%s","decision":"%s","epoch":%s,"hash":"%s","sid":"%s"}\n' \
+    "$(_sp_json_escape "$tool_name")" "$decision" "$epoch" "$input_hash" "$(_sp_json_escape "$sid")" \
     >> "$events_file" 2>/dev/null || true
 }
 
@@ -51,6 +64,7 @@ session_pattern_eval() {
   SESSION_PATTERN_DECISION="ask"
 
   local events_file="${LANEKEEP_STATE_FILE%.json}_events.jsonl"
+  local current_sid="${SESSION_ID:-}"
 
   # No events yet — first call in session
   [ -f "$events_file" ] || return 0
@@ -89,9 +103,10 @@ session_pattern_eval() {
   local cutoff=$((now_epoch - time_window))
 
   # Check 1: Denial clustering — too many denials in the time window
+  # Scoped to current session_id; legacy events without sid field match only when current_sid is empty
   local denial_count
-  denial_count=$(printf '%s' "$recent_events" | jq -r --argjson cutoff "$cutoff" '
-    select(.decision == "deny" and .epoch >= $cutoff) | .tool
+  denial_count=$(printf '%s' "$recent_events" | jq -r --argjson cutoff "$cutoff" --arg sid "$current_sid" '
+    select(.decision == "deny" and .epoch >= $cutoff and (.sid // "") == $sid) | .tool
   ' 2>/dev/null | wc -l) || denial_count=0
 
   if [ "$denial_count" -ge "$denial_cluster_threshold" ]; then
@@ -109,9 +124,10 @@ Compliance: CWE-799 (Improper Control of Interaction Frequency)"
   fi
 
   # Check 2: Evasion — same tool denied N+ times (variants of the same action)
+  # Scoped to current session_id like clustering check above
   local evasion_tool evasion_count
-  evasion_tool=$(printf '%s' "$recent_events" | jq -r --argjson cutoff "$cutoff" '
-    select(.decision == "deny" and .epoch >= $cutoff) | .tool
+  evasion_tool=$(printf '%s' "$recent_events" | jq -r --argjson cutoff "$cutoff" --arg sid "$current_sid" '
+    select(.decision == "deny" and .epoch >= $cutoff and (.sid // "") == $sid) | .tool
   ' 2>/dev/null | sort | uniq -c | sort -rn | head -1) || evasion_tool=""
 
   if [ -n "$evasion_tool" ]; then
@@ -119,12 +135,16 @@ Compliance: CWE-799 (Improper Control of Interaction Frequency)"
     evasion_tool=$(printf '%s' "$evasion_tool" | awk '{print $2}')
     [[ "$evasion_count" =~ ^[0-9]+$ ]] || evasion_count=0
 
-    if [ "$evasion_count" -ge "$evasion_threshold" ] && [ "$tool_name" = "$evasion_tool" ]; then
+    # Include current call in count: eval runs before session_pattern_record, so the
+    # N-th same-tool attempt isn't in the history yet. (evasion_count + 1) represents
+    # history + current. String match short-circuits before the arithmetic.
+    if [ "$tool_name" = "$evasion_tool" ] && [ $((evasion_count + 1)) -ge "$evasion_threshold" ]; then
+      local attempt_count=$((evasion_count + 1))
       SESSION_PATTERN_PASSED=false
       SESSION_PATTERN_DECISION="ask"
       SESSION_PATTERN_REASON="[LaneKeep] NEEDS APPROVAL — SessionPatternEvaluator (Tier 2.6)
-Possible evasion: ${evasion_count} denied '${evasion_tool}' calls in last ${time_window}s
-Threshold: ${evasion_threshold} same-tool denials
+Possible evasion: ${attempt_count} '${evasion_tool}' attempts in last ${time_window}s (${evasion_count} denied)
+Threshold: ${evasion_threshold} same-tool attempts
 
 Repeated denied tool calls with variations may indicate an attempt to
 bypass governance rules. If the goal has changed, use /clear.
