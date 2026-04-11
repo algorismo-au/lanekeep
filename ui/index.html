@@ -2020,12 +2020,22 @@ function renderActivityLeftWidgets(statusData) {
   // Widget 1: Budget
   var actPct = b.max_actions ? Math.min(100, Math.round(b.actions / b.max_actions * 100)) : 0;
   var timePct = b.max_minutes ? Math.min(100, Math.round(b.elapsed_min / b.max_minutes * 100)) : 0;
+  var inTokPct = b.max_input_tokens > 0 ? Math.min(100, Math.round((b.input_tokens || 0) / b.max_input_tokens * 100)) : 0;
+  var outTokPct = b.max_output_tokens > 0 ? Math.min(100, Math.round((b.output_tokens || 0) / b.max_output_tokens * 100)) : 0;
   function meterCls(pct) { return pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : ''; }
   var costStr = fmtCost(b.cost || 0);
+  var inTokBar = b.max_input_tokens > 0
+    ? '<div class="aw-meter-track"><div class="aw-meter-fill ' + meterCls(inTokPct) + '" style="width:' + inTokPct + '%"></div></div>'
+    : '';
+  var outTokBar = b.max_output_tokens > 0
+    ? '<div class="aw-meter-track"><div class="aw-meter-fill ' + meterCls(outTokPct) + '" style="width:' + outTokPct + '%"></div></div>'
+    : '';
   var budget = '<div class="activity-widget"><div class="activity-widget-title">Budget <span class="widget-scope">· Session</span></div>'
     + '<div class="aw-meter"><div class="aw-meter-row"><span class="aw-meter-label">Cost</span><span class="aw-meter-value">' + costStr + '</span></div></div>'
     + '<div class="aw-meter"><div class="aw-meter-row"><span class="aw-meter-label">Time</span><span class="aw-meter-value">' + Math.round(b.elapsed_min || 0) + 'm / ' + (b.max_minutes || '–') + 'm</span></div>'
     + '<div class="aw-meter-track"><div class="aw-meter-fill ' + meterCls(timePct) + '" style="width:' + timePct + '%"></div></div></div>'
+    + '<div class="aw-meter"><div class="aw-meter-row"><span class="aw-meter-label">Tokens In</span><span class="aw-meter-value">' + fmtTokens(b.input_tokens || 0) + '</span></div>' + inTokBar + '</div>'
+    + '<div class="aw-meter"><div class="aw-meter-row"><span class="aw-meter-label">Tokens Out</span><span class="aw-meter-value">' + fmtTokens(b.output_tokens || 0) + '</span></div>' + outTokBar + '</div>'
     + '</div>';
 
   // Widget 2: Latency
