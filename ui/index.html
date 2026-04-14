@@ -6131,14 +6131,18 @@ function _findConflictingRules(pat, rules) {
   var patLower = pat.toLowerCase();
   var conflicts = [];
   var words = patLower.split(/\s+/).filter(function(w) { return w.length > 1; });
+  if (words.length === 0) return conflicts;
   rules.forEach(function(rule) {
     if (rule.decision !== 'deny') return;
     var m = rule.match || {};
     var cmd = (m.command || '').toLowerCase();
     var target = (m.target || '').toLowerCase();
     var combined = cmd + ' ' + target;
-    // Check if the hard-block pattern's key terms appear in the rule's match fields
-    var matched = words.every(function(w) { return combined.indexOf(w) !== -1; });
+    // Check if the hard-block pattern's key terms appear as whole words in the rule's match fields
+    var matched = words.every(function(w) {
+      var re = new RegExp('(?:^|[\\s|/])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:$|[\\s|/])', 'i');
+      return re.test(combined);
+    });
     if (matched) conflicts.push(rule);
   });
   return conflicts;
