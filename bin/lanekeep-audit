@@ -13,7 +13,7 @@ INFOS=0
 KNOWN_POLICIES="tools extensions paths commands arguments repos branches registries packages docker domains ips ports protocols env_vars governance_paths shell_configs registry_configs mcp_servers hidden_chars"
 
 # Known evaluator names (from defaults/lanekeep.json)
-KNOWN_EVALUATORS="codediff budget semantic input_pii result_transform hidden_text workflow_injection"
+KNOWN_EVALUATORS="codediff budget semantic input_pii result_transform hidden_text workflow_injection context_budget multi_session"
 
 err()  { echo "  ERROR: $1"; ERRORS=$((ERRORS+1)); }
 warn() { echo "  WARN:  $1"; WARNINGS=$((WARNINGS+1)); }

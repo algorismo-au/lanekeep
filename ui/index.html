@@ -678,6 +678,8 @@ tbody tr.selected { background: var(--bg-hover); }
 .graphs-panel { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; padding: 20px; box-shadow: var(--shadow-card); }
 .graphs-panel-header { margin-bottom: 16px; }
 .graphs-panel-header h3 { font-size: 14px; font-weight: 600; color: var(--text-bright); font-family: var(--font-heading); margin: 0; }
+.graphs-panel-info { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--text-muted); color: var(--text-muted); font-size: 8px; font-weight: 700; line-height: 11px; text-align: center; cursor: default; position: relative; font-family: serif; vertical-align: middle; margin-left: 2px; }
+.graphs-panel-info:hover::after { content: attr(data-tip); position: absolute; left: 50%; top: calc(100% + 6px); transform: translateX(-50%); background: var(--bg-deep); border: 1px solid var(--border-strong); color: var(--text-body); font-size: 11px; font-weight: 400; font-family: var(--font-body); padding: 6px 10px; border-radius: 5px; white-space: nowrap; z-index: 10; pointer-events: none; }
 .graphs-panel-sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; display: block; }
 .graphs-filter-bar { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
 .graphs-filter-bar .gf-btn { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid var(--btn-border); background: transparent; color: var(--text-secondary); font-family: inherit; transition: background 0.15s, color 0.15s, border-color 0.15s; }
@@ -1238,7 +1240,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
     <div class="graphs-panel" id="graphs-impact" style="margin-top:24px">
       <div class="graphs-panel-header">
         <h3>Rule Impact Analysis</h3>
-        <span class="graphs-panel-sub">Select a rule to see blast radius</span>
+        <span class="graphs-panel-sub">Select a rule to see blast radius <span class="graphs-panel-info" data-tip="Only rules that map to a specific framework requirement appear in this panel">i</span></span>
       </div>
       <div class="graphs-rule-selector" id="graphs-rule-selector"></div>
       <div class="graphs-canvas" id="graphs-impact-canvas"></div>
