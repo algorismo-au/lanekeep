@@ -1057,18 +1057,7 @@ EOF
 }
 
 # ── git-009: destructive git operations ──
-
-@test "git-009: git push --force denied" {
-  export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
-  rules_eval "Bash" '{"command":"git push --force"}' || true
-  [ "$RULES_PASSED" = "false" ]
-}
-
-@test "git-009: git push -f denied" {
-  export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
-  rules_eval "Bash" '{"command":"git push -f origin main"}' || true
-  [ "$RULES_PASSED" = "false" ]
-}
+# Note: git push --force/−f tests removed — covered by hard_blocks_regex (Tier 1)
 
 @test "git-009: git reset --hard denied" {
   export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"

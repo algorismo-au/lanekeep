@@ -993,17 +993,6 @@
       ]
     },
     {
-      "id": "sys-072",
-      "match": {
-        "pattern": "\\w+\\(\\)\\s*\\{\\s*\\w+\\s*\\|\\s*\\w+\\s*&"
-      },
-      "decision": "deny",
-      "reason": "Fork bomb pattern blocked — recursive process spawning",
-      "category": "system",
-      "intent": "Functions that pipe to themselves with background execution create exponential process growth — exhausts system resources in seconds",
-      "type": "free"
-    },
-    {
       "id": "sys-078",
       "match": {
         "pattern": "\\bmv\\b\\s+(/\\s|~\\s)"
@@ -1748,12 +1737,12 @@
     {
       "id": "git-009",
       "match": {
-        "pattern": "\\bgit\\s+(push\\b(?=.*\\s(--force(?!-with-lease)\\b|-[a-z]*f\\b))|reset\\b(?=.*\\s--hard\\b)|clean\\b(?=.*\\s-[a-z]*f[a-z]*\\b)(?=.*\\s-[a-z]*d[a-z]*\\b)|branch\\s+-D)"
+        "pattern": "\\bgit\\s+(reset\\b(?=.*\\s--hard\\b)|clean\\b(?=.*\\s-[a-z]*f[a-z]*\\b)(?=.*\\s-[a-z]*d[a-z]*\\b)|branch\\s+-D)"
       },
       "decision": "deny",
       "reason": "Destructive git operation blocked",
       "category": "git",
-      "intent": "Force push, hard reset, clean -fd, and branch -D destroy history or untracked work with no recovery path",
+      "intent": "Hard reset, clean -fd, and branch -D destroy history or untracked work with no recovery path",
       "type": "free"
     },
     {
