@@ -812,7 +812,7 @@
     {
       "id": "sys-032",
       "match": {
-        "pattern": "\\b(bash|sh|zsh|chmod\\s+\\+x|source|\\./|python[23]?|node|ruby|perl)\\b\\s+.*((/tmp/|/var/tmp/|\\$tmpdir))"
+        "pattern": "\\b(bash|sh|zsh|chmod\\s+\\+x|source|\\./|python[23]?|node|ruby|perl)\\b\\s+.*(/tmp/|/var/tmp/)"
       },
       "decision": "deny",
       "reason": "Executing from temp directory blocked — bypasses content evaluators",
@@ -1095,7 +1095,7 @@
       "match": {
         "command": "base64"
       },
-      "decision": "ask",
+      "decision": "warn",
       "reason": "Base64 encoding/decoding — confirm this is intentional",
       "category": "system",
       "intent": "Base64 can be used to obfuscate data exfiltration or bypass content filters",
@@ -1229,7 +1229,7 @@
     {
       "id": "sys-087",
       "match": {
-        "pattern": "lanekeep.*\\b(kill|pkill|killall)\\b|\\bkill\\b.*\\$\\("
+        "pattern": "lanekeep.*\\b(kill|pkill|killall)\\b|\\bkill\\b.*\\$\\(.*lanekeep"
       },
       "decision": "deny",
       "reason": "Terminating LaneKeep processes is not permitted",
@@ -1259,7 +1259,7 @@
       "match": {
         "pattern": "\\brmdir\\b"
       },
-      "decision": "ask",
+      "decision": "warn",
       "reason": "Directory removal — confirm target is intentional",
       "category": "system",
       "intent": "rmdir removes directories — verify the target before proceeding",
@@ -2239,7 +2239,7 @@
         "command": "--ignore-scripts",
         "tool": "Bash"
       },
-      "decision": "ask",
+      "decision": "allow",
       "reason": "--ignore-scripts flag detected — security-positive but may break installs",
       "category": "dependencies",
       "intent": "The --ignore-scripts flag prevents lifecycle script execution which improves security but can break packages that require post-install steps",
@@ -3004,7 +3004,7 @@
         "tool": "^(Write|Edit)$",
         "pattern": "\\$\\(pwd\\)"
       },
-      "decision": "ask",
+      "decision": "warn",
       "reason": "Bare $(pwd) is unreliable in shell scripts — use ${PROJECT_DIR:-$PWD} or $(pwd 2>/dev/null || echo \"$PWD\") instead",
       "category": "code-security",
       "intent": "$(pwd) can fail or return unexpected results in subshells, symlinked directories, and certain CI environments; the safe form provides a fallback",
