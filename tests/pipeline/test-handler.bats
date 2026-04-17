@@ -236,3 +236,98 @@ teardown() {
   decision=$(printf '%s' "$output" | jq -r '.decision')
   [ "$decision" = "allow" ]
 }
+
+# ── Tier 2.1: SessionWriteExecDetector ──────────────────────────────────────
+
+# Seed the trace with a prior Write/Edit entry so the detector has something
+# to match against in the current session.
+_t21_seed_write() {
+  local file_path="$1" tool="${2:-Write}"
+  jq -nc \
+    --arg tn "$tool" \
+    --arg fp "$file_path" \
+    '{tool_name:$tn,tool_input:{file_path:$fp},decision:"allow",file_path:$fp}' \
+    >> "$LANEKEEP_TRACE_FILE"
+}
+
+@test "t2.1: bash cat of session-written .md file is excluded" {
+  _t21_seed_write "/tmp/notes.md"
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"cat /tmp/notes.md"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  warn=$(printf '%s' "$output" | jq -r '.warn // ""')
+  [ "$decision" = "allow" ]
+  [[ "$warn" != *"Write-then-execute"* ]]
+}
+
+@test "t2.1: bash jq of session-written .json file is excluded" {
+  _t21_seed_write "/tmp/config.json" "Edit"
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"jq .deploy /tmp/config.json"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  warn=$(printf '%s' "$output" | jq -r '.warn // ""')
+  [[ "$warn" != *"Write-then-execute"* ]]
+}
+
+@test "t2.1: bash yq of session-written .yaml file is excluded" {
+  _t21_seed_write "/tmp/infra.yaml"
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"yq .deploy /tmp/infra.yaml"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  warn=$(printf '%s' "$output" | jq -r '.warn // ""')
+  [[ "$warn" != *"Write-then-execute"* ]]
+}
+
+@test "t2.1: bash cat of session-written .yml file is excluded" {
+  _t21_seed_write "/tmp/values.yml"
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"cat /tmp/values.yml"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  warn=$(printf '%s' "$output" | jq -r '.warn // ""')
+  [[ "$warn" != *"Write-then-execute"* ]]
+}
+
+@test "t2.1: bash grep of session-written .txt file is excluded" {
+  _t21_seed_write "/tmp/data.txt"
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"grep foo /tmp/data.txt"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  warn=$(printf '%s' "$output" | jq -r '.warn // ""')
+  [[ "$warn" != *"Write-then-execute"* ]]
+}
+
+@test "t2.1: case-insensitive extension match (.MD excluded)" {
+  _t21_seed_write "/tmp/README.MD"
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"cat /tmp/README.MD"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  warn=$(printf '%s' "$output" | jq -r '.warn // ""')
+  [[ "$warn" != *"Write-then-execute"* ]]
+}
+
+@test "t2.1: non-excluded extension surfaces as INFO by default" {
+  # Use .bin so we don't collide with sys-032 (/tmp/*) or sys-033 (script-exec regex)
+  _t21_seed_write "/home/lk/build/output.bin"
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"cat /home/lk/build/output.bin"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  warn=$(printf '%s' "$output" | jq -r '.warn // ""')
+  [[ "$warn" == *"[LaneKeep] INFO"* ]]
+  [[ "$warn" == *"Write-then-execute detected (Tier 2.1)"* ]]
+  [[ "$warn" != *"[LaneKeep] WARNING"* ]]
+}
+
+@test "t2.1: surface_as=warn restores WARNING prefix" {
+  _t21_seed_write "/home/lk/build/output.bin"
+  jq '.evaluators.session_write_exec.surface_as = "warn"' "$LANEKEEP_CONFIG_FILE" > "$LANEKEEP_CONFIG_FILE.tmp"
+  mv "$LANEKEEP_CONFIG_FILE.tmp" "$LANEKEEP_CONFIG_FILE"
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"cat /home/lk/build/output.bin"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  warn=$(printf '%s' "$output" | jq -r '.warn // ""')
+  [[ "$warn" == *"[LaneKeep] WARNING"* ]]
+  [[ "$warn" == *"Write-then-execute detected (Tier 2.1)"* ]]
+}
+
+@test "t2.1: enabled=false disables detector entirely" {
+  _t21_seed_write "/home/lk/build/output.bin"
+  jq '.evaluators.session_write_exec.enabled = false' "$LANEKEEP_CONFIG_FILE" > "$LANEKEEP_CONFIG_FILE.tmp"
+  mv "$LANEKEEP_CONFIG_FILE.tmp" "$LANEKEEP_CONFIG_FILE"
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"cat /home/lk/build/output.bin"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  warn=$(printf '%s' "$output" | jq -r '.warn // ""')
+  [[ "$warn" != *"Write-then-execute"* ]]
+}
+
+@test "t2.1: empty exclude_extensions still detects .md (opt-out works)" {
+  _t21_seed_write "/home/lk/notes.md"
+  jq '.evaluators.session_write_exec.exclude_extensions = []' "$LANEKEEP_CONFIG_FILE" > "$LANEKEEP_CONFIG_FILE.tmp"
+  mv "$LANEKEEP_CONFIG_FILE.tmp" "$LANEKEEP_CONFIG_FILE"
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"cat /home/lk/notes.md"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  warn=$(printf '%s' "$output" | jq -r '.warn // ""')
+  [[ "$warn" == *"Write-then-execute"* ]]
+}

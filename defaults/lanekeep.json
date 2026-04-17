@@ -300,6 +300,23 @@
         ]
       }
     },
+    "session_write_exec": {
+      "enabled": true,
+      "surface_as": "info",
+      "exclude_extensions": [
+        ".md",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".txt"
+      ],
+      "compliance_by_category": {
+        "write_then_exec": [
+          "CWE-78",
+          "ATT&CK:T1059.004"
+        ]
+      }
+    },
     "context_budget": {
       "enabled": false,
       "decision": "ask",

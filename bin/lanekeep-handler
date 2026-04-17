@@ -105,6 +105,10 @@ _CFG_HT_HTML_PATTERNS=""
 _CFG_HT_HTML_DECISION="ask"
 # Workflow injection evaluator config
 _CFG_WORKFLOW_INJECT_ENABLED="true"
+# Session write-then-execute evaluator config (Tier 2.1)
+_CFG_SESSION_WRITE_EXEC_ENABLED="true"
+_CFG_SESSION_WRITE_EXEC_SURFACE_AS="info"
+_CFG_SESSION_WRITE_EXEC_EXCLUDE_EXTS=".md .json .yaml .yml .txt"
 # Context budget evaluator config
 _CFG_CONTEXT_BUDGET_ENABLED="false"
 _CFG_CONTEXT_WINDOW_SIZE=""
@@ -147,6 +151,10 @@ if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
     "_CFG_RESULT_TRANSFORM_ENABLED=" + (if .evaluators.result_transform.enabled == false then "false" else "true" end | @sh),
     "_CFG_SEMANTIC_ENABLED=" + (if .evaluators.semantic.enabled == false then "false" else "true" end | @sh),
     "_CFG_WORKFLOW_INJECT_ENABLED=" + (if .evaluators.workflow_injection.enabled == false then "false" else "true" end | @sh),
+    # -- Session write-then-execute evaluator (Tier 2.1) --
+    "_CFG_SESSION_WRITE_EXEC_ENABLED=" + (if .evaluators.session_write_exec.enabled == false then "false" else "true" end | @sh),
+    "_CFG_SESSION_WRITE_EXEC_SURFACE_AS=" + (.evaluators.session_write_exec.surface_as // "info" | @sh),
+    "_CFG_SESSION_WRITE_EXEC_EXCLUDE_EXTS=" + ((.evaluators.session_write_exec.exclude_extensions // [".md", ".json", ".yaml", ".yml", ".txt"]) | join(" ") | @sh),
     # -- Context budget evaluator --
     "_CFG_CONTEXT_BUDGET_ENABLED=" + (if .evaluators.context_budget.enabled == false then "false" else "true" end | @sh),
     "_CFG_CONTEXT_WINDOW_SIZE=" + (.budget.context_window_size // "" | tostring | @sh),
@@ -316,11 +324,18 @@ case "$HOOK_EVENT" in
 
     # --- Tier 2.1: Session write-then-execute detection ---
     # If a Bash command references a file written earlier in this session,
-    # warn — the file content was not re-scanned at exec time.
-    if [ "$BLOCKED" = false ] && [ "$TOOL_NAME" = "Bash" ]; then
-      check_session_written_file "$TOOL_NAME" "$TOOL_INPUT"
+    # surface a warning/info — the file content was not re-scanned at exec time.
+    if [ "$BLOCKED" = false ] && [ "$TOOL_NAME" = "Bash" ] && \
+       [ "$_CFG_SESSION_WRITE_EXEC_ENABLED" != "false" ]; then
+      SESSION_WRITE_EXEC_EXCLUDE_EXTS="$_CFG_SESSION_WRITE_EXEC_EXCLUDE_EXTS" \
+        check_session_written_file "$TOOL_NAME" "$TOOL_INPUT"
       if [ "$SESSION_WRITE_EXEC_MATCHED" = true ]; then
-        _wte_reason="[LaneKeep] WARNING — Write-then-execute detected (Tier 2.1)
+        if [ "$_CFG_SESSION_WRITE_EXEC_SURFACE_AS" = "warn" ]; then
+          _wte_label="WARNING"
+        else
+          _wte_label="INFO"
+        fi
+        _wte_reason="[LaneKeep] ${_wte_label} — Write-then-execute detected (Tier 2.1)
 File '$SESSION_WRITE_EXEC_FILE' was written earlier in this session and is now being executed.
 Executing session-written files bypasses content-level evaluation at runtime.
 

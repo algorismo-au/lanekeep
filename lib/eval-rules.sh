@@ -806,13 +806,37 @@ check_session_written_file() {
   ' "$trace" 2>/dev/null) || return 0
   [ -n "$written_files" ] || return 0
 
+  # Excluded extensions: docs/data files referenced by Bash (e.g. cat, jq, yq)
+  # are not "executing a script". Read once from env, lowercased, space-separated.
+  local exclude_exts_lc
+  exclude_exts_lc="${SESSION_WRITE_EXEC_EXCLUDE_EXTS:-}"
+  exclude_exts_lc="${exclude_exts_lc,,}"
+
   # Check if command references any written file (by basename or full path)
-  local fpath basename
+  local fpath basename ext_lc skip ex
   while IFS= read -r fpath; do
     [ -n "$fpath" ] || continue
     basename="${fpath##*/}"
     # Match full path or basename in the command string
     if [[ "$cmd" == *"$fpath"* ]] || [[ "$cmd" == *"$basename"* ]]; then
+      # Skip if this file's extension is in the exclusion list (case-insensitive).
+      # Keep scanning — another written file in the session may still match.
+      if [ -n "$exclude_exts_lc" ]; then
+        ext_lc=".${basename##*.}"
+        ext_lc="${ext_lc,,}"
+        skip=false
+        if [[ "$basename" == *.* ]]; then
+          for ex in $exclude_exts_lc; do
+            if [ "$ext_lc" = "$ex" ]; then
+              skip=true
+              break
+            fi
+          done
+        fi
+        if [ "$skip" = true ]; then
+          continue
+        fi
+      fi
       SESSION_WRITE_EXEC_MATCHED=true
       SESSION_WRITE_EXEC_FILE="$fpath"
       return 0
