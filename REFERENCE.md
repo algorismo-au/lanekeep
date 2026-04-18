@@ -286,7 +286,7 @@ lanekeep policy disable governance_paths --reason "Updating CLAUDE.md"
 | `budget.max_output_tokens` | `LANEKEEP_MAX_OUTPUT_TOKENS` | 2500000 | 2500000 |
 | `budget.max_tokens` | `LANEKEEP_MAX_TOKENS` | 5000000 | 5000000 |
 | `budget.max_cost` | `LANEKEEP_MAX_COST` | 200 (USD) | 200 |
-| `budget.timeout_seconds` | `LANEKEEP_TIMEOUT_SECONDS` | 864000 | 36000 |
+| `budget.timeout_seconds` | `LANEKEEP_TIMEOUT_SECONDS` | 432000 | 36000 |
 
 **Cumulative (cross-session):**
 

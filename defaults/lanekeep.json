@@ -19,7 +19,7 @@
     "max_total_time_seconds": 17280000,
     "max_total_tokens": 100000000,
     "max_total_cost": 4000,
-    "timeout_seconds": 864000,
+    "timeout_seconds": 432000,
     "context_window_size": 200000,
     "context_soft_percent": 80,
     "context_hard_percent": 95

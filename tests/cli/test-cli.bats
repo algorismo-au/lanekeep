@@ -68,7 +68,7 @@ LANEKEEP="$BATS_TEST_DIRNAME/../../bin/lanekeep"
 
   run jq -e '.budget.timeout_seconds' "$BATS_TEST_DIRNAME/../../defaults/lanekeep.json"
   [ "$status" -eq 0 ]
-  [[ "$output" == "864000" ]]
+  [[ "$output" == "432000" ]]
 }
 
 # AC5: All Fixtures Valid

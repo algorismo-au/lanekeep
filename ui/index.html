@@ -6668,7 +6668,7 @@ document.addEventListener('visibilitychange', function() {
     });
     settingsContainer.addEventListener('input', function(e) {
       var target = e.target;
-      if (target.id && target.id.startsWith('set-') && target.type === 'number') { markSettingsDirty(); }
+      if (target.id && target.id.startsWith('set-') && (target.type === 'number' || target.type === 'text')) { markSettingsDirty(); }
       if (['set-budget-max_input_tokens', 'set-budget-max_output_tokens', 'set-budget-max_total_input_tokens', 'set-budget-max_total_output_tokens'].indexOf(target.id) !== -1) {
         updateBudgetSums();
       }
