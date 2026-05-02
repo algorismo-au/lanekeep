@@ -142,18 +142,21 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM HUP
 
+# VULN-10: Set umask before socat creates socket to restrict to owner-only
+SOCAT_T=$(( ${LANEKEEP_HOOK_TIMEOUT:-2} + 1 ))
+_SERVE_LOG="$(dirname "$SOCKET")/lanekeep-serve.log"
+
 # --- Start server ---
 echo "[LaneKeep] Project:     $PROJECT_DIR"
 echo "[LaneKeep] Session:     $LANEKEEP_SESSION_ID (pid $$)"
 echo "[LaneKeep] Correlation: $LANEKEEP_CORRELATION_ID"
 echo "[LaneKeep] Trace:       $LANEKEEP_TRACE_FILE"
-
-# VULN-10: Set umask before socat creates socket to restrict to owner-only
-SOCAT_T=$(( ${LANEKEEP_HOOK_TIMEOUT:-2} + 1 ))
+echo "[LaneKeep] Diag log:    $_SERVE_LOG"
 
 _start_socat() {
   rm -f "$SOCKET"
-  (umask 077 && exec socat -t "$SOCAT_T" UNIX-LISTEN:"$SOCKET",fork,unlink-early,backlog=128 \
+  (umask 077 && exec socat -lf "$_SERVE_LOG" -t "$SOCAT_T" \
+    UNIX-LISTEN:"$SOCKET",fork,unlink-early,backlog=128 \
     EXEC:"$LANEKEEP_DIR/bin/lanekeep-handler",pipes) &
   SOCAT_PID=$!
   printf '%s\n%s\n' "$$" "$SOCAT_PID" > "$PIDFILE"
