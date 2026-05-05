@@ -2,6 +2,12 @@
   "version": 1,
   "description": "Model pricing in USD per million tokens. Override via lanekeep.json budget.pricing_overrides.",
   "models": {
+    "claude-opus-4-7": {
+      "input_per_mtok": 5.00,
+      "output_per_mtok": 25.00,
+      "cache_write_per_mtok": 6.25,
+      "cache_read_per_mtok": 0.50
+    },
     "claude-opus-4-6": {
       "input_per_mtok": 5.00,
       "output_per_mtok": 25.00,
@@ -14,7 +20,7 @@
       "cache_write_per_mtok": 3.75,
       "cache_read_per_mtok": 0.30
     },
-    "claude-sonnet-4-5-20250514": {
+    "claude-sonnet-4-5-20250929": {
       "input_per_mtok": 3.00,
       "output_per_mtok": 15.00,
       "cache_write_per_mtok": 3.75,
