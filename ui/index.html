@@ -905,6 +905,7 @@ tbody tr.selected { background: var(--bg-hover); }
 .settings-select { background: var(--bg-deep); border: 1px solid var(--border-strong); color: var(--text-body); padding: 7px 12px; border-radius: 4px; font-family: inherit; font-size: 13px; width: 150px; }
 .settings-select:focus { outline: none; border-color: var(--accent); }
 .settings-select:disabled, .settings-input:disabled { background: rgba(255,255,255,0.04); color: var(--text-muted); cursor: not-allowed; opacity: 0.6; }
+.settings-section-disabled { opacity: 0.4; pointer-events: none; }
 .settings-sub { margin-left: 18px; border-left: 2px solid var(--border); padding-left: 14px; }
 
 .scroll-top-btn {
@@ -1440,27 +1441,29 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
         <span class="settings-label">Enabled</span>
         <label class="settings-toggle"><input type="checkbox" id="set-notif-enabled"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
       </div>
-      <div class="settings-row">
-        <span class="settings-label">On stop</span>
-        <label class="settings-toggle"><input type="checkbox" id="set-notif-onstop"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
-      </div>
-      <div class="settings-row">
-        <span class="settings-label">Min session seconds</span>
-        <input type="number" class="settings-input" id="set-notif-minsec" min="0">
-      </div>
-      <span class="settings-label" style="margin-top:6px;color:var(--text-secondary)">OS</span>
-      <div class="settings-sub">
+      <div id="set-notif-dependent">
         <div class="settings-row">
-          <span class="settings-label" id="set-notif-label-linux">Linux</span>
-          <label class="settings-radio"><input type="radio" name="notif-platform" value="linux" id="set-notif-linux"><span class="radio-track"></span><span class="radio-dot"></span></label>
+          <span class="settings-label">On stop</span>
+          <label class="settings-toggle"><input type="checkbox" id="set-notif-onstop"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
         </div>
         <div class="settings-row">
-          <span class="settings-label" id="set-notif-label-macos">macOS</span>
-          <label class="settings-radio"><input type="radio" name="notif-platform" value="macos" id="set-notif-macos"><span class="radio-track"></span><span class="radio-dot"></span></label>
+          <span class="settings-label">Min session seconds</span>
+          <input type="number" class="settings-input" id="set-notif-minsec" min="0">
         </div>
-        <div class="settings-row">
-          <span class="settings-label" id="set-notif-label-windows">Windows</span>
-          <label class="settings-radio"><input type="radio" name="notif-platform" value="windows" id="set-notif-windows"><span class="radio-track"></span><span class="radio-dot"></span></label>
+        <span class="settings-label" style="margin-top:6px;color:var(--text-secondary)">OS</span>
+        <div class="settings-sub">
+          <div class="settings-row">
+            <span class="settings-label" id="set-notif-label-linux">Linux</span>
+            <label class="settings-radio"><input type="radio" name="notif-platform" value="linux" id="set-notif-linux"><span class="radio-track"></span><span class="radio-dot"></span></label>
+          </div>
+          <div class="settings-row">
+            <span class="settings-label" id="set-notif-label-macos">macOS</span>
+            <label class="settings-radio"><input type="radio" name="notif-platform" value="macos" id="set-notif-macos"><span class="radio-track"></span><span class="radio-dot"></span></label>
+          </div>
+          <div class="settings-row">
+            <span class="settings-label" id="set-notif-label-windows">Windows</span>
+            <label class="settings-radio"><input type="radio" name="notif-platform" value="windows" id="set-notif-windows"><span class="radio-track"></span><span class="radio-dot"></span></label>
+          </div>
         </div>
       </div>
     </div>
@@ -6041,6 +6044,7 @@ function renderSettings() {
   document.getElementById('set-notif-linux').checked = plat === 'linux';
   document.getElementById('set-notif-macos').checked = plat === 'macos';
   document.getElementById('set-notif-windows').checked = plat === 'windows';
+  toggleNotifEnabled();
   const b = settingsData.budget;
   ['max_actions','max_input_tokens','max_output_tokens','max_tokens','timeout_seconds','max_cost','max_total_actions','max_total_input_tokens','max_total_output_tokens','max_total_tokens','max_total_time_seconds','max_total_cost'].forEach(k => {
     const el = document.getElementById('set-budget-' + k);
@@ -6208,6 +6212,14 @@ function renderHardblockOverrides() {
     row.appendChild(label);
     row.appendChild(sel);
     container.appendChild(row);
+  });
+}
+
+function toggleNotifEnabled() {
+  var on = document.getElementById('set-notif-enabled').checked;
+  document.getElementById('set-notif-dependent').classList.toggle('settings-section-disabled', !on);
+  ['set-notif-onstop','set-notif-minsec','set-notif-linux','set-notif-macos','set-notif-windows'].forEach(function(id) {
+    document.getElementById(id).disabled = !on;
   });
 }
 
@@ -6660,6 +6672,7 @@ document.addEventListener('visibilitychange', function() {
       else if (target.id === 'set-pii-enabled') { markSettingsDirty(); togglePiiEnabled(); }
       else if (target.id === 'set-context-budget-enabled') { markSettingsDirty(); toggleContextBudget(); }
       else if (target.id === 'set-multi-session-enabled') { markSettingsDirty(); toggleMultiSession(); }
+      else if (target.id === 'set-notif-enabled') { markSettingsDirty(); toggleNotifEnabled(); }
       else if (target.id === 'set-profile') { markSettingsDirty(); updateProfileDesc(true); }
       else if (target.id && target.id.startsWith('set-')) { markSettingsDirty(); }
       // Budget sum updates
