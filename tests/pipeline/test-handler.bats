@@ -237,6 +237,19 @@ teardown() {
   [ "$decision" = "allow" ]
 }
 
+@test "Handler survives reader closing stdout mid-write (SIGPIPE)" {
+  # Reader closes the pipe after 1 byte — handler's next write would raise SIGPIPE.
+  # `trap '' PIPE` at bin/lanekeep-handler:4 must absorb it; if that trap is ever
+  # removed, the handler exits 141 (128 + SIGPIPE) and this test fails.
+  # Use a deny payload so the response is long enough to actually be writing
+  # when the reader closes.
+  echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /home/user/project"}}' \
+    | "$LANEKEEP_DIR/bin/lanekeep-handler" \
+    | head -c 1 > /dev/null
+  handler_ec="${PIPESTATUS[1]}"
+  [ "$handler_ec" = "0" ]
+}
+
 # ── Tier 2.1: SessionWriteExecDetector ──────────────────────────────────────
 
 # Seed the trace with a prior Write/Edit entry so the detector has something

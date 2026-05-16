@@ -77,3 +77,33 @@ HANDLER
   [ "$d1" = "allow" ]
   [ "$d2" = "allow" ]
 }
+
+@test "listener keeps serving after a client drops mid-response" {
+  # If a client closes its socket before reading, the handler subprocess gets
+  # SIGPIPE on its next write. Without `trap '' PIPE` in bin/lanekeep-handler,
+  # that handler dies with exit 141 — fine in isolation. The real failure mode
+  # we're guarding against is the *listener* failing to accept subsequent
+  # connections because the prior fork crashed messily.
+  socat UNIX-LISTEN:"$SOCK",fork \
+    EXEC:"$LANEKEEP_DIR/bin/lanekeep-handler",pipes &
+  SOCAT_PID=$!
+  sleep 0.3  # let listener bind
+
+  REQ='{"tool_name":"Read","tool_input":{"file_path":"x"}}'
+
+  # Client A: send the request, then drop the connection within 300ms — the
+  # handler will be mid-write when the socket goes away. Errors silenced; the
+  # point is the side-effect on the server, not this client's exit code.
+  echo "$REQ" | timeout 0.3 socat - UNIX-CONNECT:"$SOCK" > /dev/null 2>&1 || true
+
+  # Brief pause so socat can reap the crashed fork (if it did crash).
+  sleep 0.2
+
+  # Client B: normal request — listener must still accept and serve.
+  result=$(echo "$REQ" | timeout 3 socat -t 2 - UNIX-CONNECT:"$SOCK")
+  decision=$(printf '%s' "$result" | jq -r '.decision')
+  [ "$decision" = "allow" ]
+
+  # Listener process itself must still be alive.
+  kill -0 "$SOCAT_PID"
+}
