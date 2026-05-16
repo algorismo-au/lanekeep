@@ -13,6 +13,7 @@
   <img src="https://img.shields.io/badge/Made_with-Bash-1f425f.svg?logo=gnubash&logoColor=white" alt="Made with Bash" />
   <img src="https://img.shields.io/badge/platform-Linux_·_macOS_·_Windows_(WSL)-informational.svg" alt="Platform: Linux · macOS · Windows (WSL)" />
   <img src="https://img.shields.io/badge/network_calls-zero-brightgreen.svg" alt="Zero Network Calls" />
+  <a href="SECURITY.md"><img src="https://img.shields.io/badge/security-policy-blue.svg" alt="Security Policy" /></a>
 </p>
 
 <p align="center">
@@ -34,22 +35,38 @@
 
 # LaneKeep
 
-LaneKeep allows your AI coding agent to run within boundaries that you control.
+AI coding agents typo `rm -rf`, read `.env` files, push to the wrong branch, and burn tokens in runaway loops. **LaneKeep intercepts every tool call and enforces deterministic rules before they execute.**
 
-**No data leaves your machine.**
+**171 default rules · 12 evaluators · zero network calls · Apache 2.0**
 
-**Every policy and rule is controlled by you.**
+<details>
+<summary><b>Capabilities at a glance</b></summary>
 
 - **Live dashboard:** every decision logged locally
 - **Budget limits:** usage patterns, cost caps, token and action limits
 - **Full audit trail:** every tool call logged with matched rule and reason
-- **Defense in depth:** extendable policy layers: 9+ deterministic evaluators and an optional semantic layer (another LLM) as an evaluator; PII detection, config integrity checks, and injection detection
+- **Defense in depth:** extendable policy layers: 12 deterministic evaluators and an optional semantic layer (another LLM) as an evaluator; PII detection, config integrity checks, and injection detection
 - **Agent memory/knowledge view:** see what your agent sees
 - **Coverage and alignment:** built-in compliance tags (NIST, OWASP, CWE, ATT&CK); add your own
+- **No data leaves your machine.** Every policy and rule is controlled by you.
+
+</details>
 
 Supports Claude Code CLI on Linux, macOS, and Windows (via WSL or Git Bash). Other platforms coming soon.
 
 For more details see [Configuration](#configuration).
+
+## Positioning
+
+|                                  | Local-only | Deterministic blocking | Audit trail | Budget/cost caps | Self-protecting |
+|----------------------------------|:----------:|:----------------------:|:-----------:|:----------------:|:---------------:|
+| **LaneKeep**                     | ✓          | ✓                      | ✓           | ✓                | ✓               |
+| Cursor Rules / `.cursorrules`    | ✓          | ✗                      | ✗           | ✗                | ✗               |
+| Claude Code `settings.json`      | ✓          | ✓                      | ~           | ✗                | ~               |
+| Copilot enterprise policies      | ✗          | ✓                      | ✓           | ~                | ✓               |
+| Shell wrappers / denylists       | ✓          | ✓                      | ~           | ✗                | ✗               |
+
+*Cursor Rules and Claude Code settings shape model behavior. LaneKeep intercepts at the tool-call layer — they're complementary, not competitors.*
 
 <p align="center">
   <img src="images/readme/lanekeep_home.png" alt="LaneKeep Dashboard" width="749" />
@@ -390,6 +407,8 @@ See [REFERENCE.md: CLI Reference](REFERENCE.md#cli-reference) for the full comma
 ## Dashboard
 
 See exactly what your agent is doing while it builds: live decisions, token usage, file activity, and audit trail in one place.
+
+> **New here?** Start with **Insights** — it's the live decision feed showing every allow/deny in real time. **Governance** is where you set the budget and session caps that drive those decisions.
 
 ### Governance
 
