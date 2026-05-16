@@ -64,6 +64,7 @@ Event (raw hook call)
 - Evaluators return 0 (pass) or 1 (deny). Set globals before returning.
 - `set -e` in bats tests catches `return 1` — use `func args || true` then check globals.
 - jq `//` operator treats `false` as null — use `if has("field") then .field else default end`.
+- `grep -m N` is line-based, not match-based — with `-oP -m1` on a single line it still emits *every* match on that line. To get strictly the first match, use `grep -oP … | head -1` (the SIGPIPE is harmless inside `var=$(…)` because variable assignment exits 0 regardless of pipeline status).
 
 ## References
 
