@@ -38,8 +38,12 @@ input_pii_eval() {
     fi
 
     if [ -z "$_has_custom_tools_filter" ]; then
+      # Default scope: Write/Edit only. Bash command bodies (heredocs, scripts)
+      # contain too much source code that pattern-matches as PII (e.g. identifier
+      # names, "Co-Authored-By", `import sqlite3`). Configure `evaluators.input_pii.tools`
+      # to include "Bash" explicitly when scanning commands is desired.
       case "$tool_name" in
-        Write|Edit|Bash) ;;
+        Write|Edit) ;;
         *)
           INPUT_PII_REASON="Tool '$tool_name' not in input PII scan list"
           return 0
@@ -92,7 +96,7 @@ input_pii_eval() {
     tools_filter=$(printf '%s' "$_ip" | jq -r 'if has("tools") then (.tools // [] | length | tostring) else "default" end') || tools_filter="default"
     if [ "$tools_filter" = "default" ]; then
       case "$tool_name" in
-        Write|Edit|Bash) ;;
+        Write|Edit) ;;
         *)
           INPUT_PII_REASON="Tool '$tool_name' not in input PII scan list"
           return 0
