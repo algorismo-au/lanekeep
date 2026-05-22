@@ -35,7 +35,7 @@
 
 # LaneKeep
 
-AI coding agents typo `rm -rf`, read `.env` files, push to the wrong branch, and burn tokens in runaway loops. **LaneKeep intercepts every tool call and enforces deterministic rules before they execute.**
+AI coding agents type `rm -rf`, read `.env` files, push to the wrong branch, and burn tokens in runaway loops. **LaneKeep intercepts every tool call and enforces deterministic rules before they execute.**
 
 **171 default rules · 12 evaluators · zero network calls · Apache 2.0**
 
@@ -55,18 +55,6 @@ AI coding agents typo `rm -rf`, read `.env` files, push to the wrong branch, and
 Supports Claude Code CLI on Linux, macOS, and Windows (via WSL or Git Bash). Other platforms coming soon.
 
 For more details see [Configuration](#configuration).
-
-## Positioning
-
-|                                  | Local-only | Deterministic blocking | Audit trail | Budget/cost caps | Self-protecting |
-|----------------------------------|:----------:|:----------------------:|:-----------:|:----------------:|:---------------:|
-| **LaneKeep**                     | ✓          | ✓                      | ✓           | ✓                | ✓               |
-| Cursor Rules / `.cursorrules`    | ✓          | ✗                      | ✗           | ✗                | ✗               |
-| Claude Code `settings.json`      | ✓          | ✓                      | ~           | ✗                | ~               |
-| Copilot enterprise policies      | ✗          | ✓                      | ✓           | ~                | ✓               |
-| Shell wrappers / denylists       | ✓          | ✓                      | ~           | ✗                | ✗               |
-
-*Cursor Rules and Claude Code settings shape model behavior. LaneKeep intercepts at the tool-call layer — they're complementary, not competitors.*
 
 <p align="center">
   <img src="images/readme/lanekeep_home.png" alt="LaneKeep Dashboard" width="749" />
