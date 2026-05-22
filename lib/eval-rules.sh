@@ -689,6 +689,7 @@ rules_eval() {
       {index: $idx, decision: ($r.decision // "deny"),
        reason: ($r.reason // "Matched rule"),
        intent: ($r.intent // ""),
+       rule_id: ($r.id // ""),
        category: ($r.category // ""),
        source: ($r.source // "default"),
        compliance: (($r.compliance // []) | join(", ")),
@@ -709,12 +710,13 @@ rules_eval() {
   fi
 
   # Extract all matched rule fields in a single jq call (7→1 subprocess)
-  local decision reason intent index category compliance source
+  local decision reason intent index rule_id category compliance source
   eval "$(printf '%s' "$result" | jq -r '
     "decision=" + (.decision | @sh),
     "reason=" + (.reason | @sh),
     "intent=" + (.intent // "" | @sh),
     "index=" + (.index | tostring | @sh),
+    "rule_id=" + (.rule_id // "" | @sh),
     "category=" + (.category | @sh),
     "source=" + (.source // "default" | @sh),
     "compliance=" + (.compliance // "" | @sh),
@@ -733,6 +735,15 @@ rules_eval() {
     tag="${tag:+${tag} }[${compliance}]"
   fi
 
+  # Rule identifier: prefer stable id (e.g. "sec-005") so traces survive
+  # config/profile changes. Fall back to legacy 1-based array index.
+  local rule_ref
+  if [ -n "$rule_id" ]; then
+    rule_ref="$rule_id"
+  else
+    rule_ref="#$((index+1))"
+  fi
+
   # Append intent (the "why") when present
   local intent_line=""
   if [ -n "$intent" ]; then
@@ -747,17 +758,17 @@ rules_eval() {
       ;;
     warn)
       RULES_PASSED=true
-      RULES_REASON="[LaneKeep] WARNING (Rule #$((index+1)), ${tag}): ${reason}${intent_line}"
+      RULES_REASON="[LaneKeep] WARNING (Rule ${rule_ref}, ${tag}): ${reason}${intent_line}"
       return 0
       ;;
     deny)
       RULES_PASSED=false
-      RULES_REASON="[LaneKeep] DENIED by RuleEngine (Rule #$((index+1)), ${tag})\n${reason}${intent_line}"
+      RULES_REASON="[LaneKeep] DENIED by RuleEngine (Rule ${rule_ref}, ${tag})\n${reason}${intent_line}"
       return 1
       ;;
     ask)
       RULES_PASSED=false
-      RULES_REASON="[LaneKeep] NEEDS APPROVAL (Rule #$((index+1)), ${tag})\n${reason}${intent_line}"
+      RULES_REASON="[LaneKeep] NEEDS APPROVAL (Rule ${rule_ref}, ${tag})\n${reason}${intent_line}"
       return 1
       ;;
   esac
@@ -812,8 +823,15 @@ check_session_written_file() {
   exclude_exts_lc="${SESSION_WRITE_EXEC_EXCLUDE_EXTS:-}"
   exclude_exts_lc="${exclude_exts_lc,,}"
 
+  # Project root for in-tree suppression: in-project session-written files are
+  # part of normal AI dev flow (agent writes its own code, then runs it).
+  # Only files written OUTSIDE the project root should warn.
+  local project_root
+  project_root="${PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || printf '%s' "$PWD")}"
+  project_root="${project_root%/}"
+
   # Check if command references any written file (by basename or full path)
-  local fpath basename ext_lc skip ex
+  local fpath basename ext_lc skip ex resolved
   while IFS= read -r fpath; do
     [ -n "$fpath" ] || continue
     basename="${fpath##*/}"
@@ -836,6 +854,14 @@ check_session_written_file() {
         if [ "$skip" = true ]; then
           continue
         fi
+      fi
+      # Suppress when the executed file resolves inside the project root.
+      # The real threat is exec of files written to /tmp, ~/.cache, etc.
+      if [ -n "$project_root" ]; then
+        resolved=$(realpath -m -- "$fpath" 2>/dev/null || printf '%s' "$fpath")
+        case "$resolved" in
+          "$project_root"|"$project_root"/*) continue ;;
+        esac
       fi
       SESSION_WRITE_EXEC_MATCHED=true
       SESSION_WRITE_EXEC_FILE="$fpath"
