@@ -195,3 +195,33 @@ teardown() {
   ud=$(jq -r '.user_denied' "$LANEKEEP_TRACE_FILE")
   [ "$ud" = "true" ]
 }
+
+# --- Regression: redact response must remain valid JSON when output contains
+# raw C0 control bytes (e.g. ANSI escapes from colorized stdout). Previously
+# the handler used printf+_json_escape which left 0x1B unescaped, producing
+# malformed JSON that tripped post-evaluate.sh's fail-closed branch.
+
+@test "PostToolUse redact response is valid JSON when tool output contains ANSI escapes" {
+  # tool_response.stdout carries real ESC bytes plus a known-redactable secret
+  local stdout_with_ansi
+  stdout_with_ansi=$'\x1b[96mfile\x1b[0m: leak AKIAIOSFODNN7EXAMPLE\x1b[0m'
+  local input
+  input=$(jq -n --arg s "$stdout_with_ansi" '{
+    hook_event_name:"PostToolUse",
+    tool_name:"Bash",
+    tool_input:{command:"cat .env"},
+    tool_response:{stdout:$s}
+  }')
+
+  output=$(printf '%s' "$input" | "$LANEKEEP_DIR/bin/lanekeep-handler")
+
+  # Must parse as JSON (the bug produced unparseable output)
+  printf '%s' "$output" | jq -e . > /dev/null
+
+  local decision transformed
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  transformed=$(printf '%s' "$output" | jq -r '.transformed_content // empty')
+
+  [ "$decision" = "allow" ]
+  [[ "$transformed" == *"[REDACTED:secret]"* ]]
+}

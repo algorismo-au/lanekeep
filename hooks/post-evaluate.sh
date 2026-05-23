@@ -147,8 +147,14 @@ case "$DECISION" in
     fi
     ;;
   *)
-    # Unrecognized decision — fail-closed
-    REASON=$(printf '%s' "$RESPONSE" | jq -r '.reason // "[LaneKeep] DENIED: unrecognized decision"')
+    # Unrecognized decision — fail-closed. Covers both genuinely unknown
+    # decision values and the case where the sidecar emitted malformed JSON
+    # (every jq read above returns empty). Use a self-describing reason so
+    # the agent sees something actionable instead of a blank "Blocked by hook".
+    REASON=$(printf '%s' "$RESPONSE" | jq -r '.reason // empty' 2>/dev/null)
+    if [ -z "$REASON" ]; then
+      REASON="[LaneKeep] BLOCKED: malformed sidecar response (could not parse JSON) — check sidecar logs."
+    fi
     jq -n -c --arg reason "$REASON" '{
       decision: "block",
       reason: $reason,

@@ -728,8 +728,13 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
     elif [ "$RESULT_TRANSFORM_ACTION" = "warn" ]; then
       printf '{"decision":"allow","warn":"%s"}\n' "$(_json_escape "$RESULT_TRANSFORM_REASON")"
     elif [ "$RESULT_TRANSFORM_ACTION" = "redact" ] && [ -n "$RESULT_TRANSFORM_CONTENT" ]; then
-      printf '{"decision":"allow","warn":"%s","transformed_content":"%s"}\n' \
-        "$(_json_escape "$RESULT_TRANSFORM_REASON")" "$(_json_escape "$RESULT_TRANSFORM_CONTENT")"
+      # Use jq to JSON-encode: transformed tool output may contain raw control bytes
+      # (0x00–0x1F, e.g. ANSI escapes) that _json_escape does not handle, which
+      # would produce a malformed response and trip the hook's fail-closed branch.
+      jq -n -c \
+        --arg warn "$RESULT_TRANSFORM_REASON" \
+        --arg content "$RESULT_TRANSFORM_CONTENT" \
+        '{decision:"allow",warn:$warn,transformed_content:$content}'
     else
       echo '{"decision":"allow"}'
     fi
