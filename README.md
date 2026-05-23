@@ -39,9 +39,6 @@ AI coding agents type `rm -rf`, read `.env` files, push to the wrong branch, and
 
 **171 default rules · 12 evaluators · zero network calls · Apache 2.0**
 
-<details>
-<summary><b>Capabilities at a glance</b></summary>
-
 - **Live dashboard:** every decision logged locally
 - **Budget limits:** usage patterns, cost caps, token and action limits
 - **Full audit trail:** every tool call logged with matched rule and reason
@@ -49,8 +46,6 @@ AI coding agents type `rm -rf`, read `.env` files, push to the wrong branch, and
 - **Agent memory/knowledge view:** see what your agent sees
 - **Coverage and alignment:** built-in compliance tags (NIST, OWASP, CWE, ATT&CK); add your own
 - **No data leaves your machine.** Every policy and rule is controlled by you.
-
-</details>
 
 Supports Claude Code CLI on Linux, macOS, and Windows (via WSL or Git Bash). Other platforms coming soon.
 
