@@ -33,6 +33,8 @@
   <a href="translations/README.hi.md">हिन्दी</a>
 </p>
 
+<p align="center"><sub>Built by <a href="https://www.algorismo.com">Algorismo</a></sub></p>
+
 # LaneKeep
 
 AI coding agents type `rm -rf`, read `.env` files, push to the wrong branch, and burn tokens in runaway loops. **LaneKeep intercepts every tool call and enforces deterministic rules before they execute.**
@@ -510,7 +512,7 @@ coding tool audit log
 
 <table><tr><td>
 <p align="center">
-<strong>Get in touch &rarr;</strong> <a href="mailto:info@algorismo.com"><code>info@algorismo.com</code></a>
+<strong>Get in touch &rarr;</strong> <a href="mailto:info@algorismo.com"><code>info@algorismo.com</code></a> &middot; <a href="https://www.algorismo.com"><code>algorismo.com</code></a>
 </p>
 </td></tr></table>
 
