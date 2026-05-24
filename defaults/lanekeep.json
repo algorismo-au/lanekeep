@@ -2022,7 +2022,7 @@
       "id": "net-000",
       "match": {
         "tool": "Bash",
-        "pattern": "\\b(curl|wget)\\b[^|;`$()]{0,500}\\bhttps?://([a-z0-9-]+\\.)*(github\\.com|githubusercontent\\.com|registry\\.npmjs\\.org|pypi\\.org|files\\.pythonhosted\\.org|crates\\.io|proxy\\.golang\\.org|anthropic\\.com|cloudflarestatus\\.com|pages\\.dev|workers\\.dev|localhost|127\\.0\\.0\\.1)(:\\d+)?(/|$|\\s|\")"
+        "pattern": "\\b(curl|wget)\\b[^|;`$()]{0,500}\\bhttps?://(?:[a-z0-9-]{1,63}\\.){0,8}(github\\.com|githubusercontent\\.com|registry\\.npmjs\\.org|pypi\\.org|files\\.pythonhosted\\.org|crates\\.io|proxy\\.golang\\.org|anthropic\\.com|cloudflarestatus\\.com|pages\\.dev|workers\\.dev|localhost|127\\.0\\.0\\.1)(?::\\d{1,5})?(/|$|\\s|\")"
       },
       "decision": "allow",
       "reason": "Network request to known-safe dev host",
