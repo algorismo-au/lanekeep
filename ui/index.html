@@ -5646,7 +5646,7 @@ function applyFilters() {
     const rule = rules[i];
     if (!rule) return;
     const m = rule.match || {};
-    const text = [rule.name, rule.category, m.command, m.target, m.tool, m.pattern, rule.decision, rule.reason, (rule.compliance || []).join(' ')].join(' ').toLowerCase();
+    const text = [rule.id, rule.name, rule.category, m.command, m.target, m.tool, m.pattern, rule.decision, rule.reason, (rule.compliance || []).join(' ')].join(' ').toLowerCase();
     const matchesSearch = !term || text.includes(term);
     const matchesDecision = activeDecisionFilters.size === 0 || activeDecisionFilters.has(rule.decision || 'allow');
     const visible = matchesSearch && matchesDecision;
