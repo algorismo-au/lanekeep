@@ -5167,7 +5167,14 @@ async function saveAll() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rules: cleaned, policies: policies })
     });
-    if (!res.ok) throw new Error('Save failed: ' + res.status);
+    if (!res.ok) {
+      let detail = String(res.status);
+      try {
+        const body = await res.json();
+        if (body && body.error) detail = body.error;
+      } catch {}
+      throw new Error(detail);
+    }
     rulesDirty = false; policiesDirty = false;
     originalRules = JSON.parse(JSON.stringify(rules));
     originalPolicies = JSON.parse(JSON.stringify(policies));

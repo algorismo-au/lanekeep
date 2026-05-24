@@ -1347,5 +1347,103 @@ class TestEvaluatorSettings(_ServerTestCase):
         self.assertEqual(status, 400)
 
 
+# ── ReDoS validator tests ───────────────────────────────────────────
+#
+# The validator is a regex-on-regex heuristic — easy to over-tighten and
+# silently break the bundled defaults. These tests pin the behavior:
+#   - Real ReDoS shapes (nested unbounded quantifiers) ARE rejected.
+#   - Bounded outer quantifiers and the bundled-defaults patterns
+#     ROUND-TRIP through save without a 400.
+
+# Canonical catastrophic-backtracking shapes — must be flagged.
+_REDOS_BAD = ['(a+)+', '(a*)*', '(a+)*', '(a*)+', '(?:a+)+', '(?:a*)+']
+
+# Bounded outer or no nested quantifier — must NOT be flagged.
+_REDOS_SAFE = [
+    '(a+)?', '(a*)?', '(?:a+)?',           # bounded outer
+    '\\bfoo\\b', 'literal-string',          # no quantified group
+    '[a-z]+',                               # quantifier outside any group
+    # Real patterns from bundled defaults that were false-positives pre-fix:
+    'credentials(\\.[a-z0-9_-]+)?(/|$|")',  # sec-005 fragment
+    '([a-z0-9-]+\\.)*github\\.com',         # net-000 fragment (still safe in practice)
+]
+
+
+class TestRedosPatternUnit(unittest.TestCase):
+    """Unit tests on _REDOS_PATTERN directly — fast, no HTTP harness."""
+
+    def test_dangerous_shapes_flagged(self):
+        for s in _REDOS_BAD:
+            with self.subTest(pattern=s):
+                self.assertIsNotNone(srv._REDOS_PATTERN.search(s),
+                                     f'{s!r} should be flagged as ReDoS')
+
+    def test_safe_shapes_not_flagged(self):
+        for s in _REDOS_SAFE:
+            with self.subTest(pattern=s):
+                self.assertIsNone(srv._REDOS_PATTERN.search(s),
+                                  f'{s!r} should NOT be flagged as ReDoS')
+
+    def test_bundled_defaults_all_pass(self):
+        """Every rule pattern in defaults/lanekeep.json must pass the
+        validator — otherwise the UI cannot save any change."""
+        defaults_path = (Path(srv.__file__).resolve().parent.parent
+                         / 'defaults' / 'lanekeep.json')
+        defaults = json.loads(defaults_path.read_text())
+        for rule in defaults.get('rules', []):
+            m = rule.get('match', {})
+            for field in ('pattern', 'command', 'target'):
+                v = m.get(field, '')
+                if v:
+                    with self.subTest(rule=rule.get('id'), field=field):
+                        self.assertIsNone(
+                            srv._REDOS_PATTERN.search(v),
+                            f"defaults rule {rule.get('id')}.{field} flagged: {v!r}")
+        for cat, pol in defaults.get('policies', {}).items():
+            if not isinstance(pol, dict):
+                continue
+            for lf in ('allowed', 'denied'):
+                for v in pol.get(lf, []):
+                    if v and isinstance(v, str):
+                        with self.subTest(policy=cat, list=lf):
+                            self.assertIsNone(
+                                srv._REDOS_PATTERN.search(v),
+                                f'defaults policies.{cat}.{lf} flagged: {v!r}')
+
+
+class TestRedosSaveEndpoint(_ServerTestCase):
+    """End-to-end: POST /api/config with a known-safe pattern must succeed,
+    and dangerous patterns must produce a JSON error the UI can display."""
+
+    @classmethod
+    def _setup_project(cls):
+        config = {'rules': [_make_rule('init-001')], 'policies': {}}
+        (cls._project_dir / 'lanekeep.json').write_text(json.dumps(config, indent=2))
+
+    def test_save_accepts_bounded_outer_quantifier(self):
+        """Regression for sec-005: (X+)? in a target pattern saves fine."""
+        rule = _make_rule(
+            'sec-005-regression',
+            command='Read',
+            target='credentials(\\.[a-z0-9_-]+)?(/|$|")',
+        )
+        status, body = self.post('/api/config', {'rules': [rule], 'policies': {}})
+        self.assertEqual(status, 200,
+                         f'expected 200, got {status} with body {body!r}')
+
+    def test_save_rejects_nested_unbounded_quantifier(self):
+        """Canonical ReDoS shape (a+)+ still rejected with a 400 +
+        actionable JSON error."""
+        rule = _make_rule('redos-001', command='Bash', target='(a+)+')
+        # _make_rule sets both command and target; clear command so the
+        # ReDoS-bearing field is the one validated.
+        rule['match'] = {'target': '(a+)+'}
+        status, body = self.post('/api/config', {'rules': [rule], 'policies': {}})
+        self.assertEqual(status, 400)
+        self.assertIsInstance(body, dict)
+        self.assertIn('error', body)
+        self.assertIn('ReDoS', body['error'])
+
+
 if __name__ == '__main__':
     unittest.main()
