@@ -82,9 +82,12 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); font-style
 .sidebar-nav li .nav-sub { display: block; font-size: 10px; color: var(--text-muted); font-weight: 400; line-height: 1.2; margin-top: 1px; }
 .sidebar-footer { padding: 12px 18px; font-size: 11px; color: var(--text-muted); }
 .sidebar-footer-row { display: flex; align-items: baseline; gap: 6px; }
-.sidebar-footer-site { color: var(--text-secondary); }
+.sidebar-footer-site { color: var(--text-secondary); text-decoration: none; }
+.sidebar-footer-site:hover { color: var(--text); }
 .sidebar-footer-ver { color: var(--text-muted); }
 .sidebar-footer-byline { margin-top: 4px; font-size: 10px; color: var(--text-secondary); letter-spacing: 0.3px; }
+.sidebar-footer-byline a { color: inherit; text-decoration: none; }
+.sidebar-footer-byline a:hover { color: var(--text); }
 
 .main-content { flex: 1; overflow-y: auto; height: 100vh; }
 
@@ -978,8 +981,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
   </ul>
   <div class="sidebar-footer">
     <div style="text-align:center;margin-bottom:0.5rem"><a href="https://github.com/algorismo-au/lanekeep" target="_blank" rel="noopener" title="LaneKeep on GitHub" style="color:var(--text-dim);transition:color .2s" onmouseenter="this.style.color='var(--text)'" onmouseleave="this.style.color='var(--text-dim)'"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 00-3.8 23.38c.6.11.82-.26.82-.58v-2.02c-3.34.73-4.04-1.61-4.04-1.61a3.18 3.18 0 00-1.33-1.76c-1.09-.74.08-.73.08-.73a2.52 2.52 0 011.84 1.24 2.56 2.56 0 003.5 1 2.56 2.56 0 01.76-1.61c-2.67-.3-5.47-1.33-5.47-5.93a4.64 4.64 0 011.24-3.22 4.3 4.3 0 01.12-3.18s1-.33 3.3 1.23a11.4 11.4 0 016 0c2.28-1.56 3.29-1.23 3.29-1.23a4.3 4.3 0 01.12 3.18 4.64 4.64 0 011.23 3.22c0 4.61-2.8 5.63-5.48 5.93a2.86 2.86 0 01.82 2.22v3.29c0 .32.22.7.82.58A12 12 0 0012 .3"/></svg></a></div>
-    <div class="sidebar-footer-row"><span class="sidebar-footer-site">lanekeep.ai</span> <span class="sidebar-footer-ver" id="sidebar-version">v1.0.0</span></div>
-    <div class="sidebar-footer-byline">&copy; 2026 Algorismo</div>
+    <div class="sidebar-footer-row"><a class="sidebar-footer-site" href="https://lanekeep.ai" target="_blank" rel="noopener">lanekeep.ai</a> <span class="sidebar-footer-ver" id="sidebar-version">v1.0.0</span></div>
+    <div class="sidebar-footer-byline">&copy; 2026 <a href="https://www.algorismo.com" target="_blank" rel="noopener">Algorismo</a></div>
     <div class="sidebar-footer-byline">info@algorismo.com</div>
   </div>
 </nav>
