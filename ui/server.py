@@ -21,8 +21,9 @@ from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
-# Regex to detect nested quantifiers (ReDoS risk)
-_REDOS_PATTERN = re.compile(r'\([^)]*[+*]\)[+*?]|\(\?[^)]*[+*]\)[+*?]')
+# Detect nested unbounded quantifiers (ReDoS risk): (X+)+, (X+)*, (X*)+, (X*)*.
+# Bounded outer quantifiers like (X+)? cannot backtrack catastrophically.
+_REDOS_PATTERN = re.compile(r'\([^)]*[+*]\)[+*]|\(\?[^)]*[+*]\)[+*]')
 
 MAX_BODY = 10 * 1024 * 1024  # 10 MB
 MAX_BOOKMARKS = 100
