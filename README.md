@@ -510,8 +510,7 @@ coding tool audit log
 
 <table><tr><td>
 <p align="center">
-<strong>We are looking for ambitious engineers to help us extend the capabilities of LaneKeep.</strong><br/>
-Is this you? <strong>Get in touch &rarr;</strong> <a href="mailto:info@algorismo.com"><code>info@algorismo.com</code></a>
+<strong>Get in touch &rarr;</strong> <a href="mailto:info@algorismo.com"><code>info@algorismo.com</code></a>
 </p>
 </td></tr></table>
 
