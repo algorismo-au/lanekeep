@@ -676,9 +676,17 @@ rules_eval() {
           else ($lower_tool | safe_test($tl; "i"))
           end) and
         (($r.match.pattern // "") as $p |
-          if $p == "" then true
-          else (($lower_input | safe_test($p; "i")) or
-                ($lower_input_clean | safe_test($p; "i")))
+         ($r.match.pattern_cs // "") as $pcs |
+          if $p == "" and $pcs == "" then true
+          else
+            (if $p == "" then false
+             else (($lower_input | safe_test($p; "i")) or
+                   ($lower_input_clean | safe_test($p; "i")))
+             end)
+            or
+            (if $pcs == "" then false
+             else ($input | safe_test($pcs; ""))
+             end)
           end) and
         (($r.match.env // "") as $e |
           if $e == "" then true
