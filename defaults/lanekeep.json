@@ -589,8 +589,7 @@
       "denied": [
         "claude\\.md$",
         "\\.claude/settings",
-        "\\.lanekeep/",
-        "lanekeep"
+        "(^|/)\\.?lanekeep(/|\\.json|$)"
       ],
       "allowed": []
     },
