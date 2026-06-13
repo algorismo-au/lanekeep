@@ -1753,12 +1753,13 @@
     {
       "id": "git-009",
       "match": {
-        "pattern": "\\bgit\\s+(reset\\b(?=.*\\s--hard\\b)|clean\\b(?=.*\\s-[a-z]*f[a-z]*\\b)(?=.*\\s-[a-z]*d[a-z]*\\b)|branch\\s+-D)"
+        "pattern": "\\bgit\\s+(reset\\b(?=.*\\s--hard\\b)|clean\\b(?=.*\\s-[a-z]*f[a-z]*\\b)(?=.*\\s-[a-z]*d[a-z]*\\b))",
+        "pattern_cs": "\\bgit\\s+branch\\b(?=.*\\s-[A-Za-z]*D[A-Za-z]*(\\s|$))"
       },
       "decision": "deny",
       "reason": "Destructive git operation blocked",
       "category": "git",
-      "intent": "Hard reset, clean -fd, and branch -D destroy history or untracked work with no recovery path",
+      "intent": "Hard reset, clean -fd, and branch -D destroy history or untracked work with no recovery path (safe -d delete is allowed)",
       "type": "free"
     },
     {

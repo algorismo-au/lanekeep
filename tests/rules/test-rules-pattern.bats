@@ -1089,6 +1089,51 @@ EOF
   [ "$RULES_PASSED" = "true" ]
 }
 
+@test "git-009: git branch -D (force delete) denied" {
+  export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
+  rules_eval "Bash" '{"command":"git branch -D feature-x"}' || true
+  [ "$RULES_PASSED" = "false" ]
+}
+
+@test "git-009: git branch -d (safe delete) allowed" {
+  # -d refuses to delete unmerged branches; only -D force-deletes. Don't block -d.
+  export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
+  rules_eval "Bash" '{"command":"git branch -d feature-x"}' || true
+  [ "$RULES_PASSED" = "true" ]
+}
+
+@test "git-009: git branch -Dq (combined force flag) denied" {
+  export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
+  rules_eval "Bash" '{"command":"git branch -Dq feature-x"}' || true
+  [ "$RULES_PASSED" = "false" ]
+}
+
+@test "git-009: git branch -qD (force flag in any position) denied" {
+  export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
+  rules_eval "Bash" '{"command":"git branch -qD feature-x"}' || true
+  [ "$RULES_PASSED" = "false" ]
+}
+
+@test "git-009: git branch -rd (safe delete remote-tracking) allowed" {
+  # -rd combines -r (remote-tracking) with -d (safe delete); no force flag.
+  export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
+  rules_eval "Bash" '{"command":"git branch -rd origin/stale"}' || true
+  [ "$RULES_PASSED" = "true" ]
+}
+
+@test "git-009: git branch -d with capital-D in branch name allowed" {
+  # Branch named "Dragon" contains D but is not a force-delete flag.
+  export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
+  rules_eval "Bash" '{"command":"git branch -d Dragon"}' || true
+  [ "$RULES_PASSED" = "true" ]
+}
+
+@test "git-009: git branch -a (list) allowed" {
+  export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
+  rules_eval "Bash" '{"command":"git branch -a"}' || true
+  [ "$RULES_PASSED" = "true" ]
+}
+
 # ── git-025: git push --force-with-lease warns ──
 
 @test "git-025: git push --force-with-lease warns but is not denied" {
