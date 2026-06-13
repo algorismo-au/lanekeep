@@ -1,7 +1,29 @@
 # test_helper.bash — shared setup/teardown and helpers for rule-evaluation tests.
 
+# Merge defaults + all packs into a single combined JSON so platform-pack rules
+# (e.g. Windows-only sys-087+) are available to _isolate_rules. Without this,
+# tests asserting pack-specific rule patterns can't reach them by ID.
+_build_combined_defaults() {
+  local combined="${BATS_RUN_TMPDIR:-$TEST_TMP}/_combined_defaults.json"
+  if [ -f "$combined" ]; then
+    echo "$combined"
+    return
+  fi
+  local packs_dir="$LANEKEEP_DIR/defaults/packs"
+  if [ -d "$packs_dir" ] && ls "$packs_dir"/*.json >/dev/null 2>&1; then
+    jq --slurpfile packs <(jq -s '[.[].rules[]]' "$packs_dir"/*.json) '
+      .rules = .rules + $packs[0]
+    ' "$LANEKEEP_DIR/defaults/lanekeep.json" > "$combined"
+  else
+    cp "$LANEKEEP_DIR/defaults/lanekeep.json" "$combined"
+  fi
+  echo "$combined"
+}
+
 setup_rules_env() {
-  LANEKEEP_DIR="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
+  # Resolve LANEKEEP_DIR relative to this helper file so the helper works
+  # for tests at any depth under tests/ (e.g. tests/rules/, tests/hardening/).
+  LANEKEEP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   export LANEKEEP_DIR
   TEST_TMP="$(mktemp -d)"
   export LANEKEEP_CONFIG_FILE="$TEST_TMP/lanekeep.json"
@@ -11,7 +33,9 @@ setup_rules_env() {
   export LANEKEEP_SESSION_ID="test-session"
   export PROJECT_DIR="$TEST_TMP"
   mkdir -p "$TEST_TMP/.lanekeep/traces"
-  cp "$LANEKEEP_DIR/defaults/lanekeep.json" "$LANEKEEP_CONFIG_FILE"
+  local combined
+  combined="$(_build_combined_defaults)"
+  cp "$combined" "$LANEKEEP_CONFIG_FILE"
 
   local now
   now=$(date +%s)
@@ -25,19 +49,23 @@ teardown_rules_env() {
   return 0
 }
 
-# Create a config with only the specified rule ID(s) from defaults, policies cleared
+# Create a config with only the specified rule ID(s) from combined defaults, policies cleared
 _isolate_rules() {
+  local combined
+  combined="$(_build_combined_defaults)"
   jq --arg ids "$1" '
     ($ids | split(",")) as $id_list |
     .rules = [.rules[] | select(.id as $i | $id_list | any(. == $i))] |
     .policies = {}
-  ' "$LANEKEEP_DIR/defaults/lanekeep.json" > "$LANEKEEP_CONFIG_FILE"
+  ' "$combined" > "$LANEKEEP_CONFIG_FILE"
 }
 
-# Create a config with specified rules AND policies preserved from defaults
+# Create a config with specified rules AND policies preserved from combined defaults
 _isolate_rules_with_policies() {
+  local combined
+  combined="$(_build_combined_defaults)"
   jq --arg ids "$1" '
     ($ids | split(",")) as $id_list |
     .rules = [.rules[] | select(.id as $i | $id_list | any(. == $i))]
-  ' "$LANEKEEP_DIR/defaults/lanekeep.json" > "$LANEKEEP_CONFIG_FILE"
+  ' "$combined" > "$LANEKEEP_CONFIG_FILE"
 }
