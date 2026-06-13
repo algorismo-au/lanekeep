@@ -102,7 +102,7 @@ validate_patterns() {
     if ("" | safe_test($pat; "i")) == "invalid" then
       "WARN: invalid regex: " + $pat
     # Test 2: nested quantifiers (ReDoS indicator)
-    elif ($pat | test("\\([^)]*[+*]\\)[+*?]")) then
+    elif ($pat | test("\\([^)]*[+*]\\)[+*]")) then
       "WARN: nested quantifiers (ReDoS risk): " + $pat
     else empty end
   ' "$config" 2>/dev/null) || true
