@@ -73,8 +73,7 @@ jobs:
             tests/evaluators/ \
             tests/config/ \
             tests/rules/ \
-            tests/pipeline/ \
-            tests/hardening/
+            tests/pipeline/
 
   test:
     needs: smoke

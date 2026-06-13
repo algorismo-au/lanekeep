@@ -5,8 +5,22 @@
 
 load ../test_helper
 
-setup()    { setup_rules_env; }
-teardown() { teardown_rules_env; }
+setup() {
+  LANEKEEP_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export LANEKEEP_DIR
+  TEST_TMP="$(mktemp -d)"
+  export LANEKEEP_CONFIG_FILE="$TEST_TMP/lanekeep.json"
+  export LANEKEEP_TASKSPEC_FILE=""
+  export LANEKEEP_STATE_FILE="$TEST_TMP/state.json"
+  export LANEKEEP_TRACE_FILE="$TEST_TMP/.lanekeep/traces/test-session.jsonl"
+  export LANEKEEP_SESSION_ID="test-session"
+  export PROJECT_DIR="$TEST_TMP"
+  mkdir -p "$TEST_TMP/.lanekeep/traces"
+  cp "$LANEKEEP_DIR/defaults/lanekeep.json" "$LANEKEEP_CONFIG_FILE"
+  printf '{"action_count":0,"input_token_count":0,"output_token_count":0,"start_epoch":%s}\n' "$(date +%s)" > "$LANEKEEP_STATE_FILE"
+  source "$LANEKEEP_DIR/lib/eval-rules.sh"
+}
+teardown() { rm -rf "$TEST_TMP"; return 0; }
 
 # ============================================================================
 # csec-003: innerHTML

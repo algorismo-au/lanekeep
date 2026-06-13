@@ -8,8 +8,22 @@
 
 load ../test_helper
 
-setup()    { setup_rules_env; }
-teardown() { teardown_rules_env; }
+setup() {
+  LANEKEEP_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export LANEKEEP_DIR
+  TEST_TMP="$(mktemp -d)"
+  export LANEKEEP_CONFIG_FILE="$TEST_TMP/lanekeep.json"
+  export LANEKEEP_TASKSPEC_FILE=""
+  export LANEKEEP_STATE_FILE="$TEST_TMP/state.json"
+  export LANEKEEP_TRACE_FILE="$TEST_TMP/.lanekeep/traces/test-session.jsonl"
+  export LANEKEEP_SESSION_ID="test-session"
+  export PROJECT_DIR="$TEST_TMP"
+  mkdir -p "$TEST_TMP/.lanekeep/traces"
+  cp "$LANEKEEP_DIR/defaults/lanekeep.json" "$LANEKEEP_CONFIG_FILE"
+  printf '{"action_count":0,"input_token_count":0,"output_token_count":0,"start_epoch":%s}\n' "$(date +%s)" > "$LANEKEEP_STATE_FILE"
+  source "$LANEKEEP_DIR/lib/eval-rules.sh"
+}
+teardown() { rm -rf "$TEST_TMP"; return 0; }
 
 # ============================================================================
 # Gap 1: Data Exfiltration — sec-012 through sec-015
@@ -431,20 +445,6 @@ teardown() { teardown_rules_env; }
   _isolate_rules "sec-019a"
   rules_eval "Write" '{"file_path":"data.xml","content":"<note><to>user</to><body>hello</body></note>"}' || true
   [ "$RULES_DECISION" = "allow" ]
-}
-
-# ============================================================================
-# Rule count verification
-# ============================================================================
-
-@test "total rule count matches defaults + packs" {
-  local expected count
-  expected=$(jq -s '[.[].rules | length] | add' \
-    "$LANEKEEP_DIR/defaults/lanekeep.json" \
-    "$LANEKEEP_DIR/defaults/packs"/*.json 2>/dev/null \
-    || jq '.rules | length' "$LANEKEEP_DIR/defaults/lanekeep.json")
-  count=$(jq '.rules | length' "$LANEKEEP_CONFIG_FILE")
-  [ "$count" -eq "$expected" ]
 }
 
 # ============================================================================

@@ -6,10 +6,15 @@
 #   - outer `?` quantifier is NOT flagged (matches at most once — bounded backtracking)
 #   - the shipped default config passes validation
 
-load ../test_helper
-
-setup()    { setup_rules_env; }
-teardown() { teardown_rules_env; }
+setup() {
+  LANEKEEP_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export LANEKEEP_DIR
+  TEST_TMP="$(mktemp -d)"
+  export LANEKEEP_CONFIG_FILE="$TEST_TMP/lanekeep.json"
+  export LANEKEEP_STATE_FILE="$TEST_TMP/state.json"
+  mkdir -p "$TEST_TMP"
+}
+teardown() { rm -rf "$TEST_TMP"; return 0; }
 
 @test "validate_patterns: detects invalid regex" {
   source "$LANEKEEP_DIR/lib/eval-rules.sh"
