@@ -145,6 +145,12 @@ EOF
   [[ "$RULES_REASON" == *"governance_paths"* ]]
 }
 
+@test "governance_paths: Write to buildinglanekeep/lib/foo.ts allowed (not governance)" {
+  export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
+  rules_eval "Write" '{"file_path":"/home/u/src/buildinglanekeep/lib/foo.ts","content":"x"}' || true
+  [[ "$RULES_REASON" != *"governance_paths"* ]]
+}
+
 @test "governance_paths: Write to absolute ~/.claude/settings.json denied" {
   export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
   rules_eval "Write" '{"file_path":"/home/user/.claude/settings.json","content":"{}"}' || true
