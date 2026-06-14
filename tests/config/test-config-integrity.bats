@@ -193,8 +193,10 @@ teardown() {
   export LANEKEEP_CONFIG_HASH_FILE="$TEST_TMP/.lanekeep/config_hash"
   export LANEKEEP_CONFIG_HASH="$(sha256sum "$LANEKEEP_CONFIG_FILE" | cut -d' ' -f1)"
   export LANEKEEP_CONFIG_MTIME="0"
-  # Ensure config is newer than hash file so -nt fast-path is not taken
-  touch "$LANEKEEP_CONFIG_FILE"
+  # Backdate the hash file so `config -nt hash` is guaranteed true and the
+  # fast-path is skipped. Using `touch $LANEKEEP_CONFIG_FILE` alone can tie
+  # mtimes on CI filesystems with coarse timestamp precision (flaky).
+  touch -m -d @1 "$TEST_TMP/.lanekeep/config_hash"
   verify_config_integrity || true
   [ "$INTEGRITY_PASSED" = "false" ]
   [[ "$INTEGRITY_REASON" == *"invalid format"* ]]
@@ -209,8 +211,9 @@ teardown() {
   # Env var has wrong hash — empty file falls through, env var mismatch denies
   export LANEKEEP_CONFIG_HASH="bad0000000000000000000000000000000000000000000000000000000000000"
   export LANEKEEP_CONFIG_MTIME="0"
-  # Ensure config is newer than hash file so -nt fast-path is not taken
-  touch "$LANEKEEP_CONFIG_FILE"
+  # Backdate the hash file so `config -nt hash` is guaranteed true and the
+  # fast-path is skipped. See test 12 comment for the flake background.
+  touch -m -d @1 "$TEST_TMP/.lanekeep/config_hash"
   verify_config_integrity || true
   [ "$INTEGRITY_PASSED" = "false" ]
 }
