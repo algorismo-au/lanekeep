@@ -1243,7 +1243,7 @@
     {
       "id": "sys-088",
       "match": {
-        "pattern": "\\b(export|env)\\b.*LANEKEEP_(FAIL_POLICY|CONFIG_FILE|DIR|SOCKET)\\b|\\bunset\\b.*LANEKEEP_"
+        "pattern": "\\bLANEKEEP_[A-Z_]+\\s*=|\\bunset\\b.*LANEKEEP_|\\benv\\s+-u\\s+LANEKEEP_"
       },
       "decision": "deny",
       "reason": "LaneKeep environment variables must not be modified by agents",
