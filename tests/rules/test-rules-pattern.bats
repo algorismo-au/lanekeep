@@ -217,6 +217,30 @@ EOF
   [ "$RULES_PASSED" = "true" ]
 }
 
+@test "sys-088: export LANEKEEP_BYPASS denied" {
+  export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
+  rules_eval "Bash" '{"command":"export LANEKEEP_BYPASS=1"}' || true
+  [ "$RULES_PASSED" = "false" ]
+}
+
+@test "sys-088: env LANEKEEP_DISABLE=1 prefix denied" {
+  export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
+  rules_eval "Bash" '{"command":"env LANEKEEP_DISABLE=1 claude"}' || true
+  [ "$RULES_PASSED" = "false" ]
+}
+
+@test "sys-088: inline LANEKEEP_FAIL_POLICY=allow prefix denied" {
+  export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
+  rules_eval "Bash" '{"command":"LANEKEEP_FAIL_POLICY=allow claude"}' || true
+  [ "$RULES_PASSED" = "false" ]
+}
+
+@test "sys-088: env -u LANEKEEP_FAIL_POLICY denied" {
+  export LANEKEEP_CONFIG_FILE="$LANEKEEP_DIR/defaults/lanekeep.json"
+  rules_eval "Bash" '{"command":"env -u LANEKEEP_FAIL_POLICY claude"}' || true
+  [ "$RULES_PASSED" = "false" ]
+}
+
 # ── policies tests ──
 
 @test "policy: extensions denies unlisted extension on Write" {
