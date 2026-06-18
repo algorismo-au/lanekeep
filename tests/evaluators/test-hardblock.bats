@@ -5,16 +5,21 @@ setup() {
   export LANEKEEP_CONFIG_FILE="$BATS_TEST_DIRNAME/../fixtures/lanekeep.json"
 }
 
-# AC1: rm -rf Blocked
-@test "hardblock_check blocks 'rm -rf' command" {
-  run hardblock_check "Bash" '{"command":"rm -rf /tmp/x"}'
+# AC1: rm -rf / Blocked (literal root delete — anchored via hard_blocks_regex)
+@test "hardblock_check blocks literal 'rm -rf /'" {
+  run hardblock_check "Bash" '{"command":"rm -rf /"}'
   [ "$status" -eq 1 ]
 }
 
-@test "hardblock_check sets HARDBLOCK_REASON containing matched pattern" {
-  hardblock_check "Bash" '{"command":"rm -rf /tmp/x"}' || true
-  [[ "$HARDBLOCK_REASON" == *"rm -rf"* ]]
+@test "hardblock_check sets HARDBLOCK_REASON when regex matches" {
+  hardblock_check "Bash" '{"command":"rm -rf /"}' || true
   [[ "$HARDBLOCK_REASON" == *"HARD-BLOCKED"* ]]
+}
+
+# TD-015: 'rm -rf /tmp/foo' must not match the root-delete rule
+@test "hardblock_check allows 'rm -rf /tmp/foo' (subpath, not root)" {
+  run hardblock_check "Bash" '{"command":"rm -rf /tmp/foo"}'
+  [ "$status" -eq 0 ]
 }
 
 # AC2: Safe Command Passes
@@ -38,7 +43,7 @@ setup() {
 # AC5: No Config File
 @test "hardblock_check allows when config file does not exist" {
   LANEKEEP_CONFIG_FILE="/nonexistent/lanekeep.json"
-  run hardblock_check "Bash" '{"command":"rm -rf /tmp/x"}'
+  run hardblock_check "Bash" '{"command":"rm -rf /"}'
   [ "$status" -eq 0 ]
 }
 
@@ -50,15 +55,15 @@ setup() {
 
 # AC7: hard_block_overrides — warn
 @test "hardblock_check returns 0 and warns when pattern overridden to warn" {
-  export _CFG_HARD_BLOCK_OVERRIDES="rm -rf /=warn"
-  run hardblock_check "Bash" '{"command":"rm -rf /tmp/x"}'
+  export _CFG_HARD_BLOCK_OVERRIDES="shutdown=warn"
+  run hardblock_check "Bash" '{"command":"shutdown now"}'
   [ "$status" -eq 0 ]
   unset _CFG_HARD_BLOCK_OVERRIDES
 }
 
 @test "hardblock_check sets HARDBLOCK_WARNED when pattern overridden to warn" {
-  export _CFG_HARD_BLOCK_OVERRIDES="rm -rf /=warn"
-  hardblock_check "Bash" '{"command":"rm -rf /tmp/x"}' || true
+  export _CFG_HARD_BLOCK_OVERRIDES="shutdown=warn"
+  hardblock_check "Bash" '{"command":"shutdown now"}' || true
   [[ "$HARDBLOCK_WARNED" == *"WARN"* ]]
   [[ "$HARDBLOCK_WARNED" == *"overridden"* ]]
   unset _CFG_HARD_BLOCK_OVERRIDES
@@ -66,8 +71,8 @@ setup() {
 
 # AC8: hard_block_overrides — disable
 @test "hardblock_check skips pattern entirely when overridden to disable" {
-  export _CFG_HARD_BLOCK_OVERRIDES="rm -rf /=disable"
-  run hardblock_check "Bash" '{"command":"rm -rf /tmp/x"}'
+  export _CFG_HARD_BLOCK_OVERRIDES="shutdown=disable"
+  run hardblock_check "Bash" '{"command":"shutdown now"}'
   [ "$status" -eq 0 ]
   unset _CFG_HARD_BLOCK_OVERRIDES
 }
@@ -75,7 +80,7 @@ setup() {
 # AC9: non-overridden patterns still block
 @test "hardblock_check still blocks patterns not in overrides" {
   export _CFG_HARD_BLOCK_OVERRIDES="| sh=warn"
-  run hardblock_check "Bash" '{"command":"rm -rf /tmp/x"}'
+  run hardblock_check "Bash" '{"command":"shutdown now"}'
   [ "$status" -eq 1 ]
   unset _CFG_HARD_BLOCK_OVERRIDES
 }

@@ -5,6 +5,36 @@
 BUDGET_PASSED=true
 BUDGET_REASON=""
 
+# Define _json_escape if not already available (e.g., when sourced standalone in tests)
+if ! type _json_escape &>/dev/null; then
+  _json_escape() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+  }
+fi
+
+# Emit a stop signal when a CUMULATIVE (lifetime) budget cap trips.
+# Writes a sibling file next to cumulative.json that loopers/orchestrators
+# can poll to decide whether to spawn the next iteration.
+# Per-session caps do NOT emit a halt — they reset on session boundary.
+_budget_emit_halt() {
+  local reason="$1"
+  local cumfile="${LANEKEEP_CUMULATIVE_FILE:-${PROJECT_DIR:-.}/.lanekeep/cumulative.json}"
+  local halted_file="${LANEKEEP_HALTED_FILE:-$(dirname "$cumfile")/halted.json}"
+  (umask 077; mkdir -p "$(dirname "$halted_file")" 2>/dev/null) || return 0
+  printf '{"halted":true,"halted_at":"%s","reason":"%s","correlation_id":"%s","lanekeep_session_id":"%s"}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    "$(_json_escape "$reason")" \
+    "$(_json_escape "${LANEKEEP_CORRELATION_ID:-}")" \
+    "$(_json_escape "${LANEKEEP_SESSION_ID:-}")" \
+    > "${halted_file}.tmp" 2>/dev/null && mv "${halted_file}.tmp" "$halted_file" 2>/dev/null
+}
+
 # Estimate token count from a string (~4 chars per token)
 estimate_tokens() {
   local text="$1"
@@ -393,6 +423,11 @@ budget_eval() {
      || { [ -n "$max_total_cost" ] && [ "$max_total_cost" != "null" ]; }; then
 
     local cumfile="${LANEKEEP_CUMULATIVE_FILE:-${PROJECT_DIR:-.}/.lanekeep/cumulative.json}"
+    # AG-001: enforce caps from the very first action, not just after the first
+    # session boundary. cumulative_init creates an empty file when none exists.
+    if [ ! -f "$cumfile" ] && declare -f cumulative_init >/dev/null 2>&1; then
+      LANEKEEP_STATE_FILE="" cumulative_init >/dev/null 2>&1 || true
+    fi
     if [ -f "$cumfile" ]; then
       local cum_actions=0 cum_input_tokens=0 cum_output_tokens=0 cum_tokens=0 cum_time=0 cum_cost=0
       eval "$(jq -r '
@@ -421,6 +456,7 @@ budget_eval() {
         if [ "$total_actions" -gt "$max_total_actions" ]; then
           BUDGET_PASSED=false
           BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nAll-time action budget exceeded: ${total_actions}/${max_total_actions}"
+          _budget_emit_halt "$BUDGET_REASON"
           return 1
         fi
       fi
@@ -430,6 +466,7 @@ budget_eval() {
         if [ "$total_input_toks" -gt "$max_total_input_tokens" ]; then
           BUDGET_PASSED=false
           BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nAll-time input token budget exceeded: ${total_input_toks}/${max_total_input_tokens}"
+          _budget_emit_halt "$BUDGET_REASON"
           return 1
         fi
       fi
@@ -439,6 +476,7 @@ budget_eval() {
         if [ "$total_output_toks" -gt "$max_total_output_tokens" ]; then
           BUDGET_PASSED=false
           BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nAll-time output token budget exceeded: ${total_output_toks}/${max_total_output_tokens}"
+          _budget_emit_halt "$BUDGET_REASON"
           return 1
         fi
       fi
@@ -448,6 +486,7 @@ budget_eval() {
         if [ "$total_tokens" -gt "$max_total_tokens" ]; then
           BUDGET_PASSED=false
           BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nAll-time token budget exceeded: ${total_tokens}/${max_total_tokens}"
+          _budget_emit_halt "$BUDGET_REASON"
           return 1
         fi
       fi
@@ -457,6 +496,7 @@ budget_eval() {
         if [ "$total_time" -gt "$max_total_time" ]; then
           BUDGET_PASSED=false
           BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nAll-time time budget exceeded: ${total_time}s/${max_total_time}s"
+          _budget_emit_halt "$BUDGET_REASON"
           return 1
         fi
       fi
@@ -469,6 +509,7 @@ budget_eval() {
           _total_cost=$(jq -n --argjson a "$cum_cost" --argjson b "$_session_cost" '$a + $b | . * 100 | round / 100')
           BUDGET_PASSED=false
           BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nAll-time cost budget exceeded: \$${_total_cost}/\$${max_total_cost}"
+          _budget_emit_halt "$BUDGET_REASON"
           return 1
         fi
       fi

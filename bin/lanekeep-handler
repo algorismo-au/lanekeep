@@ -76,6 +76,7 @@ _CFG_MAX_ACTIONS=""
 _CFG_TIMEOUT_SECONDS=""
 _CFG_MAX_TOKENS=""
 _CFG_PLUGIN_HASHES=""
+_CFG_PLUGIN_TIMEOUT="5"
 _CFG_MAX_INPUT_TOKENS=""
 _CFG_MAX_OUTPUT_TOKENS=""
 _CFG_MAX_TOTAL_ACTIONS=""
@@ -146,6 +147,7 @@ if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
     "_CFG_MAX_TOTAL_COST=" + (.budget.max_total_cost // "" | tostring | @sh),
     "_CFG_PLUGIN_HASHES=" + ((.plugins.allowed_hashes // {} | to_entries | map("\(.key)=\(.value)") | join(";")) | @sh),
     "_CFG_PLUGIN_CRASH_POLICY=" + ((.plugins.crash_policy // "deny") | @sh),
+    "_CFG_PLUGIN_TIMEOUT=" + ((.plugins.timeout // 5) | tostring | @sh),
     "_CFG_HIDDEN_TEXT_ENABLED=" + (if .evaluators.hidden_text.enabled == false then "false" else "true" end | @sh),
     "_CFG_INPUT_PII_ENABLED=" + (if .evaluators.input_pii.enabled == false then "false" else "true" end | @sh),
     "_CFG_RESULT_TRANSFORM_ENABLED=" + (if .evaluators.result_transform.enabled == false then "false" else "true" end | @sh),
@@ -547,9 +549,11 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
               fi
               _poly_input=$(printf '{"tool_name":"%s","tool_input":%s}' \
                 "$(_json_escape "$TOOL_NAME")" "$TOOL_INPUT")
+              _plugin_timeout="${LANEKEEP_PLUGIN_TIMEOUT:-$_CFG_PLUGIN_TIMEOUT}"
+              [[ "$_plugin_timeout" =~ ^[1-9][0-9]*$ ]] || _plugin_timeout=5
               plugin_result=$(printf '%s' "$_poly_input" | \
                 env -i HOME="$HOME" PATH="$PATH" TMPDIR="${TMPDIR:-/tmp}" \
-                timeout 5 "$plugin" 2>/dev/null) \
+                timeout "$_plugin_timeout" "$plugin" 2>/dev/null) \
                 || plugin_result="CRASHED"
               # Convert JSON response to 4-line format for existing parser
               if [ "$plugin_result" != "CRASHED" ] && [ -n "$plugin_result" ]; then

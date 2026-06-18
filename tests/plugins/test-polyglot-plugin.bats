@@ -85,6 +85,58 @@ teardown() {
   [ "$decision" = "allow" ]
 }
 
+@test "slow plugin (sleep 3) passes when plugins.timeout=10" {
+  jq '.plugins = {"timeout": 10}' "$LANEKEEP_CONFIG_FILE" > "$LANEKEEP_CONFIG_FILE.tmp" \
+    && mv "$LANEKEEP_CONFIG_FILE.tmp" "$LANEKEEP_CONFIG_FILE"
+  cat > "$REAL_PLUGIN_DIR/slow-test.plugin.py" <<'EOF'
+#!/usr/bin/env python3
+import sys, time, json
+sys.stdin.read()
+time.sleep(3)
+print(json.dumps({"name":"slow","passed":True,"decision":"allow","reason":"ok"}))
+EOF
+  chmod +x "$REAL_PLUGIN_DIR/slow-test.plugin.py"
+  output=$(echo '{"tool_name":"Read","tool_input":{"file_path":"x"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "allow" ]
+}
+
+@test "slow plugin (sleep 3) trips default 5s timeout but is allowed by crash_policy=allow" {
+  jq '.plugins = {"crash_policy": "allow"}' "$LANEKEEP_CONFIG_FILE" > "$LANEKEEP_CONFIG_FILE.tmp" \
+    && mv "$LANEKEEP_CONFIG_FILE.tmp" "$LANEKEEP_CONFIG_FILE"
+  cat > "$REAL_PLUGIN_DIR/slow-test.plugin.py" <<'EOF'
+#!/usr/bin/env python3
+import sys, time, json
+sys.stdin.read()
+time.sleep(7)
+print(json.dumps({"name":"slow","passed":True,"decision":"allow","reason":"ok"}))
+EOF
+  chmod +x "$REAL_PLUGIN_DIR/slow-test.plugin.py"
+  start=$(date +%s)
+  output=$(echo '{"tool_name":"Read","tool_input":{"file_path":"x"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  elapsed=$(( $(date +%s) - start ))
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "allow" ]
+  # Must time out near 5s, not wait the full 7s
+  [ "$elapsed" -lt 7 ]
+}
+
+@test "plugins.timeout env override (LANEKEEP_PLUGIN_TIMEOUT) wins over config" {
+  jq '.plugins = {"timeout": 2}' "$LANEKEEP_CONFIG_FILE" > "$LANEKEEP_CONFIG_FILE.tmp" \
+    && mv "$LANEKEEP_CONFIG_FILE.tmp" "$LANEKEEP_CONFIG_FILE"
+  cat > "$REAL_PLUGIN_DIR/slow-test.plugin.py" <<'EOF'
+#!/usr/bin/env python3
+import sys, time, json
+sys.stdin.read()
+time.sleep(3)
+print(json.dumps({"name":"slow","passed":True,"decision":"allow","reason":"ok"}))
+EOF
+  chmod +x "$REAL_PLUGIN_DIR/slow-test.plugin.py"
+  output=$(LANEKEEP_PLUGIN_TIMEOUT=10 echo '{"tool_name":"Read","tool_input":{"file_path":"x"}}' | LANEKEEP_PLUGIN_TIMEOUT=10 "$LANEKEEP_DIR/bin/lanekeep-handler")
+  decision=$(printf '%s' "$output" | jq -r '.decision')
+  [ "$decision" = "allow" ]
+}
+
 @test "bash plugins still work alongside polyglot" {
   # Install both a bash allow and a polyglot allow plugin
   cp "$LANEKEEP_DIR/plugins.d/examples/docker-safety.plugin.sh" "$REAL_PLUGIN_DIR/docker-safety.plugin.sh"
