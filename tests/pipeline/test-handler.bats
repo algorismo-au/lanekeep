@@ -31,8 +31,8 @@ teardown() {
   [ "$decision" = "allow" ]
 }
 
-@test "Bash rm -rf is blocked" {
-  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /home/user/project"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
+@test "Bash rm -rf / is blocked" {
+  output=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"}}' | "$LANEKEEP_DIR/bin/lanekeep-handler")
   decision=$(printf '%s' "$output" | jq -r '.decision')
   [ "$decision" = "deny" ]
 }
@@ -243,7 +243,7 @@ teardown() {
   # removed, the handler exits 141 (128 + SIGPIPE) and this test fails.
   # Use a deny payload so the response is long enough to actually be writing
   # when the reader closes.
-  echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /home/user/project"}}' \
+  echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"}}' \
     | "$LANEKEEP_DIR/bin/lanekeep-handler" \
     | head -c 1 > /dev/null
   handler_ec="${PIPESTATUS[1]}"

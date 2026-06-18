@@ -540,7 +540,6 @@
     "TRUNCATE"
   ],
   "hard_blocks": [
-    "rm -rf /",
     "rm -rf ~",
     "rm -rf .",
     "rm -rf *",
@@ -560,7 +559,7 @@
     "/dev/mem"
   ],
   "hard_blocks_regex": [
-    "\\brm\\b(?=.*(\\s-[a-z]*r[a-z]*[\\s\"]|\\s--recursive[\\s\"]))(?=.*(\\s-[a-z]*f[a-z]*[\\s\"]|\\s--force[\\s\"])).*\\s/",
+    "\\brm\\b(?=.*(\\s-[a-z]*r[a-z]*[\\s\"]|\\s--recursive[\\s\"]))(?=.*(\\s-[a-z]*f[a-z]*[\\s\"]|\\s--force[\\s\"])).*\\s/(?:[^-a-z0-9_.~]|$)",
     "\\brm\\b(?=.*(\\s-[a-z]*r[a-z]*[\\s\"]|\\s--recursive[\\s\"]))(?=.*(\\s-[a-z]*f[a-z]*[\\s\"]|\\s--force[\\s\"])).*\\s~",
     "\\bgit\\s+push\\b(?=.*\\s(--force[\\s\"]|-[a-z]*f[\\s\"]))",
     "\\w+\\(\\)\\s*\\{\\s*\\w+\\s*\\|\\s*\\w+\\s*&"
