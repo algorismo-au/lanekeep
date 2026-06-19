@@ -153,6 +153,8 @@ write_trace() {
     --arg is_bg "${_TRACE_IS_BACKGROUND:-}" \
     --arg corr_id "${LANEKEEP_CORRELATION_ID:-}" \
     --arg proj_dir "${PROJECT_DIR:-}" \
+    --arg cum_halted "${_TRACE_CUMULATIVE_HALTED:-}" \
+    --arg halt_reason "${_TRACE_HALT_REASON:-}" \
     '. as $evals |
      ([.[].compliance? // [] | .[]] | unique | if length == 0 then null else . end) as $comp |
      ([.[].compliance_tags? // [] | .[]] | unique | if length == 0 then null else . end) as $comp_tags |
@@ -173,7 +175,9 @@ write_trace() {
      | if $isolation_type != "" then .isolation_type = $isolation_type else . end
      | if $is_bg == "true" then .is_background = true else . end
      | if $corr_id != "" then .correlation_id = $corr_id else . end
-     | if $proj_dir != "" then .project_dir = $proj_dir else . end')
+     | if $proj_dir != "" then .project_dir = $proj_dir else . end
+     | if $cum_halted == "true" then .cumulative_halted = true else . end
+     | if $halt_reason != "" then .halt_reason = $halt_reason else . end')
   _locked_append "$LANEKEEP_TRACE_FILE" "$entry"
 }
 
