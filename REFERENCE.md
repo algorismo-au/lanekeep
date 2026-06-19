@@ -483,6 +483,24 @@ history before activating.
 | `evaluators.multi_session.cost_warn_percent` | number | `80` | % of `budget.max_total_cost` at which cost escalation fires |
 | `evaluators.multi_session.min_sessions` | number | `3` | Minimum completed sessions before the evaluator activates |
 
+### Plugins
+
+Plugins are user-installed scripts under `plugins.d/*.plugin.{sh,py,js,...}`
+that run at Tier 6 — after all built-in evaluators — and can return their
+own allow / deny / ask decision. Bash plugins run inline in the handler;
+polyglot plugins (anything non-`.sh`) get JSON on stdin and write JSON on
+stdout. The settings below tune how the handler runs and recovers from
+them.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `plugins.timeout` | number | `5` | Per-polyglot-plugin wall-clock timeout, seconds. Bash plugins are not wrapped. Useful when a plugin makes a slow external call (semantic LLM check, webhook). Non-positive-integer values fall back to 5. |
+| `plugins.crash_policy` | string | `"deny"` | What to do when a polyglot plugin crashes (non-zero exit, malformed JSON, or timeout). `"deny"` fails closed; `"allow"` records the failure in the trace but lets the tool call through. |
+| `plugins.allowed_hashes` | object | `{}` | Optional `{ "<plugin-filename>": "<sha256>" }` map. When a plugin name appears, its on-disk SHA256 must match or it is denied (integrity check). Plugins not in the map run as normal. |
+
+Env overrides: `LANEKEEP_PLUGIN_TIMEOUT` wins over `plugins.timeout` when
+set and positive-integer.
+
 ## Environment Variables
 
 | Variable | Description | Default |
@@ -495,6 +513,7 @@ history before activating.
 | `LANEKEEP_MAX_TOKENS` | Max tokens per session | unlimited |
 | `LANEKEEP_TIMEOUT_SECONDS` | Session wall-clock timeout | `3600` |
 | `LANEKEEP_HOOK_TIMEOUT` | Hook response timeout | `5` |
+| `LANEKEEP_PLUGIN_TIMEOUT` | Polyglot plugin timeout, seconds (overrides `plugins.timeout`) | `5` |
 | `LANEKEEP_UI_PORT` | Web dashboard port | `8111` |
 | `LANEKEEP_UI_TLS` | Enable TLS for dashboard | unset |
 | `LANEKEEP_NO_WATCHDOG` | Disable sidecar auto-restart on crash | unset |
