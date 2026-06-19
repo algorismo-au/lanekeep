@@ -277,6 +277,14 @@ lanekeep policy disable governance_paths --reason "Updating CLAUDE.md"
 
 ## Budget & TaskSpec
 
+LaneKeep enforces budgets at two scopes. **Per-session** caps reset when
+Claude Code's `session_id` changes (e.g., after `/clear`) — useful for
+bounding a single chat. **Cumulative** caps persist across all sessions
+until `cumulative.json` is removed — required for bounding autonomous /
+long-running work where session boundaries are crossed deliberately. For
+loop runners, set both: per-session bounds one CC chat, cumulative bounds
+the whole run. Only cumulative caps emit the [halt signal](#halt-signal).
+
 **Per-session limits:**
 
 | Key | Env var | Default (base) | Guided profile |
@@ -323,6 +331,55 @@ Cache fields are only populated when `token_source` is `"transcript"` (0 in esti
 |-------|-------------|
 | `total_cache_creation_input_tokens` | Sum of cache write tokens across all sessions |
 | `total_cache_read_input_tokens` | Sum of cache read tokens across all sessions |
+
+### Halt signal
+
+When **any cumulative cap** trips, the BudgetEvaluator atomically writes a
+sibling marker file so loop runners and orchestrators can stop spawning
+iterations. Per-session caps deliberately do **not** emit a halt — they
+reset on `session_id` change.
+
+| Path | Override env var | Default |
+|------|------------------|---------|
+| Halt marker | `LANEKEEP_HALTED_FILE` | `${PROJECT_DIR}/.lanekeep/halted.json` |
+| Counters | `LANEKEEP_CUMULATIVE_FILE` | `${PROJECT_DIR}/.lanekeep/cumulative.json` |
+
+If you redirect one, **redirect both** — the halt only fires when
+`cumulative.json` is found in the same scope.
+
+**Schema** (`halted.json`):
+
+```json
+{
+  "halted": true,
+  "halted_at": "2026-06-19T14:32:01Z",
+  "reason": "All-time action budget exceeded: 100/100",
+  "correlation_id": "<sha256 of project path, set by lanekeep-serve>",
+  "lanekeep_session_id": "<sidecar PID, distinct from CC session_id>"
+}
+```
+
+**Consumer pattern — poll, don't subscribe.** The file is a marker, not a
+stream. Read it before spawning the next unit of work:
+
+```bash
+if [ -f "$LANEKEEP_HALTED_FILE" ] \
+   && [ "$(jq -r '.halted // false' "$LANEKEEP_HALTED_FILE" 2>/dev/null)" = "true" ]; then
+  echo "lanekeep halted: $(jq -r '.reason' "$LANEKEEP_HALTED_FILE")"
+  exit 0
+fi
+```
+
+**Clearing semantics — no auto-clear.** The marker persists until you
+remove it. To resume, edit the lanekeep cap that produced it (raise the
+limit or reset the counter in `cumulative.json`) and `rm halted.json`.
+Same contract as a tripped breaker — work doesn't silently re-arm.
+
+**Reference consumer.** [looper](https://github.com/algorismo-au/looper)'s
+`run-next` exports both env vars to the parent repo's `.lanekeep/` before
+the loop starts (so state survives per-task worktree teardown), then
+checks the halt at the top of each iteration. See
+`lib/run-next.sh` + `tests/run-next.bats` for the integration shape.
 
 **Cost calculation**: Session cost is computed from token counts using a bundled
 pricing table (`lanekeep/data/pricing.json`). The `/api/status` response includes
@@ -446,6 +503,9 @@ history before activating.
 | `LANEKEEP_CONFIG_FILE` | Resolved config file path | auto |
 | `LANEKEEP_TASKSPEC_FILE` | Resolved TaskSpec file path | auto |
 | `LANEKEEP_SESSION_ID` | Current session identifier | auto |
+| `LANEKEEP_CUMULATIVE_FILE` | Cross-session counters file ([halt signal](#halt-signal)) | `${PROJECT_DIR}/.lanekeep/cumulative.json` |
+| `LANEKEEP_HALTED_FILE` | Halt-marker file written when any cumulative cap trips | `${PROJECT_DIR}/.lanekeep/halted.json` |
+| `LANEKEEP_CORRELATION_ID` | Sidecar correlation ID (SHA256 of canonical project path) | auto, set by `lanekeep-serve` |
 
 ## Common Scenarios
 
