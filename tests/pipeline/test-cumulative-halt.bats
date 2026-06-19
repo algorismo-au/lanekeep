@@ -110,3 +110,42 @@ EOF
   [ -f "$LANEKEEP_HALTED_FILE" ]
   [ ! -f "$TEST_TMP/.lanekeep/halted.json" ]
 }
+
+# AC5: cumulative cap denial sets cumulative_halted + halt_reason on the trace
+@test "cumulative cap emits cumulative_halted + halt_reason on the trace event" {
+  export LANEKEEP_TRACE_FILE="$TEST_TMP/.lanekeep/traces/test.jsonl"
+  mkdir -p "$(dirname "$LANEKEEP_TRACE_FILE")"
+  cat > "$LANEKEEP_CONFIG_FILE" <<'EOF'
+{ "budget": { "max_actions": 1000, "max_total_actions": 0 } }
+EOF
+
+  output=$(echo '{"tool_name":"Read","tool_input":{"file_path":"x"},"session_id":"any-session"}' \
+    | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  [ "$(printf '%s' "$output" | jq -r '.decision')" = "deny" ]
+
+  local entry
+  entry=$(tail -n1 "$LANEKEEP_TRACE_FILE")
+  [ "$(printf '%s' "$entry" | jq -r '.cumulative_halted')" = "true" ]
+  [[ "$(printf '%s' "$entry" | jq -r '.halt_reason')" == *"All-time action budget"* ]]
+}
+
+# AC6: per-session cap denial does NOT set cumulative_halted on the trace
+@test "per-session cap denial does not set cumulative_halted on the trace" {
+  export LANEKEEP_TRACE_FILE="$TEST_TMP/.lanekeep/traces/test.jsonl"
+  mkdir -p "$(dirname "$LANEKEEP_TRACE_FILE")"
+  # max_total_actions left null (defaults filtered out by minimal config below);
+  # max_actions=0 trips per-session immediately.
+  cat > "$LANEKEEP_CONFIG_FILE" <<'EOF'
+{ "budget": { "max_actions": 0 } }
+EOF
+
+  output=$(echo '{"tool_name":"Read","tool_input":{"file_path":"x"},"session_id":"only-session"}' \
+    | "$LANEKEEP_DIR/bin/lanekeep-handler")
+  [ "$(printf '%s' "$output" | jq -r '.decision')" = "deny" ]
+
+  local entry
+  entry=$(tail -n1 "$LANEKEEP_TRACE_FILE")
+  # Field absent (or false) when the denial is per-session, not cumulative.
+  [ "$(printf '%s' "$entry" | jq -r '.cumulative_halted // false')" = "false" ]
+  [ "$(printf '%s' "$entry" | jq -r '.halt_reason // ""')" = "" ]
+}

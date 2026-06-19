@@ -409,6 +409,12 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
         BLOCK_REASON="$BUDGET_REASON"
         BLOCK_DECISION="deny"
       fi
+      # When the denial was a cumulative cap (vs per-session), forward the
+      # signal into the trace so consumers see it alongside halted.json.
+      if [ "$BUDGET_CUMULATIVE_HALTED" = "true" ]; then
+        _TRACE_CUMULATIVE_HALTED="true"
+        _TRACE_HALT_REASON="$BUDGET_REASON"
+      fi
     fi
     _be_score=1; [ "$BUDGET_PASSED" = true ] && _be_score=0
     RESULTS+=("$(printf '{"name":"BudgetEvaluator","tier":5,"score":%d,"passed":%s,"detail":"%s"}' \
