@@ -10,8 +10,18 @@ concurrency:
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'specs/**'
+      - 'strategy/**'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'specs/**'
+      - 'strategy/**'
 
 jobs:
   lint:
