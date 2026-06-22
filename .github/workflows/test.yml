@@ -10,11 +10,13 @@ concurrency:
 on:
   push:
     branches: [main]
+    tags: ['v*']
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
       - 'specs/**'
       - 'strategy/**'
+      - '.claude/**'
   pull_request:
     branches: [main]
     paths-ignore:
@@ -22,6 +24,7 @@ on:
       - 'docs/**'
       - 'specs/**'
       - 'strategy/**'
+      - '.claude/**'
 
 jobs:
   lint:
@@ -60,33 +63,8 @@ jobs:
       - name: Run gitleaks
         run: gitleaks detect --source . --no-banner
 
-  smoke:
-    needs: lint
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq socat
-
-      - name: Install bats
-        run: |
-          git clone --depth 1 --branch v1.13.0 https://github.com/bats-core/bats-core.git /tmp/bats
-          sudo /tmp/bats/install.sh /usr/local
-
-      - name: Run smoke tests (Tier 1 + 2)
-        run: |
-          bats --recursive \
-            tests/evaluators/ \
-            tests/config/ \
-            tests/rules/ \
-            tests/pipeline/
-
   test:
-    needs: smoke
+    needs: [lint, secret-scan]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -105,8 +83,11 @@ jobs:
       - name: Run full test suite
         run: bats --recursive tests/
 
+      # Only fan out to the meta-repo on a release tag (refs/tags/v*).
+      # Inter-commit lanekeep CI on main is enough — the meta-repo Playwright
+      # + tests/lanekeep/ suite only needs to run when a release lands.
       - name: Generate app token
-        if: github.event_name == 'push'
+        if: startsWith(github.ref, 'refs/tags/v')
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
@@ -115,7 +96,7 @@ jobs:
           repositories: buildinglanekeep
 
       - name: Trigger meta-repo E2E
-        if: github.event_name == 'push'
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
