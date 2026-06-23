@@ -432,6 +432,24 @@ LANEKEEP_MAX_ACTIONS=50 LANEKEEP_TIMEOUT_SECONDS=900 lanekeep serve
 | `trace.retention_days` | number | `365` | Days to keep audit logs |
 | `trace.max_sessions` | number | `5000` | Max session logs to retain |
 
+### Trace Privacy
+
+Tool inputs are scrubbed before being written to JSONL traces under
+`.lanekeep/traces/`. The evaluator pipeline sees the raw input —
+redaction applies only to the persisted record. Redaction is value-only;
+keys and surrounding JSON structure stay intact so operators can still
+attribute redacted content to a field name.
+
+| Redaction trigger | Placeholder |
+|-------------------|-------------|
+| `<private>…</private>` envelopes in tool input | `[REDACTED:private]` |
+| JSON values keyed by `*_KEY` / `*_TOKEN` / `*_SECRET` / `*_PASSWORD` (case-insensitive) | `[REDACTED:keyname]` |
+| AWS access keys (`AKIA…`) | `[REDACTED:aws-key]` |
+| GitHub tokens (`ghp_`/`ghu_`/`gho_`/`ghr_`/`ghs_`) | `[REDACTED:github-token]` |
+| Anthropic / `sk-` API keys | `[REDACTED:api-key]` |
+| `Bearer …` tokens | `Bearer [REDACTED]` |
+| `api_key` / `secret_key` / `access_token` / `auth_token` / `password` / `credential` / `secret` fields with ≥32-char values | `[REDACTED:secret]` |
+
 ### Semantic Evaluator
 
 The semantic evaluator uses an LLM to judge whether each tool call aligns

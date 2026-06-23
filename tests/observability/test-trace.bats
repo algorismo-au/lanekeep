@@ -141,3 +141,61 @@ teardown() {
   line=$(head -1 "$LANEKEEP_TRACE_FILE")
   [ "$(printf '%s' "$line" | jq -r '.file_path // "absent"')" = "absent" ]
 }
+
+# --- Privacy: <private> tag stripping ---
+@test "write_trace strips <private> tag bodies from tool_input" {
+  local result='{"name":"Test","tier":1,"score":0,"passed":true,"detail":"ok"}'
+  write_trace "Bash" '{"command":"echo <private>my-token-abc</private> done"}' "allow" "" "1" "$result"
+  local line cmd
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  cmd=$(printf '%s' "$line" | jq -r '.tool_input.command')
+  [[ "$cmd" == *"[REDACTED:private]"* ]]
+  [[ "$cmd" != *"my-token-abc"* ]]
+}
+
+# --- Privacy: *_KEY/*_TOKEN/*_SECRET/*_PASSWORD key-name redaction ---
+@test "write_trace redacts values keyed by *_KEY suffix (case-insensitive)" {
+  local result='{"name":"Test","tier":1,"score":0,"passed":true,"detail":"ok"}'
+  write_trace "Bash" '{"API_KEY":"sk-abc-123","my_key":"plaintext"}' "allow" "" "1" "$result"
+  local line
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  [ "$(printf '%s' "$line" | jq -r '.tool_input.API_KEY')" = "[REDACTED:keyname]" ]
+  [ "$(printf '%s' "$line" | jq -r '.tool_input.my_key')" = "[REDACTED:keyname]" ]
+}
+
+@test "write_trace redacts values keyed by *_TOKEN, *_SECRET, *_PASSWORD" {
+  local result='{"name":"Test","tier":1,"score":0,"passed":true,"detail":"ok"}'
+  write_trace "Bash" '{"GH_TOKEN":"ghp_xyz","FOO_SECRET":"abc","DB_PASSWORD":"hunter2"}' "allow" "" "1" "$result"
+  local line
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  [ "$(printf '%s' "$line" | jq -r '.tool_input.GH_TOKEN')" = "[REDACTED:keyname]" ]
+  [ "$(printf '%s' "$line" | jq -r '.tool_input.FOO_SECRET')" = "[REDACTED:keyname]" ]
+  [ "$(printf '%s' "$line" | jq -r '.tool_input.DB_PASSWORD')" = "[REDACTED:keyname]" ]
+}
+
+@test "write_trace preserves prose containing the word 'token'" {
+  local result='{"name":"Test","tier":1,"score":0,"passed":true,"detail":"ok"}'
+  write_trace "Bash" '{"command":"grep -r token /var/log"}' "allow" "" "1" "$result"
+  local line cmd
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  cmd=$(printf '%s' "$line" | jq -r '.tool_input.command')
+  [ "$cmd" = "grep -r token /var/log" ]
+}
+
+@test "write_trace leaves decision/reason intact when redacting tool_input" {
+  local result='{"name":"Test","tier":1,"score":0,"passed":true,"detail":"ok"}'
+  write_trace "Bash" '{"API_KEY":"sk-abc","cmd":"x"}' "deny" "blocked because of token policy" "2" "$result"
+  local line
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  [ "$(printf '%s' "$line" | jq -r '.decision')" = "deny" ]
+  [ "$(printf '%s' "$line" | jq -r '.reason')" = "blocked because of token policy" ]
+}
+
+@test "write_trace fast-path leaves Read input untouched (no secrets)" {
+  local result='{"name":"Test","tier":1,"score":0,"passed":true,"detail":"ok"}'
+  write_trace "Read" '{"file_path":"/etc/hosts"}' "allow" "" "1" "$result"
+  local line fp
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  fp=$(printf '%s' "$line" | jq -r '.tool_input.file_path')
+  [ "$fp" = "/etc/hosts" ]
+}

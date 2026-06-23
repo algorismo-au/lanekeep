@@ -466,6 +466,24 @@ Configure enforcement profiles, toggle policies, and tune budget limits, all fro
 - **Append-only audit:** trace logs can't be altered by the agent
 - **No network dependency:** pure Bash + jq, no supply chain
 
+### Trace Privacy
+
+JSONL traces under `.lanekeep/traces/` redact secrets before write. The
+evaluator pipeline still sees the raw tool input — only the persisted
+record is scrubbed.
+
+- **`<private>...</private>` envelopes** in tool input are replaced with
+  `[REDACTED:private]`. Wrap sensitive prose to opt it out of the audit
+  trail without disabling tracing.
+- **JSON values whose key ends in `_KEY` / `_TOKEN` / `_SECRET` /
+  `_PASSWORD`** (case-insensitive) are replaced with `[REDACTED:keyname]`.
+- AWS access keys, GitHub tokens, Anthropic / `sk-` keys, and
+  `Bearer …` headers are pattern-matched and replaced with
+  `[REDACTED:<type>]`.
+
+See [REFERENCE.md § Trace Privacy](REFERENCE.md#trace-privacy) for the full
+placeholder map.
+
 See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ---
