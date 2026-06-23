@@ -58,6 +58,16 @@ wait_for_new_socat() {
   return 1
 }
 
+wait_for_log_line() {
+  local pattern="$1" logfile="$2" tries=0
+  while [ $tries -lt 50 ]; do
+    grep -q "$pattern" "$logfile" 2>/dev/null && return 0
+    sleep 0.1
+    tries=$((tries + 1))
+  done
+  return 1
+}
+
 @test "watchdog: SIGTERM causes clean shutdown without restart" {
   start_server
   [ -S "$LANEKEEP_SOCKET" ]
@@ -66,10 +76,8 @@ wait_for_new_socat() {
   wait "$SERVER_PID" 2>/dev/null || true
   SERVER_PID=""
 
-  sleep 0.3
-
+  wait_for_log_line "Sidecar stopped" "$LOGFILE" || { cat "$LOGFILE"; false; }
   ! grep -q "Restarting" "$LOGFILE"
-  grep -q "Sidecar stopped" "$LOGFILE"
 }
 
 @test "watchdog: socat crash triggers restart" {
