@@ -265,23 +265,47 @@ resolve_config() {
   extends=$(jq -r '.extends // empty' "$user_config" 2>/dev/null) || return 0
   [ "$extends" = "defaults" ] || return 0
 
-  # M3: Log warnings for any rule_overrides targeting locked/sys rules
-  local _locked_warnings
-  _locked_warnings=$(jq -r --slurpfile defs "$defaults" '
-    .rule_overrides // [] | .[] |
-    .id as $oid |
-    ($defs[0].rules // [] | map(select(.id == $oid)) | first // null) as $drule |
-    if $drule != null and (($drule.locked == true) or ($oid | test("^sys-[0-9]+$"))) then
-      "[LaneKeep] WARNING: rule_overrides for locked rule \"\($oid)\" ignored — security-critical rules cannot be overridden"
-    else empty end
-  ' "$user_config" 2>/dev/null) || _locked_warnings=""
-  if [ -n "$_locked_warnings" ]; then
-    echo "$_locked_warnings" >&2
+  # 1.1: Collect locked-rule override entries across all sources (legacy +
+  # new "overrides" block) and emit a single WARN block listing them.
+  local _blocked
+  _blocked=$(jq -r --slurpfile defs "$defaults" '
+    def locked_rule($oid):
+      ($defs[0].rules // [] | map(select(.id == $oid)) | first // null) as $r |
+      $r != null and (($r.locked == true) or ($oid | test("^sys-[0-9]+$")));
+
+    ( (.rule_overrides // [])[] | .id | select(locked_rule(.)) |
+        "  - rule_overrides[\"\(.)\"] (locked or sys-*)" ),
+    ( (.disabled_rules // [])[] | select(locked_rule(.)) |
+        "  - disabled_rules[\"\(.)\"] (locked or sys-*)" ),
+    ( (.overrides // {}) | keys[] | select(locked_rule(.)) |
+        "  - overrides[\"\(.)\"] (locked or sys-*)" )
+  ' "$user_config" 2>/dev/null) || _blocked=""
+  if [ -n "$_blocked" ]; then
+    local _n_blocked
+    _n_blocked=$(printf '%s\n' "$_blocked" | grep -c .)
+    {
+      echo "[lanekeep] WARN: $_n_blocked override entr$([ "$_n_blocked" -eq 1 ] && echo y || echo ies) target locked rules and were ignored:"
+      printf '%s\n' "$_blocked"
+      echo "Locked rules are part of LaneKeep's security baseline. To customize, copy the rule into extra_rules with a new id."
+    } >&2
   fi
 
-  # Merge: defaults as base, user overrides on top
-  # Special fields: rule_overrides (patch by id), extra_rules (append),
-  # disabled_rules (remove by id)
+  # 1.1: Deprecation warning for legacy override keys
+  local _has_legacy
+  _has_legacy=$(jq -r '
+    if ((.rule_overrides // []) | length > 0) or ((.disabled_rules // []) | length > 0)
+    then "yes" else "" end
+  ' "$user_config" 2>/dev/null) || _has_legacy=""
+  if [ "$_has_legacy" = "yes" ]; then
+    echo "[lanekeep] DEPRECATED: \"rule_overrides\" and \"disabled_rules\" will be removed in v2.0. Run \`lanekeep migrate\` to convert your lanekeep.json to the \"overrides\" block." >&2
+  fi
+
+  # Merge: defaults as base, user overrides on top.
+  # Special fields:
+  #   overrides       (1.1, canonical) — object keyed by rule-id, patches or disables rules
+  #   rule_overrides  (legacy)         — array of {id, ...patch} records
+  #   disabled_rules  (legacy)         — array of rule-ids to remove
+  #   extra_rules                      — user rules prepended to fire first under first-match-wins
   local merged
   merged=$(jq -s --arg defaults_path "$defaults" '
     .[0] as $defaults | .[1] as $user |
@@ -292,7 +316,7 @@ resolve_config() {
       if ($a | type) == "object" and ($b | type) == "object" then
         ($a | keys) + ($b | keys) | unique | map(
           . as $k |
-          if $k == "rules" or $k == "rule_overrides" or $k == "extra_rules" or $k == "disabled_rules" or $k == "extends" then
+          if $k == "rules" or $k == "rule_overrides" or $k == "extra_rules" or $k == "disabled_rules" or $k == "extends" or $k == "overrides" then
             null  # handled separately
           elif ($b | has($k)) and ($a | has($k)) then
             {($k): deep_merge($a[$k]; $b[$k])}
@@ -307,44 +331,65 @@ resolve_config() {
     # Start with deep-merged base (non-rules fields)
     deep_merge($defaults; $user) |
 
-    # Rules: start with defaults, apply overrides, add extras, remove disabled
+    # 1.1: Resolved rules array.
+    # Order: extra_rules (PREPENDED, user wins first-match) + defaults (with
+    # overrides + legacy rule_overrides + legacy disabled_rules applied).
     .rules = (
-      ($defaults.rules // []) |
+      (($user.extra_rules // []) | map(. + {"source": "custom"})) +
+      (
+        ($defaults.rules // []) |
 
-      # Apply rule_overrides by id (M3: skip locked rules)
-      if ($user.rule_overrides | length) > 0 then
-        map(
-          . as $rule |
-          if ($rule | has("id")) then
-            ($user.rule_overrides | map(select(.id == $rule.id)) | first // null) as $override |
-            if $override != null then
-              # M3: Security-critical rules with locked=true or sys-0xx IDs cannot be overridden
-              if ($rule.locked == true) or ($rule.id | test("^sys-[0-9]+$")) then
-                $rule
-              else
-                ($rule * $override)
-              end
+        # 1.1: Apply overrides{} (object keyed by rule-id) — canonical
+        if (($user.overrides // {}) | length) > 0 then
+          map(
+            . as $rule |
+            if ($rule | has("id")) then
+              ($user.overrides[$rule.id] // null) as $ovr |
+              if $ovr != null then
+                if ($rule.locked == true) or ($rule.id | test("^sys-[0-9]+$")) then
+                  $rule
+                elif ($ovr.disabled == true) then
+                  empty
+                else
+                  ($rule * ($ovr | del(.disabled)))
+                end
+              else $rule end
             else $rule end
-          else $rule end
-        )
-      else . end |
+          )
+        else . end |
 
-      # Remove disabled_rules by id (M3: skip locked/sys rules)
-      if ($user.disabled_rules | length) > 0 then
-        map(select(
-          if has("id") then
-            .id as $rid |
-            if (.locked == true) or ($rid | test("^sys-[0-9]+$")) then true
-            else ($user.disabled_rules | map(select(. == $rid)) | length == 0) end
-          else true end
-        ))
-      else . end
-    ) +
-    # Append extra_rules, tagged as custom source
-    (($user.extra_rules // []) | map(. + {"source": "custom"})) |
+        # Legacy: rule_overrides (preserved through v1.x)
+        if (($user.rule_overrides // []) | length) > 0 then
+          map(
+            . as $rule |
+            if ($rule | has("id")) then
+              ($user.rule_overrides | map(select(.id == $rule.id)) | first // null) as $override |
+              if $override != null then
+                if ($rule.locked == true) or ($rule.id | test("^sys-[0-9]+$")) then
+                  $rule
+                else
+                  ($rule * $override)
+                end
+              else $rule end
+            else $rule end
+          )
+        else . end |
+
+        # Legacy: disabled_rules (preserved through v1.x)
+        if (($user.disabled_rules // []) | length) > 0 then
+          map(select(
+            if has("id") then
+              .id as $rid |
+              if (.locked == true) or ($rid | test("^sys-[0-9]+$")) then true
+              else ($user.disabled_rules | map(select(. == $rid)) | length == 0) end
+            else true end
+          ))
+        else . end
+      )
+    ) |
 
     # Remove layering-only fields from output
-    del(.extends, .rule_overrides, .extra_rules, .disabled_rules)
+    del(.extends, .rule_overrides, .extra_rules, .disabled_rules, .overrides)
   ' "$defaults" "$user_config" 2>/dev/null)
 
   if [ -n "$merged" ]; then

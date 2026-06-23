@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# lanekeep migrate — convert monolithic lanekeep.json to layered config with "extends": "defaults"
+# lanekeep migrate — modernize lanekeep.json. Two passes:
+#   1. Monolithic config → layered (`{"extends": "defaults", ...}`).
+#   2. Legacy `rule_overrides` / `disabled_rules` → canonical `overrides` block (1.1).
 
 LANEKEEP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT_DIR="${1:-$(pwd 2>/dev/null || echo "$PWD")}"
@@ -13,14 +15,42 @@ if [ ! -f "$CONFIG" ]; then
   exit 1
 fi
 
-# Check if already layered
+# Detect layering and presence of legacy override keys
 extends=$(jq -r '.extends // empty' "$CONFIG" 2>/dev/null) || true
+has_legacy=$(jq -r '
+  if ((.rule_overrides // []) | length > 0) or ((.disabled_rules // []) | length > 0)
+  then "yes" else "" end
+' "$CONFIG" 2>/dev/null) || has_legacy=""
+
+OUTPUT="$CONFIG.new"
+
 if [ "$extends" = "defaults" ]; then
-  echo "Already using layered config (extends: defaults)" >&2
+  if [ -z "$has_legacy" ]; then
+    echo "Already using layered config with no legacy override keys — nothing to migrate." >&2
+    exit 0
+  fi
+
+  # Pass 2: layered + legacy override keys → layered with canonical overrides block.
+  jq '
+    .overrides = (
+      (.overrides // {}) +
+      ((.rule_overrides // []) | map({(.id): (del(.id))}) | add // {}) +
+      ((.disabled_rules // []) | map({(.): {"disabled": true}}) | add // {})
+    )
+    | del(.rule_overrides, .disabled_rules)
+    | if (.overrides | length) == 0 then del(.overrides) else . end
+  ' "$CONFIG" > "$OUTPUT"
+
+  n_overrides=$(jq '.overrides // {} | length' "$OUTPUT")
+  echo "Converted legacy override keys to \"overrides\" block: $OUTPUT"
+  echo "  $n_overrides entries in overrides"
+  echo ""
+  echo "Review $OUTPUT, then:"
+  echo "  mv $OUTPUT $CONFIG"
   exit 0
 fi
 
-# Generate minimal override: diff user config against defaults
+# Pass 1: monolithic config → layered with extends + overrides + extra_rules.
 override=$(jq -s '
   .[0] as $defaults | .[1] as $user |
 
@@ -34,7 +64,7 @@ override=$(jq -s '
     .value as $dr |
     ($user_rules | map(select(.id == $dr.id and . != $dr)) | first // null) as $changed |
     if $changed != null then $changed else empty end
-  )] as $overrides |
+  )] as $diffed |
 
   # Rules in user that are NOT in defaults (by id or content)
   [$user_rules[] |
@@ -54,10 +84,10 @@ override=$(jq -s '
     )] | from_entries
   ) as $field_overrides |
 
-  # Build minimal config
+  # Build minimal config — 1.1: emit canonical "overrides" object keyed by rule-id
   {"extends": "defaults"} +
   $field_overrides +
-  (if ($overrides | length) > 0 then {"rule_overrides": $overrides} else {} end) +
+  (if ($diffed | length) > 0 then {"overrides": ($diffed | map({(.id): (del(.id))}) | add)} else {} end) +
   (if ($extras | length) > 0 then {"extra_rules": $extras} else {} end)
 ' "$DEFAULTS" "$CONFIG" 2>/dev/null)
 
@@ -66,13 +96,11 @@ if [ -z "$override" ]; then
   exit 1
 fi
 
-OUTPUT="$CONFIG.new"
 printf '%s\n' "$override" | jq '.' > "$OUTPUT"
 
-# Count what was found
-n_overrides=$(printf '%s' "$override" | jq '.rule_overrides // [] | length')
+n_overrides=$(printf '%s' "$override" | jq '.overrides // {} | length')
 n_extras=$(printf '%s' "$override" | jq '.extra_rules // [] | length')
-n_fields=$(printf '%s' "$override" | jq 'del(.extends, .rule_overrides, .extra_rules) | length')
+n_fields=$(printf '%s' "$override" | jq 'del(.extends, .overrides, .extra_rules) | length')
 
 echo "Generated layered config: $OUTPUT"
 echo "  extends: defaults"
