@@ -330,9 +330,9 @@ EOF
   source "$LANEKEEP_DIR/lib/config.sh"
   resolve_config "$TEST_TMP/lanekeep.json" "$LANEKEEP_DIR/defaults/lanekeep.json"
 
-  # Check that custom rule has source=custom
+  # 1.1: extra_rules prepend — custom rule is at index 0
   local source
-  source=$(jq -r '.rules[-1].source' "$LANEKEEP_CONFIG_FILE")
+  source=$(jq -r '.rules[0].source' "$LANEKEEP_CONFIG_FILE")
   [ "$source" = "custom" ]
 }
 
@@ -351,10 +351,10 @@ EOF
   source "$LANEKEEP_DIR/lib/config.sh"
   resolve_config "$TEST_TMP/lanekeep.json" "$LANEKEEP_DIR/defaults/lanekeep.json"
 
-  # Default rules should not have source field
-  local first_source
-  first_source=$(jq -r '.rules[0].source // "none"' "$LANEKEEP_CONFIG_FILE")
-  [ "$first_source" = "none" ]
+  # 1.1: extra_rules prepended → index 0 is custom; check a default rule (sys-001) for no source
+  local default_source
+  default_source=$(jq -r '.rules[] | select(.id == "sys-001") | .source // "none"' "$LANEKEEP_CONFIG_FILE")
+  [ "$default_source" = "none" ]
 }
 
 # ============================================================================

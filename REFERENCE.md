@@ -115,28 +115,41 @@ If `LANEKEEP_ENV` is unset, `env` rules never match.
 
 ## Customizing Default Rules
 
-**Patch a rule by ID:**
+Use the `overrides` block (canonical since 1.1). Keys are rule IDs; values are
+patches that get merged onto the default rule. Set `disabled: true` to remove
+a rule from the resolved set.
 
 ```json
 {
   "extends": "defaults",
-  "rule_overrides": [
-    { "id": "net-001", "decision": "allow", "reason": "We trust curl in this repo" }
-  ]
-}
-```
-
-**Disable rules by ID:**
-
-```json
-{
-  "extends": "defaults",
-  "disabled_rules": ["git-003", "git-004"]
+  "overrides": {
+    "net-001": { "decision": "allow", "reason": "We trust curl in this repo" },
+    "git-003": { "disabled": true },
+    "git-004": { "disabled": true }
+  }
 }
 ```
 
 Rules with `locked: true` and `sys-*` IDs are security-critical and cannot be
-overridden or disabled.
+overridden or disabled. Attempting to do so emits a `[lanekeep] WARN:` block at
+config load and leaves the rule unchanged.
+
+**Adding new rules:** put them in `extra_rules`. As of 1.1 user rules are
+prepended to the rules array, so they fire **before** defaults under
+first-match-wins iteration.
+
+```json
+{
+  "extends": "defaults",
+  "extra_rules": [
+    { "match": { "command": "my-tool" }, "decision": "allow", "reason": "approved internal tool" }
+  ]
+}
+```
+
+**Legacy keys** `rule_overrides` and `disabled_rules` still work through v1.x
+but emit a `[lanekeep] DEPRECATED:` warning. Run `lanekeep migrate` to convert.
+Both legacy keys will be removed in v2.0.
 
 ## Platform Packs
 
@@ -149,12 +162,16 @@ manipulation, credential harvesting, and more.
 ```json
 {
   "extends": "defaults",
-  "disabled_rules": ["sys-100"],
-  "rule_overrides": [
-    { "id": "sys-095", "decision": "ask", "reason": "We need reg queries in CI" }
-  ]
+  "overrides": {
+    "sys-100": { "disabled": true },
+    "sys-095": { "decision": "ask", "reason": "We need reg queries in CI" }
+  }
 }
 ```
+
+Note: `sys-*` rules are locked by default. The example above is illustrative —
+in practice these would be rejected with a `[lanekeep] WARN:` block. Override
+non-`sys-*` platform-pack rules using the same `overrides` syntax.
 
 ## Policy Categories
 
