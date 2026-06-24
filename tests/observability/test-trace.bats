@@ -199,3 +199,67 @@ teardown() {
   fp=$(printf '%s' "$line" | jq -r '.tool_input.file_path')
   [ "$fp" = "/etc/hosts" ]
 }
+
+# --- AG-007: agent_team_id / story_id / epic_id correlation fields ---
+
+@test "AG-007: agent_team_id appears when LANEKEEP_AGENT_TEAM_ID is set" {
+  local result='{"name":"Test","tier":1,"score":0,"passed":true,"detail":"ok"}'
+  LANEKEEP_AGENT_TEAM_ID="team-alpha-001" write_trace "Read" '{}' "allow" "" "1" "$result"
+  local line
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  [ "$(printf '%s' "$line" | jq -r '.agent_team_id')" = "team-alpha-001" ]
+}
+
+@test "AG-007: story_id appears when LANEKEEP_STORY_ID is set" {
+  local result='{"name":"Test","tier":1,"score":0,"passed":true,"detail":"ok"}'
+  LANEKEEP_STORY_ID="STORY-42" write_trace "Bash" '{"command":"ls"}' "allow" "" "2" "$result"
+  local line
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  [ "$(printf '%s' "$line" | jq -r '.story_id')" = "STORY-42" ]
+}
+
+@test "AG-007: epic_id appears when LANEKEEP_EPIC_ID is set" {
+  local result='{"name":"Test","tier":1,"score":0,"passed":true,"detail":"ok"}'
+  LANEKEEP_EPIC_ID="EPIC-7" write_trace "Write" '{"file_path":"x.sh"}' "allow" "" "3" "$result"
+  local line
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  [ "$(printf '%s' "$line" | jq -r '.epic_id')" = "EPIC-7" ]
+}
+
+@test "AG-007: all three correlation fields appear together when all env vars set" {
+  local result='{"name":"Test","tier":1,"score":0,"passed":true,"detail":"ok"}'
+  LANEKEEP_AGENT_TEAM_ID="team-beta" LANEKEEP_STORY_ID="STORY-99" LANEKEEP_EPIC_ID="EPIC-3" \
+    write_trace "Read" '{}' "allow" "" "1" "$result"
+  local line
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  [ "$(printf '%s' "$line" | jq -r '.agent_team_id')" = "team-beta" ]
+  [ "$(printf '%s' "$line" | jq -r '.story_id')" = "STORY-99" ]
+  [ "$(printf '%s' "$line" | jq -r '.epic_id')" = "EPIC-3" ]
+}
+
+@test "AG-007: agent_team_id absent from trace when LANEKEEP_AGENT_TEAM_ID unset" {
+  local result='{"name":"Test","tier":1,"score":0,"passed":true,"detail":"ok"}'
+  unset LANEKEEP_AGENT_TEAM_ID
+  write_trace "Read" '{}' "allow" "" "1" "$result"
+  local line
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  [ "$(printf '%s' "$line" | jq -r '.agent_team_id // "absent"')" = "absent" ]
+}
+
+@test "AG-007: story_id absent from trace when LANEKEEP_STORY_ID unset" {
+  local result='{"name":"Test","tier":1,"score":0,"passed":true,"detail":"ok"}'
+  unset LANEKEEP_STORY_ID
+  write_trace "Read" '{}' "allow" "" "1" "$result"
+  local line
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  [ "$(printf '%s' "$line" | jq -r '.story_id // "absent"')" = "absent" ]
+}
+
+@test "AG-007: epic_id absent from trace when LANEKEEP_EPIC_ID unset" {
+  local result='{"name":"Test","tier":1,"score":0,"passed":true,"detail":"ok"}'
+  unset LANEKEEP_EPIC_ID
+  write_trace "Read" '{}' "allow" "" "1" "$result"
+  local line
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  [ "$(printf '%s' "$line" | jq -r '.epic_id // "absent"')" = "absent" ]
+}
