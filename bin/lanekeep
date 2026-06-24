@@ -38,6 +38,45 @@ case "${1:-help}" in
   policy) shift; exec "$LANEKEEP_DIR/bin/lanekeep-policy" "$@" ;;
   bookmarks) shift; exec "$LANEKEEP_DIR/bin/lanekeep-bookmarks" "$@" ;;
   status) shift; exec "$LANEKEEP_DIR/bin/lanekeep-status" "$@" ;;
+  clear-halt)
+    shift
+    _keep_counters=false
+    for _arg in "$@"; do
+      case "$_arg" in
+        --keep-counters) _keep_counters=true ;;
+        *) echo "Unknown option: $_arg" >&2; exit 1 ;;
+      esac
+    done
+
+    # Resolve paths using the same env-var conventions as eval-budget.sh / cumulative.sh
+    _cumfile="${LANEKEEP_CUMULATIVE_FILE:-${PROJECT_DIR:-$(pwd)}/.lanekeep/cumulative.json}"
+    _halted_file="${LANEKEEP_HALTED_FILE:-$(dirname "$_cumfile")/halted.json}"
+
+    if [ ! -f "$_halted_file" ]; then
+      echo "No halt marker present."
+      exit 0
+    fi
+
+    # Remove the halt marker
+    if ! rm -f "$_halted_file" 2>/dev/null; then
+      echo "Error: could not remove halt marker: $_halted_file" >&2
+      exit 1
+    fi
+    echo "Halt marker removed: $_halted_file"
+
+    if [ "$_keep_counters" = false ]; then
+      # Reset cumulative counters to zero, preserving the schema structure
+      _empty='{"version":1,"updated_at":"","total_sessions":0,"total_events":0,"total_actions":0,"total_tokens":0,"total_input_tokens":0,"total_output_tokens":0,"total_cache_creation_input_tokens":0,"total_cache_read_input_tokens":0,"total_time_seconds":0,"total_cost":0,"total_cache_savings":0}'
+      (umask 077; mkdir -p "$(dirname "$_cumfile")") 2>/dev/null || true
+      if ! printf '%s\n' "$_empty" > "${_cumfile}.tmp" 2>/dev/null \
+         || ! mv "${_cumfile}.tmp" "$_cumfile" 2>/dev/null; then
+        echo "Error: could not reset cumulative counters: $_cumfile" >&2
+        exit 1
+      fi
+      echo "Cumulative counters reset: $_cumfile"
+    fi
+    exit 0
+    ;;
   ui)     shift; exec "$LANEKEEP_DIR/bin/lanekeep-ui" "$@" ;;
   start)
     shift
@@ -227,6 +266,7 @@ case "${1:-help}" in
     echo "  license                 Show license tier and API version"
     echo "  policy <subcommand>     Manage policy/rule state (disable/enable)"
     echo "  bookmarks <subcommand>  Manage file bookmarks (add/list/remove/open)"
+    echo "  clear-halt [--keep-counters]  Remove halt marker (and reset cumulative counters)"
     echo ""
     echo "Environment:"
     echo "  LANEKEEP_SOCKET              Override socket path (default: .lanekeep/lanekeep.sock)"
