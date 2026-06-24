@@ -392,6 +392,20 @@ remove it. To resume, edit the lanekeep cap that produced it (raise the
 limit or reset the counter in `cumulative.json`) and `rm halted.json`.
 Same contract as a tripped breaker — work doesn't silently re-arm.
 
+**`lanekeep clear-halt` — one-command resume.** Removes the halt marker
+and (by default) resets all cumulative counters to zero so the next
+session starts with a clean slate:
+
+```bash
+lanekeep clear-halt                  # remove halted.json + zero cumulative.json
+lanekeep clear-halt --keep-counters  # remove halted.json only; counters unchanged
+```
+
+Idempotent: if no halt marker exists, the command prints a brief note and
+exits 0. Fails with exit 1 if the marker or counter file cannot be written.
+Both paths respect `LANEKEEP_HALTED_FILE` / `LANEKEEP_CUMULATIVE_FILE` for
+repos that redirect those files.
+
 **Reference consumer.** [looper](https://github.com/algorismo-au/looper)'s
 `run-next` exports both env vars to the parent repo's `.lanekeep/` before
 the loop starts (so state survives per-task worktree teardown), then
