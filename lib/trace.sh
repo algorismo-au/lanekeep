@@ -159,6 +159,9 @@ write_trace() {
     --arg proj_dir "${PROJECT_DIR:-}" \
     --arg cum_halted "${_TRACE_CUMULATIVE_HALTED:-}" \
     --arg halt_reason "${_TRACE_HALT_REASON:-}" \
+    --arg agent_team_id "${LANEKEEP_AGENT_TEAM_ID:-}" \
+    --arg story_id "${LANEKEEP_STORY_ID:-}" \
+    --arg epic_id "${LANEKEEP_EPIC_ID:-}" \
     '. as $evals |
      ([.[].compliance? // [] | .[]] | unique | if length == 0 then null else . end) as $comp |
      ([.[].compliance_tags? // [] | .[]] | unique | if length == 0 then null else . end) as $comp_tags |
@@ -181,7 +184,10 @@ write_trace() {
      | if $corr_id != "" then .correlation_id = $corr_id else . end
      | if $proj_dir != "" then .project_dir = $proj_dir else . end
      | if $cum_halted == "true" then .cumulative_halted = true else . end
-     | if $halt_reason != "" then .halt_reason = $halt_reason else . end')
+     | if $halt_reason != "" then .halt_reason = $halt_reason else . end
+     | if $agent_team_id != "" then .agent_team_id = $agent_team_id else . end
+     | if $story_id != "" then .story_id = $story_id else . end
+     | if $epic_id != "" then .epic_id = $epic_id else . end')
   _locked_append "$LANEKEEP_TRACE_FILE" "$entry"
 }
 
