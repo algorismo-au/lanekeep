@@ -175,3 +175,65 @@ EOF
   run verify_pack_rules "$TEST_TMP/nonexistent.json"
   [ "$status" -eq 2 ]
 }
+
+# --- TD-002: openssl missing warning ---
+
+@test "TD-002: verify_inline_sig warns once on stderr when openssl absent" {
+  # Build a fake PATH: contains bash/sh/standard tools but NOT openssl
+  local fake_bin stderr_file
+  fake_bin=$(mktemp -d)
+  stderr_file=$(mktemp)
+  # Symlink essential tools so the subshell works but openssl is absent
+  for cmd in bash sh jq base64 sha256sum cut tr mktemp rm; do
+    local cmd_path
+    cmd_path=$(command -v "$cmd" 2>/dev/null) || true
+    [ -n "$cmd_path" ] && ln -sf "$cmd_path" "$fake_bin/$cmd" || true
+  done
+
+  local pubkey="$TEST_TMP/nonexistent.pub"
+
+  PATH="$fake_bin" bash -c '
+    source "'"$LANEKEEP_DIR"'/lib/signing.sh"
+    unset LANEKEEP_OPENSSL_WARNED
+    verify_inline_sig '"'"'{"_signature":"dGVzdA=="}'"'"' '"$pubkey"'
+  ' 2>"$stderr_file" >/dev/null || true
+
+  local stderr_out
+  stderr_out=$(cat "$stderr_file")
+
+  [[ "$stderr_out" == *"WARNING"* ]]
+  [[ "$stderr_out" == *"openssl not found"* ]]
+  [[ "$stderr_out" == *"signature verification skipped"* ]]
+
+  rm -rf "$fake_bin"
+  rm -f "$stderr_file"
+}
+
+@test "TD-002: warning fires only once even when verify_inline_sig called repeatedly" {
+  local fake_bin stderr_file
+  fake_bin=$(mktemp -d)
+  stderr_file=$(mktemp)
+  for cmd in bash sh jq base64 sha256sum cut tr mktemp rm; do
+    local cmd_path
+    cmd_path=$(command -v "$cmd" 2>/dev/null) || true
+    [ -n "$cmd_path" ] && ln -sf "$cmd_path" "$fake_bin/$cmd" || true
+  done
+
+  local pubkey="$TEST_TMP/nonexistent.pub"
+
+  # Three calls in the same process — expect exactly one warning line
+  PATH="$fake_bin" bash -c '
+    source "'"$LANEKEEP_DIR"'/lib/signing.sh"
+    unset LANEKEEP_OPENSSL_WARNED
+    verify_inline_sig '"'"'{"_signature":"dGVzdA=="}'"'"' '"$pubkey"'
+    verify_inline_sig '"'"'{"_signature":"dGVzdA=="}'"'"' '"$pubkey"'
+    verify_inline_sig '"'"'{"_signature":"dGVzdA=="}'"'"' '"$pubkey"'
+  ' 2>"$stderr_file" >/dev/null || true
+
+  local warning_count
+  warning_count=$(grep -c "WARNING" "$stderr_file" || true)
+  [ "$warning_count" -eq 1 ]
+
+  rm -rf "$fake_bin"
+  rm -f "$stderr_file"
+}
