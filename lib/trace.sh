@@ -20,8 +20,12 @@ _redact_secrets() {
   case "$input" in
     *AKIA[0-9A-Z]*|*"gh[pousr]_"*|*"sk-ant-"*|*"sk-"*|*"Bearer "*|\
     *"api_key"*|*"api-key"*|*"secret_key"*|*"secret-key"*|\
-    *"access_token"*|*"auth_token"*|*"password"*|*"credential"*|*"secret"*)
+    *"access_token"*|*"auth_token"*|*"password"*|*"credential"*|*"secret"*|\
+    *"<private"*|*"_KEY"*|*"_TOKEN"*|*"_SECRET"*|*"_PASSWORD"*|\
+    *"_key"*|*"_token"*)
       printf '%s' "$input" | sed -E \
+        -e 's|<private[^>]*>.*</private>|[REDACTED:private]|gI' \
+        -e 's/("[A-Za-z0-9_-]*(_KEY|_TOKEN|_SECRET|_PASSWORD)"[[:space:]]*:[[:space:]]*")[^"]*"/\1[REDACTED:keyname]"/gI' \
         -e 's/AKIA[0-9A-Z]{16}/[REDACTED:aws-key]/g' \
         -e 's/gh[pousr]_[A-Za-z0-9]{36}/[REDACTED:github-token]/g' \
         -e 's/sk-ant-[A-Za-z0-9_-]{20,}/[REDACTED:api-key]/g' \
