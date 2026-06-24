@@ -22,6 +22,43 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+# TD-016: ~ hard-block — positive cases (must still block)
+@test "hardblock_check blocks 'rm -rf ~'" {
+  run hardblock_check "Bash" '{"command":"rm -rf ~"}'
+  [ "$status" -eq 1 ]
+}
+
+@test "hardblock_check blocks 'rm -rf ~;' (semicolon bypass)" {
+  run hardblock_check "Bash" '{"command":"rm -rf ~;"}'
+  [ "$status" -eq 1 ]
+}
+
+@test "hardblock_check blocks 'rm -rf ~ # comment'" {
+  run hardblock_check "Bash" '{"command":"rm -rf ~ # comment"}'
+  [ "$status" -eq 1 ]
+}
+
+@test "hardblock_check blocks 'cd /tmp && rm -rf ~'" {
+  run hardblock_check "Bash" '{"command":"cd /tmp && rm -rf ~"}'
+  [ "$status" -eq 1 ]
+}
+
+# TD-016: ~ hard-block — negative cases (must NOT block)
+@test "hardblock_check allows 'rm -rf ~/tmp/foo' (home subpath)" {
+  run hardblock_check "Bash" '{"command":"rm -rf ~/tmp/foo"}'
+  [ "$status" -eq 0 ]
+}
+
+@test "hardblock_check allows 'rm -rf ~/some/path'" {
+  run hardblock_check "Bash" '{"command":"rm -rf ~/some/path"}'
+  [ "$status" -eq 0 ]
+}
+
+@test "hardblock_check allows 'rm -rf ~user/scratch' (named user home subpath)" {
+  run hardblock_check "Bash" '{"command":"rm -rf ~user/scratch"}'
+  [ "$status" -eq 0 ]
+}
+
 # AC2: Safe Command Passes
 @test "hardblock_check allows safe command 'npm test'" {
   run hardblock_check "Bash" '{"command":"npm test"}'

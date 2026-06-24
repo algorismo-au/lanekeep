@@ -1,6 +1,5 @@
 {
   "hard_blocks": [
-    "rm -rf ~",
     "DROP TABLE",
     "DROP DATABASE",
     "TRUNCATE",
@@ -15,7 +14,7 @@
   ],
   "hard_blocks_regex": [
     "\\brm\\b(?=.*(\\s-[a-z]*r[a-z]*[\\s\"]|\\s--recursive[\\s\"]))(?=.*(\\s-[a-z]*f[a-z]*[\\s\"]|\\s--force[\\s\"])).*\\s/(?:[^-a-z0-9_.~]|$)",
-    "\\brm\\b(?=.*(\\s-[a-z]*r[a-z]*[\\s\"]|\\s--recursive[\\s\"]))(?=.*(\\s-[a-z]*f[a-z]*[\\s\"]|\\s--force[\\s\"])).*\\s~",
+    "\\brm\\b(?=.*(\\s-[a-z]*r[a-z]*[\\s\"]|\\s--recursive[\\s\"]))(?=.*(\\s-[a-z]*f[a-z]*[\\s\"]|\\s--force[\\s\"])).*\\s~(?:[^-a-z0-9_.~/]|$)",
     "\\bgit\\s+push\\b(?=.*\\s(--force[\\s\"]|-[a-z]*f[\\s\"]))"
   ],
   "budget": {
