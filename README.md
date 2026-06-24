@@ -331,6 +331,8 @@ You don't need to copy the full defaults. Use `"extends": "defaults"` and add yo
 }
 ```
 
+`extra_rules` are **prepended** to the resolved rule set, so under first-match-wins they take precedence over overlapping defaults. To patch or disable a default rule by id (without copying it), use the `overrides` block — see REFERENCE.md § Customizing Default Rules.
+
 Or use the CLI:
 
 ```bash
