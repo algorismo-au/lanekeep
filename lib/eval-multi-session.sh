@@ -19,6 +19,7 @@
 
 MULTI_SESSION_PASSED=true
 MULTI_SESSION_REASON="Within cross-session governance"
+MULTI_SESSION_HINT=""
 MULTI_SESSION_DECISION="ask"
 
 multi_session_eval() {
@@ -26,6 +27,7 @@ multi_session_eval() {
   local tool_input="$2"
   MULTI_SESSION_PASSED=true
   MULTI_SESSION_REASON="Within cross-session governance"
+  MULTI_SESSION_HINT=""
   MULTI_SESSION_DECISION="ask"
 
   local cumfile="${LANEKEEP_CUMULATIVE_FILE:-${PROJECT_DIR:-.}/.lanekeep/cumulative.json}"
@@ -106,6 +108,7 @@ A persistently high deny rate may indicate:
 Review denied patterns with: lanekeep insights --denied
 
 Compliance: CWE-799 (Improper Control of Interaction Frequency)"
+    MULTI_SESSION_HINT="WARNING: Elevated denial rate across recent sessions. Review governance logs."
     return 1
   fi
 
@@ -123,6 +126,7 @@ evasion attempts or a workflow that needs a rule exception.
 Review with: lanekeep insights --tool ${top_denied_tool}
 
 Compliance: CWE-799 (Improper Control of Interaction Frequency)"
+    MULTI_SESSION_HINT="WARNING: Tool '${top_denied_tool}' has been denied repeatedly across sessions. Review the workflow before retrying."
     return 1
   fi
 
@@ -152,6 +156,7 @@ Approaching the all-time cost limit. Budget will hard-deny at \$${display_max}.
 Review spend with: lanekeep insights --cost
 
 Compliance: CWE-770 (Allocation of Resources Without Limits)"
+      MULTI_SESSION_HINT="WARNING: Session cost significantly above baseline. Review action plan."
       return 1
     fi
   fi

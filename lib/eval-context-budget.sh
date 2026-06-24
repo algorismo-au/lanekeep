@@ -16,6 +16,7 @@
 
 CONTEXT_BUDGET_PASSED=true
 CONTEXT_BUDGET_REASON="Within context budget"
+CONTEXT_BUDGET_HINT=""
 CONTEXT_BUDGET_DECISION="allow"
 
 context_budget_eval() {
@@ -23,6 +24,7 @@ context_budget_eval() {
   local tool_input="$2"
   CONTEXT_BUDGET_PASSED=true
   CONTEXT_BUDGET_REASON="Within context budget"
+  CONTEXT_BUDGET_HINT=""
   CONTEXT_BUDGET_DECISION="allow"
 
   # Requires transcript data from budget evaluator (must run after Tier 5)
@@ -73,6 +75,7 @@ Action: /clear to reset context, or /compact to free space.
 Quality degrades severely at this utilization level.
 
 Compliance: CWE-770 (Allocation of Resources Without Limits)"
+    CONTEXT_BUDGET_HINT="DENIED: Context window at ${utilization_pct}%. Run /clear or /compact before continuing."
     return 1
   fi
 
@@ -88,6 +91,11 @@ Recommended: /compact or /clear before continuing.
 Output quality degrades as context fills.
 
 Compliance: CWE-770 (Allocation of Resources Without Limits)"
+    if [ "$decision" = "deny" ]; then
+      CONTEXT_BUDGET_HINT="DENIED: Context window at ${utilization_pct}% (soft limit). Compact or clear before proceeding."
+    else
+      CONTEXT_BUDGET_HINT="APPROVAL NEEDED: Context window at ${utilization_pct}% (soft limit). Compact or clear before proceeding."
+    fi
     return 1
   fi
 

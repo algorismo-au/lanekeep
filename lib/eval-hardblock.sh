@@ -3,6 +3,7 @@
 # Hard-block: fast substring match before evaluation pipeline
 
 HARDBLOCK_REASON=""
+HARDBLOCK_HINT=""
 HARDBLOCK_WARNED=""
 
 # Cache uconv availability at module load time
@@ -13,6 +14,7 @@ hardblock_check() {
   local tool_name="$1"
   local tool_input="$2"
   HARDBLOCK_REASON=""
+  HARDBLOCK_HINT=""
   HARDBLOCK_WARNED=""
   local _hb_overridden=""
 
@@ -74,6 +76,16 @@ hardblock_check() {
         echo -e "$HARDBLOCK_WARNED" >&2
       else
         HARDBLOCK_REASON="[LaneKeep] HARD-BLOCKED (Tier 1)\nPattern matched: '$_matched'\nAction: $tool_name"
+        # Detect unicode evasion: the normalized search_text contains the
+        # match but the raw lowercased input does not — i.e. normalization
+        # unmasked the pattern.
+        local _raw_lower
+        _raw_lower=$(printf '%s %s' "$tool_name" "$tool_input" | tr '[:upper:]' '[:lower:]')
+        if [[ "$_raw_lower" != *"$_matched"* ]]; then
+          HARDBLOCK_HINT="DENIED: Unicode evasion pattern detected. Use standard ASCII for this command."
+        else
+          HARDBLOCK_HINT="DENIED: Blocked pattern detected in command. Reformulate without the flagged content."
+        fi
         return 1
       fi
     fi
@@ -103,6 +115,7 @@ hardblock_check() {
       local p; for p in "${safe_patterns[@]:1}"; do combined+="|(?:$p)"; done
       if printf '%s' "$search_text" | timeout 1 grep -qP "$combined" 2>/dev/null; then
         HARDBLOCK_REASON="[LaneKeep] HARD-BLOCKED (Tier 1)\nRegex matched destructive pattern\nAction: $tool_name"
+        HARDBLOCK_HINT="DENIED: Blocked pattern detected in command. Reformulate without the flagged content."
         return 1
       fi
     fi

@@ -4,6 +4,7 @@
 
 INPUT_PII_PASSED=true
 INPUT_PII_REASON=""
+INPUT_PII_HINT=""
 INPUT_PII_DECISION="ask"        # "deny" | "ask" | "warn"
 INPUT_PII_DETECTIONS="[]"       # JSON array of what was found
 INPUT_PII_COMPLIANCE="[]"       # JSON array of compliance references
@@ -13,6 +14,7 @@ input_pii_eval() {
   local tool_input="$2"
   INPUT_PII_PASSED=true
   INPUT_PII_REASON="Passed"
+  INPUT_PII_HINT=""
   INPUT_PII_DECISION="ask"
   INPUT_PII_DETECTIONS="[]"
   INPUT_PII_COMPLIANCE="[]"
@@ -209,12 +211,14 @@ input_pii_eval() {
     deny)
       INPUT_PII_PASSED=false
       INPUT_PII_REASON="[LaneKeep] DENIED by InputPII (Tier 4)\nPII detected in tool input: ${detection_summary}\nSuggestion: Remove PII from tool input before proceeding"
+      INPUT_PII_HINT="DENIED: PII detected in tool input (pii). Remove sensitive data before retrying."
       return 1
       ;;
     ask|*)
       INPUT_PII_PASSED=false
       INPUT_PII_DECISION="ask"
       INPUT_PII_REASON="[LaneKeep] NEEDS APPROVAL — InputPII (Tier 4)\nPII detected in tool input: ${detection_summary}\nThis operation contains PII and requires user confirmation"
+      INPUT_PII_HINT="APPROVAL NEEDED: Possible PII in input (pii). Human review required."
       return 1
       ;;
   esac

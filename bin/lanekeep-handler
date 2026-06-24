@@ -256,6 +256,7 @@ case "$HOOK_EVENT" in
     RESULTS=()
     BLOCKED=false
     BLOCK_REASON=""
+    BLOCK_HINT=""           # agent_hint: short model-targeted directive (deny/ask only)
     BLOCK_DECISION="deny"  # "deny" or "ask"
     WARN_REASON=""          # warn: allow but inject context
 
@@ -283,6 +284,7 @@ case "$HOOK_EVENT" in
       if ! hardblock_check "$TOOL_NAME" "$TOOL_INPUT"; then
         BLOCKED=true
         BLOCK_REASON="$HARDBLOCK_REASON"
+        BLOCK_HINT="${HARDBLOCK_HINT:-}"
         RESULTS+=("$(printf '{"name":"HardBlock","tier":1,"score":1.0,"passed":false,"detail":"%s"}' "$(_json_escape "$BLOCK_REASON")")")
       fi
     fi
@@ -296,9 +298,11 @@ case "$HOOK_EVENT" in
             # "ask" doesn't block — let later tiers run, then escalate
             BLOCK_DECISION="ask"
             BLOCK_REASON="$RULES_REASON"
+            BLOCK_HINT="${RULES_HINT:-}"
           else
             BLOCKED=true
             BLOCK_REASON="$RULES_REASON"
+            BLOCK_HINT="${RULES_HINT:-}"
             BLOCK_DECISION="$RULES_DECISION"
           fi
         elif [ "$RULES_DECISION" = "warn" ]; then
@@ -384,10 +388,12 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
         if [ "$INPUT_PII_DECISION" = "ask" ] && [ "$BLOCK_DECISION" = "ask" ]; then
           # Aggregate "ask" reasons from multiple tiers
           BLOCK_REASON="${BLOCK_REASON}; ${INPUT_PII_REASON}"
+          [ -z "$BLOCK_HINT" ] && BLOCK_HINT="${INPUT_PII_HINT:-}"
           BLOCKED=true
         else
           BLOCKED=true
           BLOCK_REASON="$INPUT_PII_REASON"
+          BLOCK_HINT="${INPUT_PII_HINT:-}"
           BLOCK_DECISION="$INPUT_PII_DECISION"
         fi
       elif [ "$INPUT_PII_DECISION" = "warn" ] && [ -n "$INPUT_PII_REASON" ] && [ "$INPUT_PII_REASON" != "Passed" ]; then
@@ -407,6 +413,7 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
       if [ "$BLOCKED" = false ]; then
         BLOCKED=true
         BLOCK_REASON="$BUDGET_REASON"
+        BLOCK_HINT="${BUDGET_HINT:-}"
         BLOCK_DECISION="deny"
       fi
       # When the denial was a cumulative cap (vs per-session), forward the
@@ -427,12 +434,15 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
           if [ "$CONTEXT_BUDGET_DECISION" = "deny" ]; then
             BLOCKED=true
             BLOCK_REASON="$CONTEXT_BUDGET_REASON"
+            BLOCK_HINT="${CONTEXT_BUDGET_HINT:-}"
             BLOCK_DECISION="deny"
           elif [ "$BLOCK_DECISION" = "ask" ]; then
             BLOCK_REASON="${BLOCK_REASON}; ${CONTEXT_BUDGET_REASON}"
+            [ -z "$BLOCK_HINT" ] && BLOCK_HINT="${CONTEXT_BUDGET_HINT:-}"
           else
             BLOCK_DECISION="ask"
             BLOCK_REASON="$CONTEXT_BUDGET_REASON"
+            BLOCK_HINT="${CONTEXT_BUDGET_HINT:-}"
           fi
         fi
         _cb_score="0.8"; [ "$CONTEXT_BUDGET_PASSED" = true ] && _cb_score="0"
@@ -447,9 +457,11 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
         if ! multi_session_eval "$TOOL_NAME" "$TOOL_INPUT"; then
           if [ "$BLOCK_DECISION" = "ask" ]; then
             BLOCK_REASON="${BLOCK_REASON}; ${MULTI_SESSION_REASON}"
+            [ -z "$BLOCK_HINT" ] && BLOCK_HINT="${MULTI_SESSION_HINT:-}"
           else
             BLOCK_DECISION="ask"
             BLOCK_REASON="$MULTI_SESSION_REASON"
+            BLOCK_HINT="${MULTI_SESSION_HINT:-}"
           fi
         fi
         _ms_score="0.7"; [ "$MULTI_SESSION_PASSED" = true ] && _ms_score="0"
@@ -659,7 +671,12 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
     # --- Return decision (before bookkeeping to avoid broken pipe under concurrency) ---
     case "$DECISION" in
       deny|ask)
-        printf '{"decision":"%s","reason":"%s"}\n' "$DECISION" "$(_json_escape "$REASON")"
+        if [ -n "$BLOCK_HINT" ]; then
+          printf '{"decision":"%s","reason":"%s","agent_hint":"%s"}\n' \
+            "$DECISION" "$(_json_escape "$REASON")" "$(_json_escape "$BLOCK_HINT")"
+        else
+          printf '{"decision":"%s","reason":"%s"}\n' "$DECISION" "$(_json_escape "$REASON")"
+        fi
         ;;
       warn)
         printf '{"decision":"warn","warn":"%s"}\n' "$(_json_escape "$WARN_REASON")"
