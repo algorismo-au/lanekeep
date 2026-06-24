@@ -5,6 +5,7 @@
 
 RULES_PASSED=true
 RULES_REASON=""
+RULES_HINT=""
 RULES_DECISION="allow"
 RULES_COMPLIANCE="[]"
 RULES_COMPLIANCE_TAGS="[]"
@@ -604,6 +605,7 @@ policies_check() {
   if [ "$jq_exit" -eq 124 ]; then
     RULES_PASSED=false; RULES_DECISION="deny"
     RULES_REASON="[LaneKeep] DENIED: Policy evaluation timed out (possible ReDoS)"
+    RULES_HINT="DENIED: Policy evaluation timed out. Simplify the request and retry."
     return 1
   fi
 
@@ -617,6 +619,20 @@ policies_check() {
     RULES_PASSED=false
     RULES_DECISION="deny"
     RULES_REASON=$(printf '%s' "$result" | jq -r '.reason')
+    # Detect mcp_servers policy denial — give an mcp-targeted hint per
+    # the agent_hint catalog (undeclared MCP server bucket).
+    local _policy
+    _policy=$(printf '%s' "$result" | jq -r '.policy // empty')
+    if [ "$_policy" = "mcp_servers" ]; then
+      local _server
+      _server=$(printf '%s' "$tool_name" | awk -F '__' '{print tolower($2)}')
+      RULES_HINT="APPROVAL NEEDED: Tool from undeclared server '${_server}'. Confirm this server is expected."
+    else
+      # Truncate policy reason to 120 chars (catalog rule for rule deny).
+      local _short="${RULES_REASON//$'\n'/ }"
+      _short="${_short:0:120}"
+      RULES_HINT="DENIED: ${_short}."
+    fi
     return 1
   fi
   return 0
@@ -627,6 +643,7 @@ rules_eval() {
   local tool_input="$2"
   RULES_PASSED=true
   RULES_REASON="No rule matched"
+  RULES_HINT=""
   RULES_DECISION="allow"
   RULES_COMPLIANCE="[]"
   RULES_COMPLIANCE_TAGS="[]"
@@ -709,6 +726,7 @@ rules_eval() {
   if [ "$jq_exit" -eq 124 ]; then
     RULES_PASSED=false; RULES_DECISION="deny"
     RULES_REASON="[LaneKeep] DENIED: Pattern evaluation timed out (possible ReDoS)"
+    RULES_HINT="DENIED: Pattern evaluation timed out. Simplify the request and retry."
     return 1
   fi
 
@@ -772,11 +790,18 @@ rules_eval() {
     deny)
       RULES_PASSED=false
       RULES_REASON="[LaneKeep] DENIED by RuleEngine (Rule ${rule_ref}, ${tag})\n${reason}${intent_line}"
+      # agent_hint: prefix + verbatim rule reason (single line, ≤120 chars)
+      local _r_short="${reason//$'\n'/ }"
+      _r_short="${_r_short:0:120}"
+      RULES_HINT="DENIED: ${_r_short}."
       return 1
       ;;
     ask)
       RULES_PASSED=false
       RULES_REASON="[LaneKeep] NEEDS APPROVAL (Rule ${rule_ref}, ${tag})\n${reason}${intent_line}"
+      local _r_short="${reason//$'\n'/ }"
+      _r_short="${_r_short:0:120}"
+      RULES_HINT="APPROVAL NEEDED: ${_r_short}. Wait for human approval."
       return 1
       ;;
   esac
@@ -784,6 +809,7 @@ rules_eval() {
   # Unrecognized decision value — fail-closed
   RULES_PASSED=false; RULES_DECISION="deny"
   RULES_REASON="[LaneKeep] DENIED by RuleEngine: unrecognized decision '$decision'"
+  RULES_HINT="DENIED: Rule engine returned an unrecognized decision. Stop and report."
   return 1
 }
 

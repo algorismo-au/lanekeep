@@ -4,6 +4,7 @@
 
 BUDGET_PASSED=true
 BUDGET_REASON=""
+BUDGET_HINT=""
 # Set to "true" when budget_eval returns 1 because a CUMULATIVE (lifetime)
 # cap tripped, so the handler can forward the signal into the trace event.
 # Per-session denials leave this empty.
@@ -102,6 +103,7 @@ read_transcript_tokens() {
 budget_eval() {
   BUDGET_PASSED=true
   BUDGET_REASON="Within budget"
+  BUDGET_HINT=""
   BUDGET_CUMULATIVE_HALTED=""
 
   local state="$LANEKEEP_STATE_FILE"
@@ -207,6 +209,7 @@ budget_eval() {
   if ! flock -w 2 9; then
     BUDGET_PASSED=false
     BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5)\nFailed to acquire state lock"
+    BUDGET_HINT="DENIED: Budget state contention. Retry the request shortly."
     exec 9>&-
     return 1
   fi
@@ -323,6 +326,7 @@ budget_eval() {
     if [ "$_check_actions" -gt "$max_actions" ]; then
       BUDGET_PASSED=false
       BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nAction budget exceeded: ${_check_actions}/${max_actions}"
+      BUDGET_HINT="DENIED: Session action limit (${max_actions}) reached. Stop and report results."
       return 1
     fi
   fi
@@ -332,6 +336,7 @@ budget_eval() {
     if [ "$_check_tokens" -gt "$max_tokens" ]; then
       BUDGET_PASSED=false
       BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nToken budget exceeded: ${_check_tokens}/${max_tokens}"
+      BUDGET_HINT="DENIED: Session token limit (${max_tokens}) reached. Stop and report results."
       return 1
     fi
   fi
@@ -341,6 +346,7 @@ budget_eval() {
     if [ "$_check_input" -gt "$max_input_tokens" ]; then
       BUDGET_PASSED=false
       BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nInput token budget exceeded: ${_check_input}/${max_input_tokens}"
+      BUDGET_HINT="DENIED: Session input token limit (${max_input_tokens}) reached. Stop and report results."
       return 1
     fi
   fi
@@ -350,6 +356,7 @@ budget_eval() {
     if [ "$output_tokens_st" -gt "$max_output_tokens" ]; then
       BUDGET_PASSED=false
       BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nOutput token budget exceeded: ${output_tokens_st}/${max_output_tokens}"
+      BUDGET_HINT="DENIED: Session output token limit (${max_output_tokens}) reached. Stop and report results."
       return 1
     fi
   fi
@@ -361,6 +368,9 @@ budget_eval() {
     if [ "$elapsed" -gt "$timeout_seconds" ]; then
       BUDGET_PASSED=false
       BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nTime budget exceeded: ${elapsed}s/${timeout_seconds}s"
+      local _mins=$(( timeout_seconds / 60 ))
+      [ "$_mins" -lt 1 ] && _mins=1
+      BUDGET_HINT="DENIED: Session time limit (${_mins}min) reached. Stop and report results."
       return 1
     fi
   fi
@@ -405,6 +415,7 @@ budget_eval() {
           _display_cost=$(jq -n --argjson v "$_session_cost" '$v * 100 | round / 100')
           BUDGET_PASSED=false
           BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nSession cost budget exceeded: \$${_display_cost}/\$${max_cost}"
+          BUDGET_HINT="DENIED: Session cost limit (\$${max_cost}) reached. Stop and report results."
           return 1
         fi
       fi
@@ -461,6 +472,7 @@ budget_eval() {
         if [ "$total_actions" -gt "$max_total_actions" ]; then
           BUDGET_PASSED=false
           BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nAll-time action budget exceeded: ${total_actions}/${max_total_actions}"
+          BUDGET_HINT="DENIED: All-time action limit (${max_total_actions}) reached. Stop and report results."
           BUDGET_CUMULATIVE_HALTED="true"
           _budget_emit_halt "$BUDGET_REASON"
           return 1
@@ -472,6 +484,7 @@ budget_eval() {
         if [ "$total_input_toks" -gt "$max_total_input_tokens" ]; then
           BUDGET_PASSED=false
           BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nAll-time input token budget exceeded: ${total_input_toks}/${max_total_input_tokens}"
+          BUDGET_HINT="DENIED: All-time input token limit (${max_total_input_tokens}) reached. Stop and report results."
           BUDGET_CUMULATIVE_HALTED="true"
           _budget_emit_halt "$BUDGET_REASON"
           return 1
@@ -483,6 +496,7 @@ budget_eval() {
         if [ "$total_output_toks" -gt "$max_total_output_tokens" ]; then
           BUDGET_PASSED=false
           BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nAll-time output token budget exceeded: ${total_output_toks}/${max_total_output_tokens}"
+          BUDGET_HINT="DENIED: All-time output token limit (${max_total_output_tokens}) reached. Stop and report results."
           BUDGET_CUMULATIVE_HALTED="true"
           _budget_emit_halt "$BUDGET_REASON"
           return 1
@@ -494,6 +508,7 @@ budget_eval() {
         if [ "$total_tokens" -gt "$max_total_tokens" ]; then
           BUDGET_PASSED=false
           BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nAll-time token budget exceeded: ${total_tokens}/${max_total_tokens}"
+          BUDGET_HINT="DENIED: All-time token limit (${max_total_tokens}) reached. Stop and report results."
           BUDGET_CUMULATIVE_HALTED="true"
           _budget_emit_halt "$BUDGET_REASON"
           return 1
@@ -505,6 +520,9 @@ budget_eval() {
         if [ "$total_time" -gt "$max_total_time" ]; then
           BUDGET_PASSED=false
           BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nAll-time time budget exceeded: ${total_time}s/${max_total_time}s"
+          local _ttmins=$(( max_total_time / 60 ))
+          [ "$_ttmins" -lt 1 ] && _ttmins=1
+          BUDGET_HINT="DENIED: All-time time limit (${_ttmins}min) reached. Stop and report results."
           BUDGET_CUMULATIVE_HALTED="true"
           _budget_emit_halt "$BUDGET_REASON"
           return 1
@@ -519,6 +537,7 @@ budget_eval() {
           _total_cost=$(jq -n --argjson a "$cum_cost" --argjson b "$_session_cost" '$a + $b | . * 100 | round / 100')
           BUDGET_PASSED=false
           BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nAll-time cost budget exceeded: \$${_total_cost}/\$${max_total_cost}"
+          BUDGET_HINT="DENIED: All-time cost limit (\$${max_total_cost}) reached. Stop and report results."
           BUDGET_CUMULATIVE_HALTED="true"
           _budget_emit_halt "$BUDGET_REASON"
           return 1

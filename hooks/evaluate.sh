@@ -164,26 +164,31 @@ fi
 # Extract decision
 DECISION=$(printf '%s' "$RESPONSE" | jq -r '.decision // "deny"')
 WARN=$(printf '%s' "$RESPONSE" | jq -r '.warn // empty')
+AGENT_HINT=$(printf '%s' "$RESPONSE" | jq -r '.agent_hint // empty')
 
 case "$DECISION" in
   deny)
     REASON=$(printf '%s' "$RESPONSE" | jq -r '.reason // "[LaneKeep] DENIED: Unknown reason"')
-    jq -n -c --arg reason "$REASON" '{
-      hookSpecificOutput: {
-        hookEventName: "PreToolUse",
-        permissionDecision: "deny",
-        permissionDecisionReason: $reason
-      }
+    jq -n -c --arg reason "$REASON" --arg hint "$AGENT_HINT" '{
+      hookSpecificOutput: (
+        {
+          hookEventName: "PreToolUse",
+          permissionDecision: "deny",
+          permissionDecisionReason: $reason
+        } + (if $hint != "" then {additionalContext: $hint} else {} end)
+      )
     }' 2>/dev/null
     ;;
   ask)
     REASON=$(printf '%s' "$RESPONSE" | jq -r '.reason // "[LaneKeep] NEEDS APPROVAL"')
-    jq -n -c --arg reason "$REASON" '{
-      hookSpecificOutput: {
-        hookEventName: "PreToolUse",
-        permissionDecision: "ask",
-        permissionDecisionReason: $reason
-      }
+    jq -n -c --arg reason "$REASON" --arg hint "$AGENT_HINT" '{
+      hookSpecificOutput: (
+        {
+          hookEventName: "PreToolUse",
+          permissionDecision: "ask",
+          permissionDecisionReason: $reason
+        } + (if $hint != "" then {additionalContext: $hint} else {} end)
+      )
     }' 2>/dev/null
     ;;
   warn)
