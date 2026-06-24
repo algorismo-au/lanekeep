@@ -6,8 +6,15 @@ verify_inline_sig() {
   local json_content="$1"
   local pubkey_pem="$2"
 
-  # Bail if openssl not available
-  command -v openssl >/dev/null 2>&1 || return 2
+  # Bail if openssl not available — warn once per process so operators know
+  # verification is being skipped (guard prevents spam in pack-import loops)
+  if ! command -v openssl >/dev/null 2>&1; then
+    if [ -z "${LANEKEEP_OPENSSL_WARNED:-}" ]; then
+      echo "[lanekeep] WARNING: openssl not found on PATH — signature verification skipped" >&2
+      LANEKEEP_OPENSSL_WARNED=1
+    fi
+    return 2
+  fi
 
   # Bail if no pubkey
   [ -n "$pubkey_pem" ] && [ -f "$pubkey_pem" ] || return 2
