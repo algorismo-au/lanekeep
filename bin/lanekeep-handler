@@ -86,6 +86,12 @@ _CFG_MAX_TOTAL_TOKENS=""
 _CFG_MAX_TOTAL_TIME=""
 _CFG_MAX_COST=""
 _CFG_MAX_TOTAL_COST=""
+_CFG_MAX_TASK_ACTIONS=""
+_CFG_MAX_TASK_INPUT_TOKENS=""
+_CFG_MAX_TASK_OUTPUT_TOKENS=""
+_CFG_MAX_TASK_TOKENS=""
+_CFG_MAX_TASK_TIME=""
+_CFG_MAX_TASK_COST=""
 _CFG_HIDDEN_TEXT_ENABLED="true"
 _CFG_INPUT_PII_ENABLED="true"
 _CFG_RESULT_TRANSFORM_ENABLED="true"
@@ -147,6 +153,12 @@ if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
     "_CFG_MAX_TOTAL_TIME=" + (.budget.max_total_time_seconds // "" | tostring | @sh),
     "_CFG_MAX_COST=" + (.budget.max_cost // "" | tostring | @sh),
     "_CFG_MAX_TOTAL_COST=" + (.budget.max_total_cost // "" | tostring | @sh),
+    "_CFG_MAX_TASK_ACTIONS=" + (.budget.max_task_actions // "" | tostring | @sh),
+    "_CFG_MAX_TASK_INPUT_TOKENS=" + (.budget.max_task_input_tokens // "" | tostring | @sh),
+    "_CFG_MAX_TASK_OUTPUT_TOKENS=" + (.budget.max_task_output_tokens // "" | tostring | @sh),
+    "_CFG_MAX_TASK_TOKENS=" + (.budget.max_task_tokens // "" | tostring | @sh),
+    "_CFG_MAX_TASK_TIME=" + (.budget.max_task_time_seconds // "" | tostring | @sh),
+    "_CFG_MAX_TASK_COST=" + (.budget.max_task_cost // "" | tostring | @sh),
     "_CFG_PLUGIN_HASHES=" + ((.plugins.allowed_hashes // {} | to_entries | map("\(.key)=\(.value)") | join(";")) | @sh),
     "_CFG_PLUGIN_CRASH_POLICY=" + ((.plugins.crash_policy // "deny") | @sh),
     "_CFG_PLUGIN_TIMEOUT=" + ((.plugins.timeout // 5) | tostring | @sh),
