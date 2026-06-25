@@ -183,7 +183,7 @@ Denied wins over allowed, then fallback to default. All patterns are regex.
 `governance_paths`, `shell_configs`, `registry_configs`), Command-based
 (`commands`, `arguments`, `repos`, `branches`, `registries`, `packages`,
 `docker`), Network (`domains`, `ips`, `ports`, `protocols`, `env_vars`),
-MCP (`mcp_servers`), Content (`hidden_chars`).
+MCP (`mcp_servers`, `mcp_inventory`), Content (`hidden_chars`).
 
 > **Need something not covered by these categories?** Use a rule instead.
 > Each policy category has built-in extraction logic (e.g. parsing domains from
@@ -209,6 +209,55 @@ Example — block specific tools:
 lanekeep policy status
 lanekeep policy disable governance_paths --reason "Need to update CLAUDE.md"
 lanekeep policy rule-disable 4 --reason "Temporarily allowing rm -rf"
+```
+
+### MCP Inventory: `mcp_inventory`
+
+Governs the *set* of MCP tools the agent uses, not just individual calls.
+Disabled by default. Two enforcement modes run independently:
+
+- **Declared-set match** (stateless, per-call): if `declared_servers` or
+  `declared_tools` is non-empty, calls to anything outside the list trigger
+  the configured decision.
+- **Count ceiling** (stateful, reads the per-session trace): if distinct
+  `mcp__*` tool calls this session exceed `max_tool_count`, fires `on_excess`.
+
+Each mode produces a tri-state decision (`warn` / `ask` / `deny`). Non-MCP
+tools (`Bash`, `Read`, `Write`, ...) bypass `mcp_inventory` entirely — govern
+those via `policies.tools`. Server name is extracted from `mcp__<server>__<op>`.
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | bool | `false` | Enable/disable inventory checks |
+| `max_tool_count` | int | `25` | Max distinct MCP tools before `on_excess` fires |
+| `on_excess` | `warn`/`ask`/`deny` | `warn` | Decision when tool count exceeded |
+| `declared_servers` | string[] | `[]` | Expected MCP server names (no `mcp__` prefix). Empty = no check. |
+| `on_undeclared_server` | `warn`/`ask`/`deny` | `ask` | Decision when undeclared server seen |
+| `declared_tools` | string[] | `[]` | Full tool names allowed (e.g. `mcp__filesystem__read_file`). Empty = no check. |
+| `on_undeclared_tool` | `warn`/`ask`/`deny` | `ask` | Decision when undeclared tool seen |
+
+Example — warn-only count ceiling:
+
+```json
+{
+  "mcp_inventory": {
+    "enabled": true,
+    "max_tool_count": 20,
+    "on_excess": "warn"
+  }
+}
+```
+
+Example — strict declared-server allowlist:
+
+```json
+{
+  "mcp_inventory": {
+    "enabled": true,
+    "declared_servers": ["filesystem", "github", "memory"],
+    "on_undeclared_server": "deny"
+  }
+}
 ```
 
 ### Self-Protection: `governance_paths` + Rules
