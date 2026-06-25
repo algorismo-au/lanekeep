@@ -7,6 +7,10 @@
       "vendor/.*"
     ]
   },
+  "headless": {
+    "escalation_dir": ".lanekeep/escalations",
+    "include_trace_tail_lines": 20
+  },
   "budget": {
     "max_actions": 5000,
     "max_input_tokens": 2500000,

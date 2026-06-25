@@ -135,6 +135,9 @@ _CFG_INPUT_PII_COMPLIANCE="[]"
 _CFG_INPUT_PII_HAS_TOOLS="false"
 _CFG_INPUT_PII_TOOLS=""
 _CFG_INPUT_PII_ALLOWLIST=""
+# Headless escalation sink (rewrites ask -> deny when LANEKEEP_HEADLESS=1)
+_CFG_HEADLESS_DIR=""
+_CFG_HEADLESS_TAIL="20"
 # MCP inventory policy (gates the distinct-tool count pre-query in policies_check)
 _CFG_MCP_INVENTORY_ENABLED="false"
 if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
@@ -204,7 +207,9 @@ if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
     "_CFG_INPUT_PII_HAS_TOOLS=" + (if (.evaluators.input_pii | has("tools")) and (.evaluators.input_pii.tools | length > 0) then "true" else "false" end | @sh),
     "_CFG_INPUT_PII_TOOLS=" + (.evaluators.input_pii.tools // [] | join(",") | @sh),
     "_CFG_MCP_INVENTORY_ENABLED=" + (if .policies.mcp_inventory.enabled == true then "true" else "false" end | @sh),
-    "_CFG_INPUT_PII_ALLOWLIST=" + ((.evaluators.input_pii.pii_allowlist // []) | join("\u001e") | @sh)
+    "_CFG_INPUT_PII_ALLOWLIST=" + ((.evaluators.input_pii.pii_allowlist // []) | join("\u001e") | @sh),
+    "_CFG_HEADLESS_DIR=" + (.headless.escalation_dir // "" | @sh),
+    "_CFG_HEADLESS_TAIL=" + (.headless.include_trace_tail_lines // 20 | tostring | @sh)
   ' "$LANEKEEP_CONFIG_FILE" 2>/dev/null)" || true
 fi
 
@@ -212,6 +217,7 @@ fi
 source "$LANEKEEP_DIR/lib/dispatcher.sh"
 source "$LANEKEEP_DIR/lib/trace.sh"
 source "$LANEKEEP_DIR/lib/cumulative.sh"
+source "$LANEKEEP_DIR/lib/headless.sh"
 source "$LANEKEEP_DIR/lib/eval-rules.sh"
 source "$LANEKEEP_DIR/lib/eval-budget.sh"
 source "$LANEKEEP_DIR/lib/eval-schema.sh"
@@ -681,6 +687,22 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
     else
       DECISION="allow"
       REASON=""
+    fi
+
+    # --- Headless escalation: rewrite ask -> deny + persist bundle ---
+    _TRACE_ORIGINAL_DECISION=""
+    if [ "$DECISION" = "ask" ] && headless::is_active; then
+      _bundle_results="[$(IFS=,; printf '%s' "${RESULTS[*]:-}")]"
+      _bundle_json=$(headless::_build_bundle \
+        "$SESSION_ID" "$TOOL_NAME" "$TOOL_INPUT" \
+        "$REASON" "$BLOCK_HINT" "$_bundle_results") || _bundle_json=""
+      if [ -n "$_bundle_json" ]; then
+        headless::write_bundle "$_bundle_json" "$SESSION_ID"
+      fi
+      _esc_path="$(headless::escalation_dir)/$(headless::escalation_id "$SESSION_ID").json"
+      _TRACE_ORIGINAL_DECISION="ask"
+      DECISION="deny"
+      REASON="escalated (headless): see ${_esc_path}"
     fi
 
     # --- Return decision (before bookkeeping to avoid broken pipe under concurrency) ---

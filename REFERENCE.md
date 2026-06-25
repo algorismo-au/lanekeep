@@ -649,6 +649,41 @@ set and positive-integer.
 | `LANEKEEP_CUMULATIVE_FILE` | Cross-session counters file ([halt signal](#halt-signal)) | `${PROJECT_DIR}/.lanekeep/cumulative.json` |
 | `LANEKEEP_HALTED_FILE` | Halt-marker file written when any cumulative cap trips | `${PROJECT_DIR}/.lanekeep/halted.json` |
 | `LANEKEEP_CORRELATION_ID` | Sidecar correlation ID (SHA256 of canonical project path) | auto, set by `lanekeep-serve` |
+| `LANEKEEP_HEADLESS` | When set to `1`/`true`/`yes`, rewrites `ask` decisions to `deny` and persists an escalation bundle. See [Headless Escalation Sink](#headless-escalation-sink). | unset |
+| `LANEKEEP_ESCALATION_DIR` | Override for the headless escalation bundle directory | `${PROJECT_DIR}/.lanekeep/escalations` |
+| `LANEKEEP_TASK_ID` | Task identifier; used to name escalation bundles and as the per-task budget scope key | unset |
+| `LANEKEEP_LOOP_ID` | Optional orchestrator loop id; recorded in escalation bundle `env_snapshot` for correlation | unset |
+
+### Headless Escalation Sink
+
+For unattended runs (cron, CI, autonomous loops), `ask` decisions normally hang on stdin because no human is present to answer. Setting `LANEKEEP_HEADLESS=1` makes the handler:
+
+1. Write a structured bundle to `${LANEKEEP_ESCALATION_DIR}/<id>.json` — `<id>` is `LANEKEEP_TASK_ID`, falling back to the session id, then `unattached-<epoch>`.
+2. Rewrite the response to `{"decision":"deny","reason":"escalated (headless): ..."}` so the agent host exits cleanly.
+3. Tag the trace entry with `original_decision: "ask"` alongside `decision: "deny"` (preserves ask:deny analytics on the dashboard).
+
+Subsequent escalations for the same id overwrite the file; `escalation_count` increments so the orchestrator can detect retries.
+
+Bundle schema (fields with `*` are omitted when unset):
+
+| Field | Type | Notes |
+|---|---|---|
+| `schema_version` | string | Currently `"1.0"` |
+| `task_id` * | string | From `LANEKEEP_TASK_ID` |
+| `session_id` | string | Current session |
+| `timestamp` | string | ISO8601 UTC, millisecond precision |
+| `escalation_count` | int | 1 on first ask, increments on overwrite |
+| `tool_name` | string | Tool the agent attempted |
+| `tool_input` | object | Same shape as trace `tool_input` (already redacted) |
+| `original_decision` | string | Always `"ask"` |
+| `rewritten_to` | string | Always `"deny"` |
+| `reason` | string | Aggregated tier reasons |
+| `agent_hint` * | string | When present, the model-targeted directive |
+| `tier_results` | array | Tier results with `passed=false` (the tiers that voted ask) |
+| `trace_tail` | array | Last N entries from the session trace (compact projection) |
+| `env_snapshot` | object | `LANEKEEP_HEADLESS`, `LANEKEEP_TASK_ID`, `LANEKEEP_SESSION_ID`, `LANEKEEP_LOOP_ID` (when set) |
+
+Config defaults live in `lanekeep.json` under `headless.escalation_dir` and `headless.include_trace_tail_lines` (default `20`). Env vars override config.
 
 ## Common Scenarios
 
