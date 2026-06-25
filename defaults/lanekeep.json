@@ -3202,7 +3202,7 @@
     "retention_days": 365,
     "max_sessions": 5000
   },
-  "version": "1.0.4",
+  "version": "1.0.5",
   "sandbox": {
     "enabled": false,
     "base_image": "ubuntu:22.04",
