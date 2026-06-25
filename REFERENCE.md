@@ -677,6 +677,12 @@ lanekeep serve [--spec FILE] # Start sidecar only
 lanekeep demo                # Run demo
 lanekeep trace [--follow]    # View / live tail audit log
 lanekeep trace clear --older-than 7d
+lanekeep trace --summary cost-line [--with-savings]   # One-line cost summary for PR bodies:
+                                                      #   $0.43 · 2 attempts · 14 min · sonnet-4.6
+lanekeep trace --summary json                          # Structured equivalent (cost, attempts,
+                                                      # duration_seconds, cache_savings, models[])
+                                                      # Scope: --task <id> | --session <id>
+                                                      # Defaults to LANEKEEP_TASK_ID env, else current session
 lanekeep audit               # Validate config
 lanekeep rules list          # List active rules
 lanekeep rules test "CMD"    # Dry-run: which rule matches?
