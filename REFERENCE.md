@@ -372,6 +372,25 @@ the whole run. Only cumulative caps emit the [halt signal](#halt-signal).
 | `budget.max_total_cost` | `LANEKEEP_MAX_TOTAL_COST` | 4000 (USD) |
 | `budget.max_total_time_seconds` | `LANEKEEP_MAX_TOTAL_TIME_SECONDS` | 17280000 (200d) |
 
+**Per-task limits:**
+
+Opt-in third scope that resets each time the `LANEKEEP_TASK_ID` env var
+changes. Designed for loop runners that invoke `claude -p` once per task
+and want a budget bound to that single invocation (e.g. a cron preflight
+allocating `daily_allowance = remaining_credit / days_left` per task).
+Independent of per-session and cumulative scopes. No defaults — caps only
+fire when both `LANEKEEP_TASK_ID` is set and a limit is configured. Task
+caps do not emit the [halt signal](#halt-signal).
+
+| Key | Env var | Default |
+|-----|---------|---------|
+| `budget.max_task_actions` | `LANEKEEP_MAX_TASK_ACTIONS` | — |
+| `budget.max_task_input_tokens` | `LANEKEEP_MAX_TASK_INPUT_TOKENS` | — |
+| `budget.max_task_output_tokens` | `LANEKEEP_MAX_TASK_OUTPUT_TOKENS` | — |
+| `budget.max_task_tokens` | `LANEKEEP_MAX_TASK_TOKENS` | — |
+| `budget.max_task_cost` | `LANEKEEP_MAX_TASK_COST` | — |
+| `budget.max_task_time_seconds` | `LANEKEEP_MAX_TASK_TIME_SECONDS` | — |
+
 Resolution (later wins): `lanekeep.json` -> TaskSpec -> env vars. Your explicit
 values always take precedence over profile defaults.
 
@@ -389,6 +408,12 @@ fallback. TaskSpec constrains tools and budget; immutable after startup.
 | `token_count` | `input_tokens + output_tokens` |
 | `token_source` | `"transcript"` or `"estimate"` |
 | `model` | Model name from transcript (e.g. `claude-opus-4-6`) |
+| `task_id` | Current `LANEKEEP_TASK_ID` env value (empty when scope unused) |
+| `task_action_count` | Actions since last `task_id` change |
+| `task_input_tokens` | Input tokens (transcript snapshot or estimated) since last `task_id` change |
+| `task_output_tokens` | Output tokens accumulated since last `task_id` change |
+| `task_token_count` | `task_input_tokens + task_output_tokens` |
+| `task_start_epoch` | Unix epoch of the last `task_id` change |
 
 Cache fields are only populated when `token_source` is `"transcript"` (0 in estimation mode).
 

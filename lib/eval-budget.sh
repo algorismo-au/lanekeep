@@ -143,6 +143,7 @@ budget_eval() {
   local max_input_tokens="" max_output_tokens=""
   local max_total_actions="" max_total_input_tokens="" max_total_output_tokens="" max_total_tokens="" max_total_time=""
   local max_cost="" max_total_cost=""
+  local max_task_actions="" max_task_input_tokens="" max_task_output_tokens="" max_task_tokens="" max_task_time="" max_task_cost=""
   if [ -n "${_CFG_MAX_ACTIONS+x}" ]; then
     max_actions="$_CFG_MAX_ACTIONS"
     timeout_seconds="$_CFG_TIMEOUT_SECONDS"
@@ -156,6 +157,12 @@ budget_eval() {
     max_total_time="${_CFG_MAX_TOTAL_TIME:-}"
     max_cost="${_CFG_MAX_COST:-}"
     max_total_cost="${_CFG_MAX_TOTAL_COST:-}"
+    max_task_actions="${_CFG_MAX_TASK_ACTIONS:-}"
+    max_task_input_tokens="${_CFG_MAX_TASK_INPUT_TOKENS:-}"
+    max_task_output_tokens="${_CFG_MAX_TASK_OUTPUT_TOKENS:-}"
+    max_task_tokens="${_CFG_MAX_TASK_TOKENS:-}"
+    max_task_time="${_CFG_MAX_TASK_TIME:-}"
+    max_task_cost="${_CFG_MAX_TASK_COST:-}"
   elif [ -f "$LANEKEEP_CONFIG_FILE" ]; then
     eval "$(jq -r '
       "max_actions=" + (.budget.max_actions // "" | tostring | @sh),
@@ -169,7 +176,13 @@ budget_eval() {
       "max_total_tokens=" + (.budget.max_total_tokens // "" | tostring | @sh),
       "max_total_time=" + (.budget.max_total_time_seconds // "" | tostring | @sh),
       "max_cost=" + (.budget.max_cost // "" | tostring | @sh),
-      "max_total_cost=" + (.budget.max_total_cost // "" | tostring | @sh)
+      "max_total_cost=" + (.budget.max_total_cost // "" | tostring | @sh),
+      "max_task_actions=" + (.budget.max_task_actions // "" | tostring | @sh),
+      "max_task_input_tokens=" + (.budget.max_task_input_tokens // "" | tostring | @sh),
+      "max_task_output_tokens=" + (.budget.max_task_output_tokens // "" | tostring | @sh),
+      "max_task_tokens=" + (.budget.max_task_tokens // "" | tostring | @sh),
+      "max_task_time=" + (.budget.max_task_time_seconds // "" | tostring | @sh),
+      "max_task_cost=" + (.budget.max_task_cost // "" | tostring | @sh)
     ' "$LANEKEEP_CONFIG_FILE" 2>/dev/null)" || true
   fi
   if [ -n "${LANEKEEP_TASKSPEC_FILE:-}" ] && [ -f "$LANEKEEP_TASKSPEC_FILE" ]; then
@@ -178,13 +191,20 @@ budget_eval() {
     _ts_sz=$(stat -c %s "$LANEKEEP_TASKSPEC_FILE" 2>/dev/null) || _ts_sz=0
     if [ "$_ts_sz" -gt 4 ]; then
       local _ts_ma="" _ts_ts="" _ts_mt="" _ts_mit="" _ts_mot="" _ts_mc=""
+      local _ts_tka="" _ts_tkit="" _ts_tkot="" _ts_tkt="" _ts_tktt="" _ts_tkc=""
       eval "$(jq -r '
         "_ts_ma=" + (.budget.max_actions // "" | tostring | @sh),
         "_ts_ts=" + (.budget.timeout_seconds // "" | tostring | @sh),
         "_ts_mt=" + (.budget.max_tokens // "" | tostring | @sh),
         "_ts_mit=" + (.budget.max_input_tokens // "" | tostring | @sh),
         "_ts_mot=" + (.budget.max_output_tokens // "" | tostring | @sh),
-        "_ts_mc=" + (.budget.max_cost // "" | tostring | @sh)
+        "_ts_mc=" + (.budget.max_cost // "" | tostring | @sh),
+        "_ts_tka=" + (.budget.max_task_actions // "" | tostring | @sh),
+        "_ts_tkit=" + (.budget.max_task_input_tokens // "" | tostring | @sh),
+        "_ts_tkot=" + (.budget.max_task_output_tokens // "" | tostring | @sh),
+        "_ts_tkt=" + (.budget.max_task_tokens // "" | tostring | @sh),
+        "_ts_tktt=" + (.budget.max_task_time_seconds // "" | tostring | @sh),
+        "_ts_tkc=" + (.budget.max_task_cost // "" | tostring | @sh)
       ' "$LANEKEEP_TASKSPEC_FILE" 2>/dev/null)" || true
       [ -n "$_ts_ma" ] && max_actions="$_ts_ma"
       [ -n "$_ts_ts" ] && timeout_seconds="$_ts_ts"
@@ -192,6 +212,12 @@ budget_eval() {
       [ -n "$_ts_mit" ] && max_input_tokens="$_ts_mit"
       [ -n "$_ts_mot" ] && max_output_tokens="$_ts_mot"
       [ -n "$_ts_mc" ] && max_cost="$_ts_mc"
+      [ -n "$_ts_tka" ] && max_task_actions="$_ts_tka"
+      [ -n "$_ts_tkit" ] && max_task_input_tokens="$_ts_tkit"
+      [ -n "$_ts_tkot" ] && max_task_output_tokens="$_ts_tkot"
+      [ -n "$_ts_tkt" ] && max_task_tokens="$_ts_tkt"
+      [ -n "$_ts_tktt" ] && max_task_time="$_ts_tktt"
+      [ -n "$_ts_tkc" ] && max_task_cost="$_ts_tkc"
     fi
   fi
   # Layer 3: env var overrides
@@ -202,6 +228,12 @@ budget_eval() {
   [ -n "${LANEKEEP_MAX_OUTPUT_TOKENS:-}" ] && max_output_tokens="$LANEKEEP_MAX_OUTPUT_TOKENS"
   [ -n "${LANEKEEP_MAX_COST:-}" ] && max_cost="$LANEKEEP_MAX_COST"
   [ -n "${LANEKEEP_MAX_TOTAL_COST:-}" ] && max_total_cost="$LANEKEEP_MAX_TOTAL_COST"
+  [ -n "${LANEKEEP_MAX_TASK_ACTIONS:-}" ] && max_task_actions="$LANEKEEP_MAX_TASK_ACTIONS"
+  [ -n "${LANEKEEP_MAX_TASK_INPUT_TOKENS:-}" ] && max_task_input_tokens="$LANEKEEP_MAX_TASK_INPUT_TOKENS"
+  [ -n "${LANEKEEP_MAX_TASK_OUTPUT_TOKENS:-}" ] && max_task_output_tokens="$LANEKEEP_MAX_TASK_OUTPUT_TOKENS"
+  [ -n "${LANEKEEP_MAX_TASK_TOKENS:-}" ] && max_task_tokens="$LANEKEEP_MAX_TASK_TOKENS"
+  [ -n "${LANEKEEP_MAX_TASK_TIME_SECONDS:-}" ] && max_task_time="$LANEKEEP_MAX_TASK_TIME_SECONDS"
+  [ -n "${LANEKEEP_MAX_TASK_COST:-}" ] && max_task_cost="$LANEKEEP_MAX_TASK_COST"
 
   # === LOCKED SECTION: read state, check limits, increment, write back ===
   # Acquire lock BEFORE reading state to prevent TOCTOU race
@@ -217,6 +249,7 @@ budget_eval() {
   # Read current state under lock
   local action_count start_epoch token_count total_events session_id input_tokens_st output_tokens_st
   local cache_creation_st cache_read_st
+  local task_id task_action_count task_input_tokens_st task_output_tokens_st task_token_count task_start_epoch
   eval "$(jq -r '
     "action_count=" + (.action_count // 0 | tostring | @sh),
     "start_epoch=" + (.start_epoch // 0 | tostring | @sh),
@@ -227,9 +260,15 @@ budget_eval() {
     "cache_read_st=" + (.cache_read_input_tokens // 0 | tostring | @sh),
     "total_events=" + (.total_events // 0 | tostring | @sh),
     "session_id=" + (.session_id // "" | @sh),
+    "task_id=" + (.task_id // "" | @sh),
+    "task_action_count=" + (.task_action_count // 0 | tostring | @sh),
+    "task_input_tokens_st=" + (.task_input_tokens // 0 | tostring | @sh),
+    "task_output_tokens_st=" + (.task_output_tokens // 0 | tostring | @sh),
+    "task_token_count=" + (.task_token_count // 0 | tostring | @sh),
+    "task_start_epoch=" + (.task_start_epoch // 0 | tostring | @sh),
     "_prev_token_source=" + (.token_source // "" | @sh),
     "_prev_model=" + (.model // "" | @sh)
-  ' "$state" 2>/dev/null)" || { action_count=0; start_epoch=$now_epoch; token_count=0; input_tokens_st=0; output_tokens_st=0; cache_creation_st=0; cache_read_st=0; total_events=0; session_id=""; _prev_token_source=""; _prev_model=""; }
+  ' "$state" 2>/dev/null)" || { action_count=0; start_epoch=$now_epoch; token_count=0; input_tokens_st=0; output_tokens_st=0; cache_creation_st=0; cache_read_st=0; total_events=0; session_id=""; task_id=""; task_action_count=0; task_input_tokens_st=0; task_output_tokens_st=0; task_token_count=0; task_start_epoch=$now_epoch; _prev_token_source=""; _prev_model=""; }
   # Guard against non-numeric values from corrupted state
   [[ "$action_count" =~ ^[0-9]+$ ]] || action_count=0
   [[ "$start_epoch" =~ ^[0-9]+$ ]] || start_epoch=$now_epoch
@@ -239,6 +278,11 @@ budget_eval() {
   [[ "$cache_creation_st" =~ ^[0-9]+$ ]] || cache_creation_st=0
   [[ "$cache_read_st" =~ ^[0-9]+$ ]] || cache_read_st=0
   [[ "$total_events" =~ ^[0-9]+$ ]] || total_events=0
+  [[ "$task_action_count" =~ ^[0-9]+$ ]] || task_action_count=0
+  [[ "$task_input_tokens_st" =~ ^[0-9]+$ ]] || task_input_tokens_st=0
+  [[ "$task_output_tokens_st" =~ ^[0-9]+$ ]] || task_output_tokens_st=0
+  [[ "$task_token_count" =~ ^[0-9]+$ ]] || task_token_count=0
+  [[ "$task_start_epoch" =~ ^[0-9]+$ ]] || task_start_epoch=$now_epoch
 
   # Session boundary: detect when Claude Code session_id changes
   if [ -n "$cc_session_id" ] && [ "$cc_session_id" != "$session_id" ]; then
@@ -256,31 +300,66 @@ budget_eval() {
     session_id="$cc_session_id"
   fi
 
+  # Task boundary: when LANEKEEP_TASK_ID env var changes, reset task counters.
+  # Independent of session boundary — a task may span sessions or vice versa.
+  # If LANEKEEP_TASK_ID is unset, no boundary detection or enforcement runs.
+  local _env_task_id="${LANEKEEP_TASK_ID:-}"
+  if [ -n "$_env_task_id" ] && [ "$_env_task_id" != "$task_id" ]; then
+    task_action_count=0
+    task_input_tokens_st=0
+    task_output_tokens_st=0
+    task_token_count=0
+    task_start_epoch=$now_epoch
+    task_id="$_env_task_id"
+  fi
+
   # Always increment total_events (tracks all tool calls for UI display)
   total_events=$((total_events + 1))
 
   # Update counters based on mode and token source
   # skip_increment: when pipeline decision is "ask", don't count the action
   # (it may be denied by the user, preventing phantom budget consumption)
+  # Per-task counter updates are gated on LANEKEEP_TASK_ID being set, so the
+  # task_* fields stay at zero when the scope is unused — keeping state clean
+  # for tools that surface budget info and avoiding misleading growing counters.
+  local _task_scope_active=false
+  [ -n "${LANEKEEP_TASK_ID:-}" ] && _task_scope_active=true
+
   if [ "$token_mode" = "output" ]; then
     # PostToolUse: track output tokens only (always estimated)
     output_tokens_st=$((output_tokens_st + new_tokens))
     token_count=$((token_count + new_tokens))
+    if [ "$_task_scope_active" = true ]; then
+      task_output_tokens_st=$((task_output_tokens_st + new_tokens))
+      task_token_count=$((task_token_count + new_tokens))
+    fi
   elif [ "$_use_transcript" = true ]; then
-    # Transcript mode: input_tokens = context window size (snapshot, not cumulative)
+    # Transcript mode: input_tokens = context window size (snapshot, not cumulative).
+    # Task-scoped input mirrors session input — the transcript reflects the live
+    # context window, which by definition is bounded by the current invocation.
     input_tokens_st=$_TRANSCRIPT_INPUT_TOKENS
     cache_creation_st=$_TRANSCRIPT_CACHE_CREATION_TOKENS
     cache_read_st=$_TRANSCRIPT_CACHE_READ_TOKENS
     token_count=$((input_tokens_st + output_tokens_st))
+    if [ "$_task_scope_active" = true ]; then
+      task_input_tokens_st=$_TRANSCRIPT_INPUT_TOKENS
+      task_token_count=$((task_input_tokens_st + task_output_tokens_st))
+    fi
     if [ "$already_blocked" != "true" ] && [ "$skip_increment" != "true" ]; then
       action_count=$((action_count + 1))
+      [ "$_task_scope_active" = true ] && task_action_count=$((task_action_count + 1))
     fi
   else
     # Fallback: cumulative estimation
     input_tokens_st=$((input_tokens_st + new_tokens))
     token_count=$((token_count + new_tokens))
+    if [ "$_task_scope_active" = true ]; then
+      task_input_tokens_st=$((task_input_tokens_st + new_tokens))
+      task_token_count=$((task_token_count + new_tokens))
+    fi
     if [ "$already_blocked" != "true" ] && [ "$skip_increment" != "true" ]; then
       action_count=$((action_count + 1))
+      [ "$_task_scope_active" = true ] && task_action_count=$((task_action_count + 1))
     fi
   fi
 
@@ -300,8 +379,8 @@ budget_eval() {
   if [ -z "$_model_field" ] && [ -n "${_prev_model:-}" ]; then
     _model_field="$(printf ',"model":"%s"' "$(_json_escape "$_prev_model")")"
   fi
-  printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"cache_creation_input_tokens":%d,"cache_read_input_tokens":%d,"total_events":%d,"start_epoch":%d,"elapsed_seconds":%d,"session_id":"%s","lanekeep_session_id":"%s","token_source":"%s"%s}\n' \
-    "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$elapsed_seconds" "$(_json_escape "$session_id")" "$(_json_escape "${LANEKEEP_SESSION_ID:-}")" "$_token_source" "$_model_field" > "${state}.tmp" \
+  printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"cache_creation_input_tokens":%d,"cache_read_input_tokens":%d,"total_events":%d,"start_epoch":%d,"elapsed_seconds":%d,"session_id":"%s","lanekeep_session_id":"%s","token_source":"%s","task_id":"%s","task_action_count":%d,"task_input_tokens":%d,"task_output_tokens":%d,"task_token_count":%d,"task_start_epoch":%d%s}\n' \
+    "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$elapsed_seconds" "$(_json_escape "$session_id")" "$(_json_escape "${LANEKEEP_SESSION_ID:-}")" "$_token_source" "$(_json_escape "$task_id")" "$task_action_count" "$task_input_tokens_st" "$task_output_tokens_st" "$task_token_count" "$task_start_epoch" "$_model_field" > "${state}.tmp" \
     && mv "${state}.tmp" "$state"
   exec 9>&-
 
@@ -416,6 +495,104 @@ budget_eval() {
           BUDGET_PASSED=false
           BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nSession cost budget exceeded: \$${_display_cost}/\$${max_cost}"
           BUDGET_HINT="DENIED: Session cost limit (\$${max_cost}) reached. Stop and report results."
+          return 1
+        fi
+      fi
+    fi
+  fi
+
+  # === PER-TASK LIMIT CHECKS ===
+  # Per-task scope is opt-in: requires LANEKEEP_TASK_ID set. Resets on TASK_ID
+  # change; does not emit halt signal (per-invocation, not lifetime).
+  if [ -n "${LANEKEEP_TASK_ID:-}" ]; then
+    local _check_task_actions=$task_action_count
+    if [ "$skip_increment" = "true" ]; then
+      _check_task_actions=$((_check_task_actions + 1))
+    fi
+
+    if [ -n "$max_task_actions" ] && [ "$max_task_actions" != "null" ]; then
+      if [ "$_check_task_actions" -gt "$max_task_actions" ]; then
+        BUDGET_PASSED=false
+        BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nTask action budget exceeded: ${_check_task_actions}/${max_task_actions}"
+        BUDGET_HINT="DENIED: Per-task action limit (${max_task_actions}) reached. End this task and report results."
+        return 1
+      fi
+    fi
+
+    if [ -n "$max_task_input_tokens" ] && [ "$max_task_input_tokens" != "null" ]; then
+      if [ "$task_input_tokens_st" -gt "$max_task_input_tokens" ]; then
+        BUDGET_PASSED=false
+        BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nTask input token budget exceeded: ${task_input_tokens_st}/${max_task_input_tokens}"
+        BUDGET_HINT="DENIED: Per-task input token limit (${max_task_input_tokens}) reached. End this task and report results."
+        return 1
+      fi
+    fi
+
+    if [ -n "$max_task_output_tokens" ] && [ "$max_task_output_tokens" != "null" ]; then
+      if [ "$task_output_tokens_st" -gt "$max_task_output_tokens" ]; then
+        BUDGET_PASSED=false
+        BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nTask output token budget exceeded: ${task_output_tokens_st}/${max_task_output_tokens}"
+        BUDGET_HINT="DENIED: Per-task output token limit (${max_task_output_tokens}) reached. End this task and report results."
+        return 1
+      fi
+    fi
+
+    if [ -n "$max_task_tokens" ] && [ "$max_task_tokens" != "null" ]; then
+      if [ "$task_token_count" -gt "$max_task_tokens" ]; then
+        BUDGET_PASSED=false
+        BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nTask token budget exceeded: ${task_token_count}/${max_task_tokens}"
+        BUDGET_HINT="DENIED: Per-task token limit (${max_task_tokens}) reached. End this task and report results."
+        return 1
+      fi
+    fi
+
+    if [ -n "$max_task_time" ] && [ "$max_task_time" != "null" ]; then
+      local _task_elapsed=$((now_epoch - ${task_start_epoch%.*}))
+      if [ "$_task_elapsed" -gt "$max_task_time" ]; then
+        BUDGET_PASSED=false
+        BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nTask time budget exceeded: ${_task_elapsed}s/${max_task_time}s"
+        local _tkmins=$(( max_task_time / 60 ))
+        [ "$_tkmins" -lt 1 ] && _tkmins=1
+        BUDGET_HINT="DENIED: Per-task time limit (${_tkmins}min) reached. End this task and report results."
+        return 1
+      fi
+    fi
+
+    if [ -n "$max_task_cost" ] && [ "$max_task_cost" != "null" ]; then
+      local _task_cost=""
+      local _tcost_model="${_TRANSCRIPT_MODEL:-${_prev_model:-}}"
+      local _tpricing_file="${LANEKEEP_DIR:-}/data/pricing.json"
+      if [ -n "$_tcost_model" ] && [ -f "$_tpricing_file" ]; then
+        local _tcost_ovr='{}'
+        if [ -f "$LANEKEEP_CONFIG_FILE" ]; then
+          _tcost_ovr=$(jq -c '.budget.pricing_overrides // {}' "$LANEKEEP_CONFIG_FILE" 2>/dev/null) || _tcost_ovr='{}'
+        fi
+        _task_cost=$(jq -r --arg model "$_tcost_model" \
+          --argjson itoks "$task_input_tokens_st" \
+          --argjson cctoks "$cache_creation_st" \
+          --argjson crtoks "$cache_read_st" \
+          --argjson otoks "$task_output_tokens_st" \
+          --argjson overrides "$_tcost_ovr" '
+          ((.models[$model] // .models[($model | gsub("-[0-9]{8}$";""))]) // {}) as $base |
+          (($overrides[$model] // $overrides[($model | gsub("-[0-9]{8}$";""))]) // {}) as $ovr |
+          ($base + $ovr) as $p |
+          if ($p | has("input_per_mtok")) then
+            ((([0, ($itoks - $cctoks - $crtoks)] | max) * $p.input_per_mtok
+              + $cctoks * $p.cache_write_per_mtok
+              + $crtoks * $p.cache_read_per_mtok
+              + $otoks * $p.output_per_mtok) / 1000000) |
+            . * 1000000 | round / 1000000
+          else 0 end
+        ' "$_tpricing_file" 2>/dev/null) || _task_cost=""
+      fi
+      if [ -n "$_task_cost" ] && [ "$_task_cost" != "0" ]; then
+        if jq -e --argjson cost "$_task_cost" --argjson max "$max_task_cost" \
+          'if $cost > $max then true else false end' <<< 'null' >/dev/null 2>&1; then
+          local _tdisplay_cost
+          _tdisplay_cost=$(jq -n --argjson v "$_task_cost" '$v * 100 | round / 100')
+          BUDGET_PASSED=false
+          BUDGET_REASON="[LaneKeep] DENIED by BudgetEvaluator (Tier 5, score: 1.0)\nTask cost budget exceeded: \$${_tdisplay_cost}/\$${max_task_cost}"
+          BUDGET_HINT="DENIED: Per-task cost limit (\$${max_task_cost}) reached. End this task and report results."
           return 1
         fi
       fi
