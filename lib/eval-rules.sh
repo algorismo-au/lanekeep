@@ -130,9 +130,31 @@ policies_check() {
   fi
   [ "$has_policies" = "true" ] || return 0
 
+  # Distinct mcp__* tool count for policies.mcp_inventory count ceiling.
+  # Cheap path: when mcp_inventory is disabled (default), stay at 0 and skip the
+  # trace scan entirely. When enabled but no trace file exists yet, the current
+  # event still counts if it's an mcp__* tool. Trace write happens AFTER this
+  # check (see lanekeep-handler), so the current tool_name must be OR'd in.
+  local tool_count=0
+  local _mi_enabled="${_CFG_MCP_INVENTORY_ENABLED:-}"
+  if [ -z "$_mi_enabled" ]; then
+    _mi_enabled=$(jq -r '.policies.mcp_inventory.enabled // false' "$config" 2>/dev/null) || _mi_enabled=false
+  fi
+  if [ "$_mi_enabled" = "true" ]; then
+    if [ -n "${LANEKEEP_TRACE_FILE:-}" ] && [ -f "$LANEKEEP_TRACE_FILE" ]; then
+      tool_count=$(jq -s --arg cur "$tool_name" '
+        ([.[] | .tool_name // empty] + [$cur])
+        | map(select(startswith("mcp__")))
+        | unique | length' "$LANEKEEP_TRACE_FILE" 2>/dev/null) || tool_count=0
+      [ -z "$tool_count" ] && tool_count=0
+    elif [[ "$tool_name" == mcp__* ]]; then
+      tool_count=1
+    fi
+  fi
+
   local result
   # shellcheck disable=SC2016  # single-quoted jq program — $ is jq syntax, not shell expansion
-  result=$(timeout 5 jq -c --arg tool "$tool_name" --arg input "$tool_input" '
+  result=$(timeout 5 jq -c --arg tool "$tool_name" --arg input "$tool_input" --argjson tool_count "$tool_count" '
     # VULN-07: safe_test wraps test() in try-catch to prevent regex injection crashes
     def safe_test(pat; flags): try test(pat; flags) catch false;
     def safe_test(pat): try test(pat) catch false;
@@ -577,6 +599,41 @@ policies_check() {
       else . end
     else . end |
 
+    # mcp_inventory: declared-set match (per-call) + distinct-tool count ceiling.
+    # Disabled by default. Tri-state decision: each enforcement mode has its
+    # own on_* field producing warn|ask|deny. First match wins, in this order:
+    # undeclared_server > undeclared_tool > over_count. Only applies to
+    # mcp__*-prefixed tools (non-MCP tools are governed by policies.tools).
+    if .ok then
+      if ($p | has("mcp_inventory")) and (($p.mcp_inventory.enabled // false) == true) and ($lower_tool | test("^mcp__")) then
+        ($p.mcp_inventory) as $cat |
+        ($lower_tool | split("__") | if length >= 2 then .[1] else "" end) as $server |
+        # Declared servers / tools normalized to lowercase for case-insensitive match
+        (($cat.declared_servers // []) | map(ascii_downcase)) as $decl_srv |
+        (($cat.declared_tools // []) | map(ascii_downcase)) as $decl_tool |
+        ($cat.max_tool_count // 25) as $max |
+        if ($decl_srv | length) > 0 and $server != "" and (($decl_srv | index($server)) == null) then
+          {ok: false,
+           decision: ($cat.on_undeclared_server // "ask"),
+           reason: ("[LaneKeep] Policy (mcp_inventory)\nMCP server \"" + $server + "\" is not in declared_servers"),
+           policy: "mcp_inventory",
+           subreason: "undeclared_server"}
+        elif ($decl_tool | length) > 0 and (($decl_tool | index($lower_tool)) == null) then
+          {ok: false,
+           decision: ($cat.on_undeclared_tool // "ask"),
+           reason: ("[LaneKeep] Policy (mcp_inventory)\nTool \"" + $lower_tool + "\" is not in declared_tools"),
+           policy: "mcp_inventory",
+           subreason: "undeclared_tool"}
+        elif $tool_count > $max then
+          {ok: false,
+           decision: ($cat.on_excess // "warn"),
+           reason: ("[LaneKeep] Policy (mcp_inventory)\nDistinct MCP tool count " + ($tool_count | tostring) + " exceeds max_tool_count " + ($max | tostring)),
+           policy: "mcp_inventory",
+           subreason: "over_count"}
+        else . end
+      else . end
+    else . end |
+
     # hidden_chars: Write/Edit only, scan tool_input for invisible Unicode codepoints
     if .ok then
       if ($p | has("hidden_chars")) and (if ($p.hidden_chars | has("enabled")) then $p.hidden_chars.enabled else true end) and ($lower_tool | test("^(write|edit)$")) then
@@ -613,27 +670,65 @@ policies_check() {
     return 0
   fi
 
-  local ok
+  local ok decision policy subreason raw_reason
   ok=$(printf '%s' "$result" | jq -r '.ok')
   if [ "$ok" = "false" ]; then
-    RULES_PASSED=false
-    RULES_DECISION="deny"
-    RULES_REASON=$(printf '%s' "$result" | jq -r '.reason')
-    # Detect mcp_servers policy denial — give an mcp-targeted hint per
-    # the agent_hint catalog (undeclared MCP server bucket).
-    local _policy
-    _policy=$(printf '%s' "$result" | jq -r '.policy // empty')
-    if [ "$_policy" = "mcp_servers" ]; then
-      local _server
-      _server=$(printf '%s' "$tool_name" | awk -F '__' '{print tolower($2)}')
-      RULES_HINT="APPROVAL NEEDED: Tool from undeclared server '${_server}'. Confirm this server is expected."
-    else
-      # Truncate policy reason to 120 chars (catalog rule for rule deny).
-      local _short="${RULES_REASON//$'\n'/ }"
-      _short="${_short:0:120}"
-      RULES_HINT="DENIED: ${_short}."
-    fi
-    return 1
+    decision=$(printf '%s' "$result" | jq -r '.decision // "deny"')
+    policy=$(printf '%s' "$result" | jq -r '.policy // empty')
+    subreason=$(printf '%s' "$result" | jq -r '.subreason // empty')
+    raw_reason=$(printf '%s' "$result" | jq -r '.reason')
+    local _short="${raw_reason//$'\n'/ }"
+    _short="${_short:0:120}"
+    case "$decision" in
+      ask)
+        RULES_PASSED=false
+        RULES_DECISION="ask"
+        RULES_REASON="[LaneKeep] NEEDS APPROVAL (Policy ${policy})"$'\n'"${raw_reason}"
+        if [ "$policy" = "mcp_inventory" ]; then
+          case "$subreason" in
+            undeclared_server)
+              local _server
+              _server=$(printf '%s' "$tool_name" | awk -F '__' '{print tolower($2)}')
+              RULES_HINT="APPROVAL NEEDED: Tool from undeclared server '${_server}'. Confirm this server is expected." ;;
+            undeclared_tool)
+              RULES_HINT="APPROVAL NEEDED: Tool '${tool_name}' is not in declared_tools. Confirm and add if expected." ;;
+            *)
+              RULES_HINT="APPROVAL NEEDED: ${_short}. Wait for human approval." ;;
+          esac
+        elif [ "$policy" = "mcp_servers" ]; then
+          local _server
+          _server=$(printf '%s' "$tool_name" | awk -F '__' '{print tolower($2)}')
+          RULES_HINT="APPROVAL NEEDED: Tool from undeclared server '${_server}'. Confirm this server is expected."
+        else
+          RULES_HINT="APPROVAL NEEDED: ${_short}. Wait for human approval."
+        fi
+        return 1
+        ;;
+      warn)
+        RULES_PASSED=true
+        RULES_DECISION="warn"
+        RULES_REASON="[LaneKeep] WARNING (Policy ${policy})"$'\n'"${raw_reason}"
+        RULES_HINT=""
+        return 2
+        ;;
+      *)
+        RULES_PASSED=false
+        RULES_DECISION="deny"
+        RULES_REASON="$raw_reason"
+        # Detect mcp_servers policy denial — give an mcp-targeted hint per
+        # the agent_hint catalog (undeclared MCP server bucket).
+        if [ "$policy" = "mcp_servers" ]; then
+          local _server
+          _server=$(printf '%s' "$tool_name" | awk -F '__' '{print tolower($2)}')
+          RULES_HINT="APPROVAL NEEDED: Tool from undeclared server '${_server}'. Confirm this server is expected."
+        elif [ "$policy" = "mcp_inventory" ]; then
+          RULES_HINT="DENIED: ${_short}."
+        else
+          RULES_HINT="DENIED: ${_short}."
+        fi
+        return 1
+        ;;
+    esac
   fi
   return 0
 }
@@ -651,10 +746,17 @@ rules_eval() {
 
   local config="$LANEKEEP_CONFIG_FILE"
 
-  # Check policies before rules
-  if ! policies_check "$tool_name" "$tool_input"; then
-    return 1
-  fi
+  # Check policies before rules.
+  # Three exit codes: 0=pass, 1=deny/ask (RULES_* set, propagate fail), 2=warn
+  # (RULES_DECISION="warn" set; skip rules-jq to preserve the warn).
+  # The `|| _p_rc=$?` idiom is required because the handler runs under `set -e`.
+  local _p_rc=0
+  policies_check "$tool_name" "$tool_input" || _p_rc=$?
+  case $_p_rc in
+    0) ;;
+    1) return 1 ;;
+    2) return 0 ;;
+  esac
 
   # Single jq call: find first matching enabled rule (first-match-wins)
   local result

@@ -1,0 +1,15 @@
+{
+  "rules": [],
+  "policies": {
+    "mcp_inventory": {
+      "enabled": true,
+      "max_tool_count": 25,
+      "on_excess": "warn",
+      "declared_servers": ["filesystem", "github", "memory"],
+      "on_undeclared_server": "ask",
+      "declared_tools": [],
+      "on_undeclared_tool": "ask",
+      "type": "free"
+    }
+  }
+}
