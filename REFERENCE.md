@@ -16,6 +16,7 @@ Detailed configuration reference for LaneKeep. For getting started, see
 - [Common Scenarios](#common-scenarios)
 - [Deployment Model](#deployment-model)
 - [CLI Reference](#cli-reference)
+- [Evaluator Authoring](#evaluator-authoring)
 
 ## Rule Field Reference
 
@@ -623,3 +624,62 @@ lanekeep bookmarks           # Manage bookmarks
 lanekeep-scan <dir>          # Scan plugins for issues
 lanekeep-parse-spec <file>   # Parse PRP to TaskSpec
 ```
+
+## Evaluator Authoring
+
+This section documents the conventions every core evaluator under `lib/`
+follows when shipping a new check. The plugin-side equivalent lives in
+`plugins.d/AUTHORING.md`.
+
+### agent_hint protocol
+
+`deny` and `ask` responses carry an optional `agent_hint` field alongside the
+existing `reason`. `reason` is the human/audit justification (multi-line,
+formatted, contains tier numbers and compliance codes). `agent_hint` is a
+short imperative directive routed by `hooks/evaluate.sh` into Claude Code's
+`additionalContext`, so the model sees a clean next-step instruction
+separately from the audit text.
+
+```json
+{
+  "decision": "deny",
+  "reason": "[LaneKeep] DENIED by ContextBudgetEvaluator (Tier 5.5)\n…",
+  "agent_hint": "DENIED: Context window at 97%. Run /clear or /compact before continuing."
+}
+```
+
+Each core evaluator exports a per-evaluator hint global next to its existing
+`_PASSED` / `_REASON` / `_DECISION` outputs — e.g. `HARDBLOCK_HINT`,
+`RULES_HINT`, `BUDGET_HINT`, `CONTEXT_BUDGET_HINT`, `MULTI_SESSION_HINT`,
+`INPUT_PII_HINT`. The handler (`bin/lanekeep-handler`) picks the hint that
+matches the failing tier and serialises it under `agent_hint`. Evaluators
+that don't set a hint degrade gracefully — the JSON field is omitted and
+`additionalContext` is skipped.
+
+`warn` and `allow` decisions never carry `agent_hint` — the action proceeds
+regardless, so the model doesn't need a directive.
+
+### Writing standard
+
+Every `deny` / `ask` hint shipped by a core evaluator must follow these
+rules. The same rules apply to plugin hints (see `plugins.d/AUTHORING.md`).
+
+| Rule | Good | Bad |
+|---|---|---|
+| One sentence, ≤200 chars, no newlines | `DENIED: rm -rf detected. Use targeted file removal instead.` | `DENIED by HardBlock (tier 1) ...\n... see lib/eval-hardblock.sh for the pattern list` |
+| Lead with the decision prefix | `DENIED: ...` / `APPROVAL NEEDED: ...` | `Blocked because ...` |
+| Plain text — no markdown, no ANSI | `APPROVAL NEEDED: Writing to .env requires human review.` | `**APPROVAL NEEDED**: Writing to \`.env\` requires human review.` |
+| No internals (tier numbers, evaluator names, scores) | `DENIED: Context at 97%. Run /clear.` | `DENIED: ContextBudgetEvaluator tier 5.5 hard threshold exceeded` |
+| Actionable where possible | `DENIED: rm -rf detected. Use targeted file removal instead.` | `DENIED: Destructive operation.` |
+| Self-contained for headless subagents | `DENIED: Max spawn depth reached. Return result to parent agent instead.` | `DENIED: spawn budget exceeded` |
+
+**Decision prefixes**
+
+| Decision | Prefix |
+|---|---|
+| `deny` | `DENIED:` |
+| `ask`  | `APPROVAL NEEDED:` |
+| `warn` (only when shown to humans, never as an `agent_hint`) | `WARNING:` |
+
+Full protocol: [`specs/AGENT-OUTPUT-FORMAT.md`](https://github.com/algorismo-au/buildinglanekeep/blob/main/specs/AGENT-OUTPUT-FORMAT.md)
+(spec lives in the private meta-repo).

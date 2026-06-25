@@ -182,6 +182,102 @@ MY_GUARD_DECISION="warn"
 return 1
 ```
 
+## Agent Hints
+
+`agent_hint` is an optional model-targeted directive that ships alongside the
+human-readable `reason` on `deny` and `ask` decisions. The handler routes it
+into Claude Code's `additionalContext`, so the model sees a short imperative
+sentence separate from the audit justification. Plugins that omit it degrade
+gracefully — the bridge just skips `additionalContext`.
+
+**When to set one**
+
+- `deny` and `ask` decisions only — `warn` allows the action through, so a
+  hint adds noise without value.
+- Only when you can name a concrete next step. If you can't, leave it unset
+  and let `reason` speak for itself.
+
+**Writing rules** (mirrors `specs/AGENT-OUTPUT-FORMAT.md` § Writing Standard)
+
+| Rule | Good | Bad |
+|---|---|---|
+| One sentence, ≤200 chars, no newlines | `DENIED: rm -rf detected. Use targeted file removal instead.` | `DENIED by plugin:rm-guard (severity HIGH) ...\n... see plugins.d/rm-guard.plugin.sh for details` |
+| Lead with the decision prefix | `DENIED: ...` / `APPROVAL NEEDED: ...` | `Blocked because ...` |
+| Plain text — no markdown, no ANSI | `APPROVAL NEEDED: Writing to .env requires human review.` | `**APPROVAL NEEDED**: Writing to \`.env\` requires human review.` |
+| No plugin internals, tier numbers, or scores | `DENIED: terraform destroy on production stack.` | `DENIED (plugin:tf-guard, tier 2, score 1.0): terraform destroy` |
+| Self-contained for headless subagents | `DENIED: Max spawn depth reached. Return result to parent agent instead.` | `DENIED: spawn budget exceeded` |
+
+**Decision prefixes**
+
+| Decision | Prefix |
+|---|---|
+| `deny` | `DENIED:` |
+| `ask`  | `APPROVAL NEEDED:` |
+
+### Bash plugins
+
+Declare a `_HINT` global next to your other plugin globals and set it in the
+same conditional block where you set `_PASSED` / `_REASON` / `_DECISION`.
+Reset it to empty on every entry into the check function, like the others.
+
+```bash
+MY_GUARD_PASSED=true
+MY_GUARD_REASON=""
+MY_GUARD_DECISION="deny"
+MY_GUARD_HINT=""
+
+my_guard_check() {
+  MY_GUARD_PASSED=true
+  MY_GUARD_REASON=""
+  MY_GUARD_DECISION="deny"
+  MY_GUARD_HINT=""
+
+  # ... your logic ...
+
+  case "$command" in
+    *"terraform destroy"*)
+      MY_GUARD_PASSED=false
+      MY_GUARD_REASON="[LaneKeep] NEEDS APPROVAL by plugin:my-guard — terraform destroy on production"
+      MY_GUARD_DECISION="ask"
+      MY_GUARD_HINT="APPROVAL NEEDED: terraform destroy on production. Wait for human review."
+      return 1
+      ;;
+  esac
+  return 0
+}
+```
+
+The function name in the example above is illustrative — the actual plugin
+contract requires the `_eval` suffix shown in the Bash Plugin Contract
+section. The `_HINT` global follows the same `_PASSED` / `_REASON` /
+`_DECISION` naming convention.
+
+### Polyglot plugins
+
+Add an optional `agent_hint` field to the JSON object you print on stdout.
+The handler ignores the field on `allow` / `warn` responses and when it is
+absent or empty.
+
+```json
+{
+  "passed": false,
+  "reason": "[LaneKeep] DENIED by plugin:rm-guard — destructive command",
+  "decision": "deny",
+  "agent_hint": "DENIED: rm -rf detected. Use targeted file removal instead."
+}
+```
+
+Python example:
+
+```python
+print(json.dumps({
+    "passed": False,
+    "reason": "[LaneKeep] DENIED by plugin:rm-guard — destructive command",
+    "decision": "deny",
+    "agent_hint": "DENIED: rm -rf detected. Use targeted file removal instead.",
+}))
+```
+
 ## Testing
 
 ### CLI testing
