@@ -5,6 +5,47 @@ LANEKEEP_DIR="${LANEKEEP_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 PROJECT_DIR="${PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
 TRACE_DIR="$PROJECT_DIR/.lanekeep/traces"
 
+# --- summary subcommand (cost-line / json exporter for PR bodies & tooling) ---
+if [ "${1:-}" = "--summary" ]; then
+  shift
+  mode="${1:-}"
+  case "$mode" in
+    cost-line|json) shift ;;
+    "") echo "Usage: lanekeep-trace --summary {cost-line|json} [--task <id>|--session <id>] [--with-savings]" >&2; exit 2 ;;
+    *)  echo "Unknown --summary mode: $mode (expected: cost-line, json)" >&2; exit 2 ;;
+  esac
+
+  scope="" scope_id="" with_savings=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --task)         shift; scope="task";    scope_id="${1:-}"; shift ;;
+      --session)      shift; scope="session"; scope_id="${1:-}"; shift ;;
+      --with-savings) with_savings=1; shift ;;
+      *) echo "Unknown --summary option: $1" >&2; exit 2 ;;
+    esac
+  done
+
+  # Scope resolution: explicit flag > env var > default to "session" (current)
+  if [ -z "$scope" ]; then
+    if [ -n "${LANEKEEP_TASK_ID:-}" ]; then
+      scope="task";    scope_id="$LANEKEEP_TASK_ID"
+    elif [ -n "${LANEKEEP_SESSION_ID:-}" ]; then
+      scope="session"; scope_id="$LANEKEEP_SESSION_ID"
+    else
+      scope="session"; scope_id=""
+    fi
+  fi
+
+  # shellcheck source=/dev/null
+  . "$LANEKEEP_DIR/lib/cost-line.sh"
+  if [ "$mode" = "cost-line" ]; then
+    cost_line::emit_cost_line "$scope" "$scope_id" "$with_savings"
+  else
+    cost_line::emit_json "$scope" "$scope_id"
+  fi
+  exit $?
+fi
+
 # --- clear subcommand ---
 if [ "${1:-}" = "clear" ]; then
   # shellcheck source=/dev/null

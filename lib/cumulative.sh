@@ -6,6 +6,95 @@ _cumulative_empty() {
   printf '{"version":1,"updated_at":"","total_sessions":0,"total_events":0,"total_actions":0,"total_tokens":0,"total_input_tokens":0,"total_output_tokens":0,"total_cache_creation_input_tokens":0,"total_cache_read_input_tokens":0,"total_time_seconds":0,"total_cost":0,"total_cache_savings":0}\n'
 }
 
+# Compute session cost from token counts + pricing table (with config overrides).
+# Args: model itoks cctoks crtoks otoks pricing_file config_file
+# Echoes two shell-eval lines:
+#   session_cost=<float>
+#   session_savings=<float>
+# Always exits 0; on missing pricing prints both as 0.
+# Shared by cumulative_init (session finalization) and lib/cost-line.sh
+# (PR-body / JSON cost exporter) so pricing math has a single source of truth.
+cumulative::_calc_cost_jq() {
+  local model="$1" itoks="$2" cctoks="$3" crtoks="$4" otoks="$5"
+  local pricing_file="$6" config_file="$7"
+
+  if [ -z "$model" ] || [ ! -f "$pricing_file" ]; then
+    printf 'session_cost=0\nsession_savings=0\n'
+    return 0
+  fi
+
+  local _ovr='{}'
+  if [ -n "$config_file" ] && [ -f "$config_file" ]; then
+    _ovr=$(jq -c '.budget.pricing_overrides // {}' "$config_file" 2>/dev/null) || _ovr='{}'
+  fi
+
+  jq -r --arg model "$model" \
+    --argjson itoks "$itoks" \
+    --argjson cctoks "$cctoks" \
+    --argjson crtoks "$crtoks" \
+    --argjson otoks "$otoks" \
+    --argjson overrides "$_ovr" '
+    ((.models[$model] // .models[($model | gsub("-[0-9]{8}$";""))]) // {}) as $base |
+    (($overrides[$model] // $overrides[($model | gsub("-[0-9]{8}$";""))]) // {}) as $ovr |
+    ($base + $ovr) as $p |
+    if ($p | has("input_per_mtok")) then
+      ((([0, ($itoks - $cctoks - $crtoks)] | max) * $p.input_per_mtok
+        + $cctoks * $p.cache_write_per_mtok
+        + $crtoks * $p.cache_read_per_mtok
+        + $otoks * $p.output_per_mtok) / 1000000) as $cost_raw |
+      (($crtoks * ($p.input_per_mtok - $p.cache_read_per_mtok)) / 1000000) as $sav_raw |
+      "session_cost=\($cost_raw * 1000000 | round / 1000000)",
+      "session_savings=\($sav_raw * 1000000 | round / 1000000)"
+    else
+      "session_cost=0", "session_savings=0"
+    end
+  ' "$pricing_file" 2>/dev/null || printf 'session_cost=0\nsession_savings=0\n'
+}
+
+# Persist a per-session summary file so cross-session aggregators can read
+# completed session data without depending on the rolling cumulative.json.
+# Args: sessions_dir session_id task_id model itoks otoks cctoks crtoks
+#       start_epoch elapsed cost savings
+# Best-effort: never fails the caller.
+cumulative::_write_session_summary() {
+  local sessions_dir="$1" sid="$2" tid="$3" model="$4"
+  local itoks="$5" otoks="$6" cctoks="$7" crtoks="$8"
+  local start_epoch="$9" elapsed="${10}" cost="${11}" savings="${12}"
+
+  [ -z "$sid" ] && return 0
+  (umask 077; mkdir -p "$sessions_dir") || return 0
+
+  local end_epoch=$((start_epoch + elapsed))
+  local out="$sessions_dir/${sid}.summary.json"
+
+  jq -n \
+    --arg sid "$sid" --arg tid "$tid" --arg model "$model" \
+    --argjson itoks "$itoks" --argjson otoks "$otoks" \
+    --argjson cctoks "$cctoks" --argjson crtoks "$crtoks" \
+    --argjson start "$start_epoch" --argjson end_e "$end_epoch" \
+    --argjson dur "$elapsed" \
+    --argjson cost "$cost" --argjson savings "$savings" '
+    {
+      version: 1,
+      session_id: $sid,
+      task_id: $tid,
+      model: $model,
+      input_tokens: $itoks,
+      output_tokens: $otoks,
+      cache_creation_input_tokens: $cctoks,
+      cache_read_input_tokens: $crtoks,
+      start_epoch: $start,
+      end_epoch: $end_e,
+      duration_seconds: $dur,
+      cost: $cost,
+      cache_savings: $savings
+    }
+    | if $tid == "" then del(.task_id) else . end
+    | if $model == "" then del(.model) else . end
+  ' > "${out}.tmp" 2>/dev/null && mv "${out}.tmp" "$out"
+  return 0
+}
+
 # Called at session start, before state.json resets.
 # Finalizes previous session's counters into cumulative.json.
 cumulative_init() {
@@ -25,7 +114,7 @@ cumulative_init() {
 
   # Read previous session's final counters
   local prev_actions=0 prev_events=0 prev_tokens=0 prev_input_tokens=0 prev_output_tokens=0 prev_start=0
-  local prev_cache_creation=0 prev_cache_read=0 prev_model=""
+  local prev_cache_creation=0 prev_cache_read=0 prev_model="" prev_session_id="" prev_task_id=""
   eval "$(jq -r '
     "prev_actions=" + (.action_count // 0 | tostring | @sh),
     "prev_events=" + (.total_events // 0 | tostring | @sh),
@@ -35,7 +124,9 @@ cumulative_init() {
     "prev_cache_creation=" + (.cache_creation_input_tokens // 0 | tostring | @sh),
     "prev_cache_read=" + (.cache_read_input_tokens // 0 | tostring | @sh),
     "prev_start=" + (.start_epoch // 0 | tostring | @sh),
-    "prev_model=" + (.model // "" | @sh)
+    "prev_model=" + (.model // "" | @sh),
+    "prev_session_id=" + (.session_id // "" | @sh),
+    "prev_task_id=" + (.task_id // "" | @sh)
   ' "$state" 2>/dev/null)" || true
   [[ "$prev_actions" =~ ^[0-9]+$ ]] || prev_actions=0
   [[ "$prev_events" =~ ^[0-9]+$ ]] || prev_events=0
@@ -50,34 +141,10 @@ cumulative_init() {
   local session_cost=0 session_savings=0
   local pricing_file="${LANEKEEP_DIR:-}/data/pricing.json"
   local config_file="${LANEKEEP_CONFIG_FILE:-}"
-  if [ -n "$prev_model" ] && [ -f "$pricing_file" ]; then
-    # Read pricing overrides from config if available
-    local _ovr='{}'
-    if [ -n "$config_file" ] && [ -f "$config_file" ]; then
-      _ovr=$(jq -c '.budget.pricing_overrides // {}' "$config_file" 2>/dev/null) || _ovr='{}'
-    fi
-    eval "$(jq -r --arg model "$prev_model" \
-      --argjson itoks "$prev_input_tokens" \
-      --argjson cctoks "$prev_cache_creation" \
-      --argjson crtoks "$prev_cache_read" \
-      --argjson otoks "$prev_output_tokens" \
-      --argjson overrides "$_ovr" '
-      ((.models[$model] // .models[($model | gsub("-[0-9]{8}$";""))]) // {}) as $base |
-      (($overrides[$model] // $overrides[($model | gsub("-[0-9]{8}$";""))]) // {}) as $ovr |
-      ($base + $ovr) as $p |
-      if ($p | has("input_per_mtok")) then
-        ((([0, ($itoks - $cctoks - $crtoks)] | max) * $p.input_per_mtok
-          + $cctoks * $p.cache_write_per_mtok
-          + $crtoks * $p.cache_read_per_mtok
-          + $otoks * $p.output_per_mtok) / 1000000) as $cost_raw |
-        (($crtoks * ($p.input_per_mtok - $p.cache_read_per_mtok)) / 1000000) as $sav_raw |
-        "session_cost=\($cost_raw * 1000000 | round / 1000000)",
-        "session_savings=\($sav_raw * 1000000 | round / 1000000)"
-      else
-        "session_cost=0", "session_savings=0"
-      end
-    ' "$pricing_file" 2>/dev/null)" || true
-  fi
+  eval "$(cumulative::_calc_cost_jq \
+    "$prev_model" "$prev_input_tokens" "$prev_cache_creation" \
+    "$prev_cache_read" "$prev_output_tokens" \
+    "$pricing_file" "$config_file")" || true
 
   # Compute elapsed time
   local now elapsed=0
@@ -94,6 +161,15 @@ cumulative_init() {
     fi
     return 0
   fi
+
+  # Persist per-session summary so task-scoped aggregators can read
+  # completed-session data independently of the cumulative roll-up.
+  local sessions_dir="${LANEKEEP_SESSIONS_DIR:-${PROJECT_DIR:-.}/.lanekeep/sessions}"
+  cumulative::_write_session_summary \
+    "$sessions_dir" "$prev_session_id" "$prev_task_id" "$prev_model" \
+    "$prev_input_tokens" "$prev_output_tokens" \
+    "$prev_cache_creation" "$prev_cache_read" \
+    "$prev_start" "$elapsed" "$session_cost" "$session_savings"
 
   # Lock and update
   exec 8>"$lockfile"
