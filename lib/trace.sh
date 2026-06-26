@@ -163,6 +163,7 @@ write_trace() {
     --arg story_id "${LANEKEEP_STORY_ID:-}" \
     --arg epic_id "${LANEKEEP_EPIC_ID:-}" \
     --arg task_id "${LANEKEEP_TASK_ID:-}" \
+    --arg orig_dec "${_TRACE_ORIGINAL_DECISION:-}" \
     '. as $evals |
      ([.[].compliance? // [] | .[]] | unique | if length == 0 then null else . end) as $comp |
      ([.[].compliance_tags? // [] | .[]] | unique | if length == 0 then null else . end) as $comp_tags |
@@ -189,7 +190,8 @@ write_trace() {
      | if $agent_team_id != "" then .agent_team_id = $agent_team_id else . end
      | if $story_id != "" then .story_id = $story_id else . end
      | if $epic_id != "" then .epic_id = $epic_id else . end
-     | if $task_id != "" then .task_id = $task_id else . end')
+     | if $task_id != "" then .task_id = $task_id else . end
+     | if $orig_dec != "" then .original_decision = $orig_dec else . end')
   _locked_append "$LANEKEEP_TRACE_FILE" "$entry"
 }
 
