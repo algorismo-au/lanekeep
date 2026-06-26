@@ -517,9 +517,63 @@ judge intent alignment):
    }
    ```
 
+3. **Generate from an `IMPLEMENTATION_PLAN.json` (orchestrator input contract):**
+   ```bash
+   lanekeep-parse-plan IMPLEMENTATION_PLAN.json > .lanekeep/taskspec.json
+   #                                              ↑ stdout: TaskSpec
+   #                                                stderr: resolved task id (single line)
+   ```
+
 ```bash
 LANEKEEP_MAX_ACTIONS=50 LANEKEEP_TIMEOUT_SECONDS=900 lanekeep serve
 ```
+
+### Plan File (input contract)
+
+`lanekeep-parse-plan` is the documented bridge between a scaffold03-style
+orchestrator and the lanekeep TaskSpec pipeline. The orchestrator writes a
+plan with `{now, next, blocked, done}` buckets; the adapter selects an item
+(default: head of `now[]`) and emits a TaskSpec on stdout, the resolved task
+id on stderr.
+
+```json
+{
+  "schema_version": "1.0",
+  "project": "myrepo",
+  "defaults": {
+    "budget": { "max_actions": 200, "timeout_seconds": 1800 },
+    "tools_needed": ["Read", "Edit", "Bash"]
+  },
+  "now":     [ { "id": "T-42", "title": "...", "goal": "...", "tools_needed": [...], "denied_tools": [...], "budget": { ... } } ],
+  "next":    [ { "id": "T-43", "title": "..." } ],
+  "blocked": [ { "id": "T-19", "title": "...", "reason": "Awaiting upstream API" } ],
+  "done":    [ { "id": "T-12", "title": "...", "completed": "2026-06-20" } ]
+}
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `schema_version` | yes | Major must be `1`; unknown majors are rejected. |
+| `defaults.budget` | no | Per-item `budget` wins. |
+| `defaults.tools_needed` | no | Per-item `tools_needed` wins. |
+| `now[]`/`next[]`/`blocked[]`/`done[]` | yes (may be empty) | All four arrays must exist. |
+| `<item>.id` | yes | Becomes the TaskSpec `task_id` and stderr line. |
+| `<item>.title` | yes | Used as `goal` fallback if `goal` absent. |
+| `<item>.goal` | no | Free-form; passes through. |
+| `<item>.tools_needed[]` | no | → TaskSpec `allowed_tools`. |
+| `<item>.denied_tools[]` | no | → TaskSpec `denied_tools`. |
+| `<item>.budget` | no | Per-item override of `defaults.budget`. |
+| `<item>.reason` | required on `blocked[]` items | Surfaced on the error path. |
+
+**Flags:** `--task <id>` selects a specific item (must live in the bucket).
+`--bucket next|blocked` overrides the default `now` (`done` is not selectable).
+`--validate` runs schema-only checks.
+
+**Env:** `LANEKEEP_PLAN_FILE` provides the path when no positional arg is
+given, mirroring `LANEKEEP_TASKSPEC_FILE` / `LANEKEEP_STATE_FILE`.
+
+The adapter is read-only on the plan file. Status transitions (`now → done`)
+belong to the orchestrator, not to lanekeep.
 
 ## Settings Reference
 
@@ -702,7 +756,8 @@ lanekeep ui                  # Web dashboard
 lanekeep migrate             # Migrate config format
 lanekeep bookmarks           # Manage bookmarks
 lanekeep-scan <dir>          # Scan plugins for issues
-lanekeep-parse-spec <file>   # Parse PRP to TaskSpec
+lanekeep-parse-spec <file>   # Parse PRP markdown to TaskSpec
+lanekeep-parse-plan <file>   # Parse IMPLEMENTATION_PLAN.json to TaskSpec (stdout: TaskSpec, stderr: task id)
 ```
 
 ## Evaluator Authoring

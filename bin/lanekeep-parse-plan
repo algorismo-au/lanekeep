@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# scaffold03-style IMPLEMENTATION_PLAN.json → TaskSpec JSON
+# Reads {now,next,blocked,done} buckets; emits a TaskSpec the lanekeep
+# handler already understands. stdout: TaskSpec JSON. stderr: resolved task id.
+
+usage() {
+  cat >&2 <<'EOF'
+Usage: lanekeep-parse-plan [<plan.json>] [--task <id>] [--bucket now|next|blocked] [--validate]
+
+  <plan.json>         Path to IMPLEMENTATION_PLAN.json. Falls back to $LANEKEEP_PLAN_FILE.
+  --task <id>         Select item by id (must live in the selected bucket).
+  --bucket <name>     Bucket to draw from (default: now). 'done' is not selectable.
+  --validate          Schema-check only; no TaskSpec emitted.
+EOF
+}
+
+PLAN_FILE=""
+TASK_ID=""
+BUCKET="now"
+VALIDATE_ONLY=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --task)     TASK_ID="${2:?--task requires an id}"; shift 2 ;;
+    --bucket)   BUCKET="${2:?--bucket requires a name}"; shift 2 ;;
+    --validate) VALIDATE_ONLY=1; shift ;;
+    -h|--help)  usage; exit 0 ;;
+    --) shift; break ;;
+    -*) echo "Error: unknown flag: $1" >&2; usage; exit 2 ;;
+    *)  if [ -z "$PLAN_FILE" ]; then PLAN_FILE="$1"; shift
+        else echo "Error: unexpected positional: $1" >&2; exit 2; fi ;;
+  esac
+done
+
+[ -z "$PLAN_FILE" ] && PLAN_FILE="${LANEKEEP_PLAN_FILE:-}"
+
+if [ -z "$PLAN_FILE" ]; then
+  echo "Error: no plan file (pass a path or set LANEKEEP_PLAN_FILE)" >&2
+  exit 2
+fi
+
+if [ ! -f "$PLAN_FILE" ]; then
+  echo "Error: file not found: $PLAN_FILE" >&2
+  exit 1
+fi
+
+if ! jq -e '.' "$PLAN_FILE" >/dev/null 2>&1; then
+  echo "Error: invalid JSON: $PLAN_FILE" >&2
+  exit 1
+fi
+
+# --- Schema validation ---
+# Bucket arrays must exist; schema_version major must be 1.
+sv=$(jq -r '.schema_version // ""' "$PLAN_FILE")
+case "$sv" in
+  1.*) ;;
+  "")  echo "Error: unknown plan schema (missing schema_version)" >&2; exit 1 ;;
+  *)   echo "Error: unsupported plan schema_version: $sv (need 1.x)" >&2; exit 1 ;;
+esac
+
+for b in now next blocked "done"; do
+  if ! jq -e --arg b "$b" '.[$b] | type == "array"' "$PLAN_FILE" >/dev/null 2>&1; then
+    echo "Error: plan missing required bucket or not an array: $b" >&2
+    exit 1
+  fi
+done
+
+# Warn (don't fail) on unknown top-level keys for forward-compat.
+unknown_keys=$(jq -r '
+  [keys[] | select(. as $k | ["schema_version","project","defaults","now","next","blocked","done"] | index($k) | not)]
+  | join(",")
+' "$PLAN_FILE")
+[ -n "$unknown_keys" ] && echo "Warning: unknown top-level keys ignored: $unknown_keys" >&2
+
+if [ "$VALIDATE_ONLY" -eq 1 ]; then
+  exit 0
+fi
+
+# --- Bucket gating ---
+case "$BUCKET" in
+  now|next|blocked) ;;
+  done) echo "Error: bucket 'done' is not selectable" >&2; exit 1 ;;
+  *)    echo "Error: unknown bucket: $BUCKET" >&2; exit 2 ;;
+esac
+
+# --- Item selection ---
+# Pick item by id if --task, else head of bucket. Capture as JSON object.
+item=$(jq --arg b "$BUCKET" --arg id "$TASK_ID" '
+  (.[$b] // []) as $bucket
+  | if $id == "" then ($bucket[0] // null)
+    else ($bucket | map(select(.id == $id)) | first // null)
+    end
+' "$PLAN_FILE")
+
+if [ "$item" = "null" ] || [ -z "$item" ]; then
+  if [ -n "$TASK_ID" ]; then
+    echo "Error: task '$TASK_ID' not found in ${BUCKET}[]" >&2
+  else
+    echo "Error: no candidate task in ${BUCKET}[]" >&2
+  fi
+  exit 1
+fi
+
+# --- Blocked items: emit the reason, exit 1 ---
+if [ "$BUCKET" = "blocked" ]; then
+  reason=$(printf '%s' "$item" | jq -r '.reason // "(no reason given)"')
+  tid=$(printf '%s' "$item" | jq -r '.id')
+  echo "Error: task $tid is in blocked[] (reason: $reason)" >&2
+  exit 1
+fi
+
+# --- Item shape validation ---
+for f in id title; do
+  if ! printf '%s' "$item" | jq -e --arg f "$f" '.[$f] | type == "string" and length > 0' >/dev/null 2>&1; then
+    echo "Error: selected item missing required field: $f" >&2
+    exit 1
+  fi
+done
+
+# --- Emit TaskSpec ---
+# defaults.tools_needed and defaults.budget supply fallbacks; per-item wins.
+jq -n \
+  --argjson plan "$(cat "$PLAN_FILE")" \
+  --argjson item "$item" '
+  ($plan.defaults // {}) as $d
+  | ($item.tools_needed // $d.tools_needed // []) as $allowed
+  | ($item.denied_tools // []) as $denied
+  | (($item.budget // {}).max_actions     // (($d.budget // {}).max_actions     // null)) as $ma
+  | (($item.budget // {}).timeout_seconds // (($d.budget // {}).timeout_seconds // null)) as $to
+  | {
+      task_id: $item.id,
+      goal: ($item.goal // $item.title),
+      allowed_tools: $allowed,
+      denied_tools: $denied,
+      budget: { max_actions: $ma, timeout_seconds: $to }
+    }
+'
+
+# stderr: resolved task id (single line, no decoration)
+printf '%s\n' "$(printf '%s' "$item" | jq -r '.id')" >&2
