@@ -1193,16 +1193,77 @@ class TestResolveConfig(unittest.TestCase):
         self.assertIn(locked_id, ids)
 
     def test_layering_fields_removed(self):
-        """extends, extra_rules, disabled_rules are removed from output."""
+        """extends, extra_rules, disabled_rules, overrides are removed from output."""
         config = {
             'extends': 'defaults',
             'extra_rules': [{'id': 'x-1', 'decision': 'ask', 'reason': 'test'}],
             'disabled_rules': ['sec-012'],
+            'overrides': {'sec-028': {'decision': 'warn'}},
         }
         result = srv._resolve_config(config)
         self.assertNotIn('extends', result)
         self.assertNotIn('extra_rules', result)
         self.assertNotIn('disabled_rules', result)
+        self.assertNotIn('overrides', result)
+
+    def test_overrides_block_patches_decision(self):
+        """overrides{}.decision patches the rule decision."""
+        config = {
+            'extends': 'defaults',
+            'overrides': {'sec-012': {'decision': 'warn'}},
+        }
+        result = srv._resolve_config(config)
+        by_id = {r['id']: r for r in result['rules']}
+        self.assertEqual(by_id['sec-012']['decision'], 'warn')
+
+    def test_overrides_block_enabled_false_propagates(self):
+        """overrides{}.enabled=False is preserved on the resolved rule (engine
+        filters via select(.value.enabled != false) at eval-rules.sh:772)."""
+        config = {
+            'extends': 'defaults',
+            'overrides': {'sec-012': {'enabled': False}},
+        }
+        result = srv._resolve_config(config)
+        by_id = {r['id']: r for r in result['rules']}
+        self.assertIs(by_id['sec-012']['enabled'], False)
+
+    def test_overrides_block_disabled_true_removes_rule(self):
+        """overrides{}.disabled=True removes the rule entirely."""
+        config = {
+            'extends': 'defaults',
+            'overrides': {'sec-012': {'disabled': True}},
+        }
+        result = srv._resolve_config(config)
+        ids = {r['id'] for r in result['rules']}
+        self.assertNotIn('sec-012', ids)
+        self.assertIn('sec-028', ids)  # sibling untouched
+
+    def test_overrides_block_locked_rule_ignored(self):
+        """overrides targeting a sys-NNN (locked) rule are ignored — rule
+        keeps its default values."""
+        defaults_path = srv.LANEKEEP_DIR / 'defaults' / 'lanekeep.json'
+        with open(defaults_path) as f:
+            defaults = json.load(f)
+        sys_rules = [
+            r for r in defaults.get('rules', [])
+            if r.get('id', '').startswith('sys-') and r['id'][4:].isdigit()
+        ]
+        if not sys_rules:
+            self.skipTest('No sys-NNN rules in defaults')
+        sys_rule = sys_rules[0]
+        sys_id = sys_rule['id']
+        original_decision = sys_rule.get('decision')
+        config = {
+            'extends': 'defaults',
+            'overrides': {sys_id: {'enabled': False, 'decision': 'allow'}},
+        }
+        result = srv._resolve_config(config)
+        by_id = {r['id']: r for r in result['rules']}
+        self.assertIn(sys_id, by_id)
+        # Override must NOT have taken effect
+        self.assertNotEqual(by_id[sys_id].get('enabled'), False)
+        if original_decision is not None:
+            self.assertEqual(by_id[sys_id].get('decision'), original_decision)
 
 
 class TestGraphsExtendsDefaults(_ServerTestCase):

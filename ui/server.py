@@ -124,7 +124,7 @@ def _resolve_config(config):
     except (OSError, json.JSONDecodeError):
         return config
 
-    layering_keys = {'rules', 'rule_overrides', 'extra_rules', 'disabled_rules', 'extends'}
+    layering_keys = {'rules', 'rule_overrides', 'extra_rules', 'disabled_rules', 'extends', 'overrides'}
 
     # Deep-merge non-layering fields (user wins on conflicts)
     def _deep_merge(base, overlay):
@@ -142,6 +142,31 @@ def _resolve_config(config):
 
     # Rules: start with defaults, apply overrides, remove disabled, append extras
     rules = list(defaults.get('rules', []))
+
+    # Apply canonical overrides{} block (v1.1+) — patches by rule id,
+    # removes when disabled:true, ignores entries targeting locked / sys-* rules.
+    # Mirrors lib/config.sh:343-360.
+    overrides_block = config.get('overrides', {})
+    if isinstance(overrides_block, dict) and overrides_block:
+        new_rules = []
+        for rule in rules:
+            rid = rule.get('id', '')
+            ovr = overrides_block.get(rid) if rid else None
+            if ovr is None:
+                new_rules.append(rule)
+                continue
+            if rule.get('locked') or (rid.startswith('sys-') and rid[4:].isdigit()):
+                new_rules.append(rule)  # locked — ignore override
+                continue
+            if ovr.get('disabled') is True:
+                continue  # remove rule
+            merged_rule = dict(rule)
+            for k, v in ovr.items():
+                if k == 'disabled':
+                    continue
+                merged_rule[k] = v
+            new_rules.append(merged_rule)
+        rules = new_rules
 
     # Apply rule_overrides by id (skip locked / sys-* rules)
     overrides = config.get('rule_overrides', [])
@@ -184,7 +209,7 @@ def _resolve_config(config):
     resolved['rules'] = rules
 
     # Clean up layering-only fields
-    for k in ('extends', 'rule_overrides', 'extra_rules', 'disabled_rules'):
+    for k in ('extends', 'rule_overrides', 'extra_rules', 'disabled_rules', 'overrides'):
         resolved.pop(k, None)
 
     return resolved
