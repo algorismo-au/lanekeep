@@ -20,15 +20,24 @@ schema_eval() {
   _ts_sz=$(stat -c %s "$taskspec" 2>/dev/null) || _ts_sz=0
   if [ "$_ts_sz" -le 4 ]; then return 0; fi
 
-  # Single jq call: check denylist, then allowlist
-  local decision
-  decision=$(jq -r --arg t "$tool_name" '
-    if (.denied_tools // []) | any(. == $t) then "denied"
-    elif (.allowed_tools // []) | length == 0 then "allowed"
-    elif (.allowed_tools // []) | any(. == $t) then "allowed"
-    else "not_allowed"
-    end
+  # Single jq call: returns "<decision>|<task_id>" so downstream evaluators
+  # (budget, headless, cost-line) all attribute to the same task when the
+  # TaskSpec was emitted by lanekeep-parse-plan.
+  local _schema_out decision _ts_task
+  _schema_out=$(jq -r --arg t "$tool_name" '
+    (if (.denied_tools // []) | any(. == $t) then "denied"
+     elif (.allowed_tools // []) | length == 0 then "allowed"
+     elif (.allowed_tools // []) | any(. == $t) then "allowed"
+     else "not_allowed"
+     end) + "|" + (.task_id // "")
   ' "$taskspec")
+  decision="${_schema_out%%|*}"
+  _ts_task="${_schema_out#*|}"
+
+  # Env wins; only fill in from TaskSpec when caller hasn't set it.
+  if [ -n "$_ts_task" ] && [ -z "${LANEKEEP_TASK_ID:-}" ]; then
+    export LANEKEEP_TASK_ID="$_ts_task"
+  fi
 
   case "$decision" in
     denied)
