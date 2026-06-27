@@ -35,6 +35,13 @@ codediff_eval() {
     return 0
   fi
 
+  # Short-circuit for excluded file extensions (e.g. *.md tutorial content)
+  if declare -F should_skip_by_extension > /dev/null \
+     && should_skip_by_extension "$tool_name" "$tool_input" "codediff"; then
+    CODEDIFF_REASON="Skipped: file extension excluded from codediff"
+    return 0
+  fi
+
   # Extract all pattern arrays in a single jq call (9→1 subprocess)
   local _CD_SENSITIVE_PATHS="" _CD_PROTECTED_DIRS="" _CD_SAFE_EXCEPTIONS=""
   local _CD_SECRET_PATTERNS="" _CD_DESTRUCTIVE_PATTERNS="" _CD_DANGEROUS_GIT_PATTERNS=""

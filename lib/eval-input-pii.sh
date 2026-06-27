@@ -19,6 +19,13 @@ input_pii_eval() {
   INPUT_PII_DETECTIONS="[]"
   INPUT_PII_COMPLIANCE="[]"
 
+  # Short-circuit for excluded file extensions (e.g. *.md tutorial content)
+  if declare -F should_skip_by_extension > /dev/null \
+     && should_skip_by_extension "$tool_name" "$tool_input" "input_pii"; then
+    INPUT_PII_REASON="Skipped: file extension excluded from input_pii"
+    return 0
+  fi
+
   local config="$LANEKEEP_CONFIG_FILE"
 
   # Resolve config: use pre-extracted _CFG_INPUT_PII_* vars or fall back to jq

@@ -635,3 +635,41 @@ verify_config_integrity() {
   INTEGRITY_REASON=""
   return 0
 }
+
+# Returns 0 (skip evaluator) if tool is Write/Edit and the target file_path has
+# an extension listed in .evaluators.<evaluator_key>.exclude_extensions. Used by
+# codediff and input_pii to suppress pattern-matching FPs on doc-like file types
+# (e.g. *.md tutorials with example AWS keys). Bash calls are never skipped —
+# they carry no file_path.
+should_skip_by_extension() {
+  local tool_name="$1"
+  local tool_input="$2"
+  local evaluator_key="$3"
+
+  case "$tool_name" in
+    Write|Edit) ;;
+    *) return 1 ;;
+  esac
+
+  local file_path ext
+  file_path=$(printf '%s' "$tool_input" | jq -r '.file_path // empty' 2>/dev/null)
+  [ -n "$file_path" ] || return 1
+  [[ "$file_path" == *.* ]] || return 1
+  ext=".${file_path##*.}"
+  ext="${ext,,}"
+
+  local config="$LANEKEEP_CONFIG_FILE"
+  [ -f "$config" ] || return 1
+
+  local exclude_list
+  exclude_list=$(jq -r --arg k "$evaluator_key" '.evaluators[$k].exclude_extensions // [] | .[]' "$config" 2>/dev/null) || return 1
+
+  local ex
+  while IFS= read -r ex; do
+    [ -z "$ex" ] && continue
+    if [ "${ex,,}" = "$ext" ]; then
+      return 0
+    fi
+  done <<< "$exclude_list"
+  return 1
+}
