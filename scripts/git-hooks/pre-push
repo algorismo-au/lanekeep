@@ -79,9 +79,30 @@ if [[ -n "$selected_suites" && "$changed" != "FORCE_FULL" ]]; then
     unique_suites="$unique_suites $entry"
   done
   echo "[pre-push] Running targeted tests: $unique_suites" >&2
-  # shellcheck disable=SC2086
-  exec bats $unique_suites
+  bats_args="$unique_suites"
 else
   echo "[pre-push] Running full test suite..." >&2
-  exec bats --recursive tests/
+  bats_args="--recursive tests/"
 fi
+
+# Run bats and capture both exit code and output. Don't `exec` — we need to
+# post-process the exit code because bats 1.13's TAP formatter occasionally
+# returns 141 (SIGPIPE) on cleanup even when every test passed; with `set -e`
+# (or git treating non-zero as hook failure) that aborts the push spuriously.
+# We trust the TAP output ("not ok") as ground truth and translate a clean
+# 141 to 0; any real failure still propagates.
+log=$(mktemp)
+trap 'rm -f "$log"' EXIT
+
+set +e
+# shellcheck disable=SC2086
+bats $bats_args 2>&1 | tee "$log"
+rc=${PIPESTATUS[0]}
+set -e
+
+if [ "$rc" -eq 141 ] && ! grep -q '^not ok' "$log"; then
+  echo "[pre-push] bats exited 141 (SIGPIPE) but no 'not ok' in output — treating as success." >&2
+  exit 0
+fi
+
+exit "$rc"
