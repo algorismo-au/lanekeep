@@ -1152,8 +1152,13 @@ class TestResolveConfig(unittest.TestCase):
         result = srv._resolve_config(config)
         self.assertIn('evaluators', result)
 
-    def test_extra_rules_appended(self):
-        """extra_rules are appended after default rules."""
+    def test_extra_rules_prepended(self):
+        """extra_rules fire BEFORE defaults under first-match-wins (1.1+).
+
+        Mirrors lib/config.sh:336-340 — the UI's resolved view must match
+        the engine's enforced order, otherwise the dashboard shows the
+        opposite of what actually wins.
+        """
         config = {
             'extends': 'defaults',
             'extra_rules': [{'id': 'custom-001', 'decision': 'ask', 'reason': 'test'}],
@@ -1161,11 +1166,29 @@ class TestResolveConfig(unittest.TestCase):
         result = srv._resolve_config(config)
         ids = [r['id'] for r in result['rules']]
         self.assertIn('custom-001', ids)
-        # custom-001 should be last
-        self.assertEqual(ids[-1], 'custom-001')
+        # custom-001 should be FIRST (prepended)
+        self.assertEqual(ids[0], 'custom-001')
         # Should have source: custom tag
         custom = [r for r in result['rules'] if r['id'] == 'custom-001'][0]
         self.assertEqual(custom['source'], 'custom')
+
+    def test_extra_rules_appear_before_overlapping_defaults(self):
+        """Multiple extras preserve their declaration order and all sit ahead
+        of every default — the first-match-wins guarantee in resolved form."""
+        config = {
+            'extends': 'defaults',
+            'extra_rules': [
+                {'id': 'custom-a', 'decision': 'allow', 'reason': 'a'},
+                {'id': 'custom-b', 'decision': 'deny', 'reason': 'b'},
+            ],
+        }
+        result = srv._resolve_config(config)
+        ids = [r['id'] for r in result['rules']]
+        # Both extras present, in declaration order, ahead of every default
+        self.assertEqual(ids[0], 'custom-a')
+        self.assertEqual(ids[1], 'custom-b')
+        first_default_idx = next(i for i, rid in enumerate(ids) if not rid.startswith('custom-'))
+        self.assertGreater(first_default_idx, 1)
 
     def test_disabled_rules_removed(self):
         """disabled_rules removes rules by id from defaults."""
