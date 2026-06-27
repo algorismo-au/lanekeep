@@ -268,7 +268,10 @@
           "\\\\\\\\u00[0-9a-fA-F]{2}(\\\\\\\\u00[0-9a-fA-F]{2}){3,}"
         ],
         "reason": "Encoded content detected — may hide payload; verify this is intentional"
-      }
+      },
+      "exclude_extensions": [
+        ".md"
+      ]
     },
     "budget": {
       "enabled": true,
@@ -350,6 +353,9 @@
         "Write",
         "Edit",
         "Bash"
+      ],
+      "exclude_extensions": [
+        ".md"
       ],
       "pii_patterns": [
         "[0-9]{3}-[0-9]{2}-[0-9]{4}",
