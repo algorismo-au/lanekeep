@@ -158,8 +158,13 @@ class TestAlltimeExtended(unittest.TestCase):
         self.trace_dir = Path(self.tmpdir) / 'traces'
         self.trace_dir.mkdir()
         srv._alltime_cache = {'key': None, 'data': None}
+        # _compute_alltime_from_traces reads srv.PROJECT_DIR for the
+        # model-pricing lookup; in production this is set at server start.
+        self._saved_project_dir = srv.PROJECT_DIR
+        srv.PROJECT_DIR = Path(self.tmpdir)
 
     def tearDown(self):
+        srv.PROJECT_DIR = self._saved_project_dir
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def _write_trace(self, filename, entries):
