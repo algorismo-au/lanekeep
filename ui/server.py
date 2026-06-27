@@ -108,8 +108,11 @@ def _resolve_config(config):
     """Resolve 'extends: defaults' inheritance — mirrors config.sh merge logic.
 
     If the config has no 'extends' field, returns it unchanged.
-    Otherwise loads defaults and merges: defaults.rules + rule_overrides
-    - disabled_rules + extra_rules, with deep-merge on other fields.
+    Otherwise loads defaults and merges:
+      extra_rules (PREPENDED, user wins first-match)
+      + defaults.rules with overrides{} / rule_overrides applied
+        and disabled_rules removed.
+    Mirrors lib/config.sh:336-340 ordering.
     """
     if config.get('extends') != 'defaults':
         return config
@@ -199,14 +202,11 @@ def _resolve_config(config):
             or r.get('id', '') not in disabled
         ]
 
-    # Append extra_rules
+    # Prepend extra_rules so user rules fire BEFORE defaults under
+    # first-match-wins iteration. Mirrors lib/config.sh:336-340 (1.1+).
     extras = config.get('extra_rules', [])
-    for ex in extras:
-        tagged = dict(ex)
-        tagged['source'] = 'custom'
-        rules.append(tagged)
-
-    resolved['rules'] = rules
+    tagged_extras = [dict(ex, source='custom') for ex in extras]
+    resolved['rules'] = tagged_extras + rules
 
     # Clean up layering-only fields
     for k in ('extends', 'rule_overrides', 'extra_rules', 'disabled_rules', 'overrides'):
