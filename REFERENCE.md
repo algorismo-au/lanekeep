@@ -661,6 +661,35 @@ history before activating.
 | `evaluators.multi_session.cost_warn_percent` | number | `80` | % of `budget.max_total_cost` at which cost escalation fires |
 | `evaluators.multi_session.min_sessions` | number | `3` | Minimum completed sessions before the evaluator activates |
 
+### Evaluator File-Type Exclusions
+
+`codediff` and `input_pii` are pattern-matching evaluators that fire on tool
+inputs — including `Write` and `Edit` payloads containing example AWS keys,
+SSNs, or destructive commands. In documentation, README files, and tutorial
+content this produces false positives. The `exclude_extensions` array on
+either evaluator suppresses pattern matching when the target `file_path` ends
+in a listed extension (case-insensitive, leading-dot required).
+
+`Bash` calls are never skipped — they carry no `file_path` and so cannot be
+classified by file type.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `evaluators.codediff.exclude_extensions` | array of string | `[".md"]` | File extensions to bypass for the codediff evaluator on `Write`/`Edit` |
+| `evaluators.input_pii.exclude_extensions` | array of string | `[".md"]` | File extensions to bypass for the input_pii evaluator on `Write`/`Edit` |
+
+Example — also exclude `.txt` tutorial files from PII scanning:
+
+```json
+{
+  "evaluators": {
+    "input_pii": {
+      "exclude_extensions": [".md", ".txt"]
+    }
+  }
+}
+```
+
 ### Plugins
 
 Plugins are user-installed scripts under `plugins.d/*.plugin.{sh,py,js,...}`
