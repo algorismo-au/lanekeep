@@ -687,16 +687,29 @@ beyond pattern matching. The goal is read from [TaskSpec](#budget--taskspec)
 
 ### Context Budget
 
-Monitors context window utilization via transcript token counts. Fires when
-token usage crosses the soft or hard threshold, giving teams a governance knob
-to prevent silent output-quality degradation at high context saturation.
-Context thresholds are configured in the [Budget](#budget--taskspec) section
-(`budget.context_soft_percent`, `budget.context_hard_percent`).
+Monitors context window utilization via **two orthogonal signals** — transcript
+token count and session action count. Either signal alone can fire; action-count
+catches long sessions full of cheap actions that never trip the token gate.
+
+**Token utilization signal** — fires when the transcript's input tokens cross
+`budget.context_soft_percent` or `_hard_percent` of `budget.context_window_size`.
+Requires transcript data from Tier 5 (`_TRANSCRIPT_AVAILABLE`).
+
+**Action-count signal** (opt-in) — fires when the pre-increment session action
+count reaches `budget.action_count_warn` or `_action_count_hard`. Reads
+`_SESSION_ACTION_COUNT` exposed by `eval-budget.sh`. Runs independently of
+transcript availability; either or both thresholds can be set, and unset
+thresholds are inert.
+
+Both signals share the same `evaluators.context_budget.decision` for soft-limit
+behaviour (`ask`/`warn`/`deny`); the hard limit always denies.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `evaluators.context_budget.enabled` | bool | `false` | Enable context window governance |
 | `evaluators.context_budget.decision` | string | `"ask"` | Action at soft threshold: `"ask"`, `"warn"`, or `"deny"` |
+| `budget.action_count_warn` | int | unset | Session action count that fires the soft warning (per-session, opt-in) |
+| `budget.action_count_hard` | int | unset | Session action count that hard-denies. `hard` takes precedence over `warn` when both trip |
 
 ### Multi-Session Governance
 

@@ -135,6 +135,8 @@ _CFG_CONTEXT_WINDOW_SIZE=""
 _CFG_CONTEXT_SOFT_PERCENT=""
 _CFG_CONTEXT_HARD_PERCENT=""
 _CFG_CONTEXT_BUDGET_DECISION=""
+_CFG_CONTEXT_ACTION_WARN=""
+_CFG_CONTEXT_ACTION_HARD=""
 # Multi-session evaluator config
 _CFG_MULTI_SESSION_ENABLED="false"
 _CFG_MULTI_DENY_RATE=""
@@ -218,6 +220,8 @@ if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
     "_CFG_CONTEXT_SOFT_PERCENT=" + (.budget.context_soft_percent // "" | tostring | @sh),
     "_CFG_CONTEXT_HARD_PERCENT=" + (.budget.context_hard_percent // "" | tostring | @sh),
     "_CFG_CONTEXT_BUDGET_DECISION=" + (.evaluators.context_budget.decision // "ask" | @sh),
+    "_CFG_CONTEXT_ACTION_WARN=" + (.budget.action_count_warn // "" | tostring | @sh),
+    "_CFG_CONTEXT_ACTION_HARD=" + (.budget.action_count_hard // "" | tostring | @sh),
     # -- Multi-session evaluator --
     "_CFG_MULTI_SESSION_ENABLED=" + (if .evaluators.multi_session.enabled == false then "false" else "true" end | @sh),
     "_CFG_MULTI_DENY_RATE=" + (.evaluators.multi_session.deny_rate_threshold // "" | tostring | @sh),

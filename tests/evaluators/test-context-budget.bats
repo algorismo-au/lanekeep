@@ -131,3 +131,107 @@ setup() {
   run context_budget_eval "Bash" '{}'
   [ "$status" -eq 0 ]
 }
+
+# ── Action-count signal (opt-in) ──
+# Orthogonal to token utilization. Reads _SESSION_ACTION_COUNT exposed by
+# eval-budget.sh; opt-in via .budget.action_count_warn / _hard.
+
+@test "action-count: no-op when both action_count_warn and _hard are unset" {
+  export _CFG_CONTEXT_ACTION_WARN=""
+  export _CFG_CONTEXT_ACTION_HARD=""
+  export _SESSION_ACTION_COUNT=500
+  _TRANSCRIPT_INPUT_TOKENS=1000
+  run context_budget_eval "Bash" '{}'
+  [ "$status" -eq 0 ]
+}
+
+@test "action-count: warn fires when session actions >= action_count_warn" {
+  export _CFG_CONTEXT_ACTION_WARN=100
+  export _CFG_CONTEXT_ACTION_HARD=200
+  export _CFG_CONTEXT_BUDGET_DECISION="ask"
+  export _SESSION_ACTION_COUNT=120
+  _TRANSCRIPT_INPUT_TOKENS=1000
+  context_budget_eval "Bash" '{}' || true
+  [ "$CONTEXT_BUDGET_PASSED" = "false" ]
+  [ "$CONTEXT_BUDGET_DECISION" = "ask" ]
+  [[ "$CONTEXT_BUDGET_REASON" == *"action-count signal"* ]]
+  [[ "$CONTEXT_BUDGET_REASON" == *"120"* ]]
+}
+
+@test "action-count: hard cap fires deny when session actions >= action_count_hard" {
+  export _CFG_CONTEXT_ACTION_WARN=100
+  export _CFG_CONTEXT_ACTION_HARD=200
+  export _SESSION_ACTION_COUNT=200
+  _TRANSCRIPT_INPUT_TOKENS=1000
+  context_budget_eval "Bash" '{}' || true
+  [ "$CONTEXT_BUDGET_DECISION" = "deny" ]
+  [[ "$CONTEXT_BUDGET_REASON" == *"Hard limit: 200"* ]]
+}
+
+@test "action-count: hard takes precedence over warn when both trip" {
+  export _CFG_CONTEXT_ACTION_WARN=100
+  export _CFG_CONTEXT_ACTION_HARD=200
+  export _SESSION_ACTION_COUNT=300
+  _TRANSCRIPT_INPUT_TOKENS=1000
+  context_budget_eval "Bash" '{}' || true
+  [ "$CONTEXT_BUDGET_DECISION" = "deny" ]
+}
+
+@test "action-count: below warn threshold → allow" {
+  export _CFG_CONTEXT_ACTION_WARN=100
+  export _CFG_CONTEXT_ACTION_HARD=200
+  export _SESSION_ACTION_COUNT=50
+  _TRANSCRIPT_INPUT_TOKENS=1000
+  run context_budget_eval "Bash" '{}'
+  [ "$status" -eq 0 ]
+}
+
+@test "action-count: only warn set — hard-only unset does not deny" {
+  export _CFG_CONTEXT_ACTION_WARN=50
+  export _CFG_CONTEXT_ACTION_HARD=""
+  export _CFG_CONTEXT_BUDGET_DECISION="ask"
+  export _SESSION_ACTION_COUNT=100
+  _TRANSCRIPT_INPUT_TOKENS=1000
+  context_budget_eval "Bash" '{}' || true
+  [ "$CONTEXT_BUDGET_DECISION" = "ask" ]
+}
+
+@test "action-count: only hard set — warn-only unset still triggers deny at hard" {
+  export _CFG_CONTEXT_ACTION_WARN=""
+  export _CFG_CONTEXT_ACTION_HARD=200
+  export _SESSION_ACTION_COUNT=250
+  _TRANSCRIPT_INPUT_TOKENS=1000
+  context_budget_eval "Bash" '{}' || true
+  [ "$CONTEXT_BUDGET_DECISION" = "deny" ]
+}
+
+@test "action-count: fires even when transcript unavailable (token signal cannot)" {
+  export _CFG_CONTEXT_ACTION_WARN=50
+  export _CFG_CONTEXT_ACTION_HARD=""
+  export _CFG_CONTEXT_BUDGET_DECISION="ask"
+  export _SESSION_ACTION_COUNT=75
+  _TRANSCRIPT_AVAILABLE=false
+  context_budget_eval "Bash" '{}' || true
+  [ "$CONTEXT_BUDGET_PASSED" = "false" ]
+  [ "$CONTEXT_BUDGET_DECISION" = "ask" ]
+}
+
+@test "action-count: non-numeric _SESSION_ACTION_COUNT is skipped gracefully" {
+  export _CFG_CONTEXT_ACTION_WARN=100
+  export _CFG_CONTEXT_ACTION_HARD=""
+  export _SESSION_ACTION_COUNT="not-a-number"
+  _TRANSCRIPT_INPUT_TOKENS=1000
+  run context_budget_eval "Bash" '{}'
+  [ "$status" -eq 0 ]
+}
+
+@test "action-count: honors deny decision when configured" {
+  export _CFG_CONTEXT_ACTION_WARN=50
+  export _CFG_CONTEXT_ACTION_HARD=""
+  export _CFG_CONTEXT_BUDGET_DECISION="deny"
+  export _SESSION_ACTION_COUNT=75
+  _TRANSCRIPT_INPUT_TOKENS=1000
+  context_budget_eval "Bash" '{}' || true
+  [ "$CONTEXT_BUDGET_DECISION" = "deny" ]
+  [[ "$CONTEXT_BUDGET_HINT" == *"DENIED"* ]]
+}
