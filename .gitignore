@@ -1,4 +1,5 @@
-.lanekeep/
+.lanekeep/*
+!.lanekeep/defaults_manifest.json
 .looper/
 .venv/
 __pycache__/
