@@ -1,4 +1,5 @@
 .lanekeep/
+.looper/
 .venv/
 __pycache__/
 *.bak
