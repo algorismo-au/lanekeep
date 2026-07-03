@@ -119,6 +119,53 @@ if [ -f "$SETTINGS_FILE" ]; then
   fi
 fi
 
+# --- Install SessionStart hook (scans memory files for injection markers) ---
+SS_HOOK_PATH="$(cd "$LANEKEEP_DIR/hooks" && pwd)/session-start.sh"
+
+if [ -f "$SETTINGS_FILE" ]; then
+  existing_ss=$(jq -r '.hooks.SessionStart // empty' "$SETTINGS_FILE" 2>/dev/null)
+  if printf '%s' "$existing_ss" | grep -q "session-start.sh" 2>/dev/null; then
+    echo "SessionStart hook already installed in $SETTINGS_FILE (skipped)"
+  else
+    # Append if the key already exists (team-shared SessionStart hook may be present).
+    if [ -n "$existing_ss" ] && [ "$existing_ss" != "null" ]; then
+      jq --arg cmd "$SS_HOOK_PATH" \
+        '.hooks.SessionStart += [{"matcher": "", "hooks": [{"type": "command", "command": $cmd, "timeout": 10000}]}]' \
+        "$SETTINGS_FILE" > "${SETTINGS_FILE}.tmp" \
+        && mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
+    else
+      jq --arg cmd "$SS_HOOK_PATH" \
+        '.hooks.SessionStart = [{"matcher": "", "hooks": [{"type": "command", "command": $cmd, "timeout": 10000}]}]' \
+        "$SETTINGS_FILE" > "${SETTINGS_FILE}.tmp" \
+        && mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
+    fi
+    echo "Installed SessionStart hook in $SETTINGS_FILE"
+  fi
+fi
+
+# --- Install PreCompact hook (snapshots cumulative.json + state.json) ---
+PC_HOOK_PATH="$(cd "$LANEKEEP_DIR/hooks" && pwd)/pre-compact.sh"
+
+if [ -f "$SETTINGS_FILE" ]; then
+  existing_pc=$(jq -r '.hooks.PreCompact // empty' "$SETTINGS_FILE" 2>/dev/null)
+  if printf '%s' "$existing_pc" | grep -q "pre-compact.sh" 2>/dev/null; then
+    echo "PreCompact hook already installed in $SETTINGS_FILE (skipped)"
+  else
+    if [ -n "$existing_pc" ] && [ "$existing_pc" != "null" ]; then
+      jq --arg cmd "$PC_HOOK_PATH" \
+        '.hooks.PreCompact += [{"matcher": "", "hooks": [{"type": "command", "command": $cmd, "timeout": 10000}]}]' \
+        "$SETTINGS_FILE" > "${SETTINGS_FILE}.tmp" \
+        && mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
+    else
+      jq --arg cmd "$PC_HOOK_PATH" \
+        '.hooks.PreCompact = [{"matcher": "", "hooks": [{"type": "command", "command": $cmd, "timeout": 10000}]}]' \
+        "$SETTINGS_FILE" > "${SETTINGS_FILE}.tmp" \
+        && mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
+    fi
+    echo "Installed PreCompact hook in $SETTINGS_FILE"
+  fi
+fi
+
 # --- Normalize hook format (flat → nested safety net) ---
 # shellcheck source=/dev/null
 source "$LANEKEEP_DIR/lib/hooks.sh"
