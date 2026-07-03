@@ -663,6 +663,36 @@ attribute redacted content to a field name.
 | `Bearer …` tokens | `Bearer [REDACTED]` |
 | `api_key` / `secret_key` / `access_token` / `auth_token` / `password` / `credential` / `secret` fields with ≥32-char values | `[REDACTED:secret]` |
 
+### Cumulative Risk Scoring
+
+Session-scoped risk accumulation. Tracks running `warn_count` + `ask_count`
+in `state.json` and escalates otherwise-permissive decisions once thresholds
+are reached — repeated soft-gate events are usually a signal that the agent
+is probing boundaries or that the plan is diverging.
+
+- **Reads** `_SESSION_WARN_COUNT` / `_SESSION_ASK_COUNT` exposed by
+  `eval-budget.sh` (from `state.json`, session-scoped, reset on Claude Code
+  session boundary).
+- **Escalation runs at the aggregator** — after all evaluators produce
+  their decisions but before the response is emitted. Only escalates
+  upward (`allow` → `warn` → `ask`); never de-escalates a `deny`.
+- **Ask takes precedence over warn** when both thresholds are met.
+- **Increment happens post-decision** — after the trace entry is written,
+  a small `jq` patch on `state.json` bumps `warn_count` or `ask_count`
+  based on the emitted decision. Off the hot path; tolerates missing
+  state.
+
+Opt-in — ships disabled. Enable with `evaluators.risk_score.enabled: true`.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `evaluators.risk_score.enabled` | bool | `false` | Enable / disable the escalator |
+| `evaluators.risk_score.warn_threshold` | int | `5` | Total warn+ask events before an `allow` is upgraded to `warn` |
+| `evaluators.risk_score.ask_threshold` | int | `10` | Total warn+ask events before `allow` / `warn` is upgraded to `ask` |
+
+Trace entries carry a `CumulativeRiskScoring` evaluator record with the
+session's warn/ask total. Compliance: CWE-770.
+
 ### Scope Containment
 
 Tier 0.6 evaluator. Enforces the `allowed_paths` array declared in the
