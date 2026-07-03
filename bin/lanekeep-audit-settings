@@ -1,0 +1,267 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC2016  # backticks in printf format strings are literal markdown-style code, not command substitution
+# lanekeep audit-settings — scan .claude/settings.json + .claude/settings.local.json
+# for dangerous permissions.allow entries.
+#
+# Complements the runtime evaluator pipeline by catching pre-approved dangerous
+# commands *before* they land — the runtime enforcer can only govern what the
+# agent tries to do; pre-approvals bypass most rules entirely.
+#
+# Severity model:
+#   HIGH   — patterns that grant blast-radius to file deletion, shell
+#            escape, or unrestricted Write. Auto-approving these
+#            typically defeats the whole point of governance.
+#   MEDIUM — patterns that widen the tool surface enough to matter
+#            (network out, database ops, broad Write globs, VCS push).
+#            Often legitimate but worth flagging.
+#   LOW    — read-only, project-scoped, or container-context-exempt
+#            patterns. Reported for completeness only.
+#
+# Container-context exemption: `Bash(docker exec …)` and `Bash(kubectl exec …)`
+# entries are treated as LOW even when the wrapped command looks scary — the
+# blast radius is confined to the container, and container-first workflows
+# rely on these patterns.
+#
+# Usage:
+#   lanekeep audit-settings [--json] [--no-fail] [--project DIR]
+#
+# Exit codes:
+#   0 — no HIGH findings (or --no-fail flag)
+#   1 — HIGH findings present
+#   2 — invocation error (missing jq, malformed settings)
+
+set -uo pipefail
+
+# --- Arg parsing ---
+OUTPUT_JSON=false
+NO_FAIL=false
+PROJECT_DIR="${PROJECT_DIR:-$(pwd 2>/dev/null || echo "$PWD")}"
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --json)     OUTPUT_JSON=true; shift ;;
+    --no-fail)  NO_FAIL=true; shift ;;
+    --project)  PROJECT_DIR="$2"; shift 2 ;;
+    -h|--help)
+      sed -n '3,29p' "$0" | sed 's|^# ||; s|^#$||'
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+# --- Dependency check ---
+command -v jq >/dev/null 2>&1 || { echo "Error: 'jq' is required" >&2; exit 2; }
+
+# --- Locate settings files (local overrides shared) ---
+_SETTINGS_FILES=()
+for candidate in \
+  "$PROJECT_DIR/.claude/settings.json" \
+  "$PROJECT_DIR/.claude/settings.local.json"; do
+  [ -f "$candidate" ] && _SETTINGS_FILES+=("$candidate")
+done
+
+if [ "${#_SETTINGS_FILES[@]}" -eq 0 ]; then
+  if [ "$OUTPUT_JSON" = true ]; then
+    echo '{"findings":[],"summary":{"high":0,"medium":0,"low":0,"info":0,"files_scanned":0}}'
+  else
+    echo "No .claude/settings.json or settings.local.json found in $PROJECT_DIR"
+  fi
+  exit 0
+fi
+
+# --- Severity classifiers ---
+# Each classifier receives the raw entry string and prints its severity + rationale,
+# or nothing to fall through to the next classifier.
+
+_classify_high() {
+  local e="$1"
+  case "$e" in
+    # Unrestricted Bash
+    'Bash(*)'|'Bash')
+      printf 'HIGH\t%s\tUnrestricted Bash — pre-approves every shell command\n' "$e" ;;
+    # File deletion / disk wipe
+    'Bash(rm '*|'Bash(rm)'*)
+      case "$e" in
+        'Bash(rm -rf '*|'Bash(rm --recursive'*|'Bash(rm -r '*|'Bash(rm '*'/*'*|'Bash(rm '*'*'*)
+          printf 'HIGH\t%s\tRecursive or wildcard `rm` pre-approval — pre-cleared for destructive delete\n' "$e" ;;
+        *)
+          printf 'HIGH\t%s\t`rm` pre-approval — file deletion without a runtime prompt\n' "$e" ;;
+      esac ;;
+    'Bash(dd '*|'Bash(shred'*|'Bash(wipe'*|'Bash(mkfs'*|'Bash(truncate '*)
+      printf 'HIGH\t%s\tDisk-wipe / low-level write pre-approval\n' "$e" ;;
+    # Privilege escalation
+    'Bash(sudo '*|'Bash(sudo)'|'Bash(su '*)
+      printf 'HIGH\t%s\tPrivilege escalation pre-approval\n' "$e" ;;
+    'Bash(chmod 777'*|'Bash(chmod -R '*'/*'*|'Bash(chown -R '*)
+      printf 'HIGH\t%s\tWorld-writable or recursive-ownership change pre-approval\n' "$e" ;;
+    # Piped remote-exec
+    *'| sh'*|*'| bash'*|*'|sh)'*|*'|bash)'*)
+      printf 'HIGH\t%s\tRemote-fetch piped into a shell\n' "$e" ;;
+    # Unrestricted Write / Edit
+    'Write(*)'|'Write'|'Edit(*)'|'Edit')
+      printf 'HIGH\t%s\tUnrestricted `%s` — every file path pre-approved\n' "$e" "${e%%(*}" ;;
+    # Bash eval / exec
+    'Bash(eval '*|'Bash(exec '*|'Bash(source /'*)
+      printf 'HIGH\t%s\tDynamic-exec Bash pre-approval\n' "$e" ;;
+    # Secret dir access via Read/Bash
+    'Read('*'.ssh'*|'Read('*'.aws/credentials'*|'Read('*'/etc/shadow'*|'Read('*'/etc/passwd'*)
+      printf 'HIGH\t%s\tPre-approves reading a well-known secrets file\n' "$e" ;;
+    *)
+      return 1 ;;
+  esac
+  return 0
+}
+
+_classify_medium() {
+  local e="$1"
+  case "$e" in
+    # Container-context — exempt (downgrade)
+    'Bash(docker exec '*|'Bash(kubectl exec '*)
+      return 1 ;;  # let LOW classifier handle
+    # Network out
+    'Bash(curl '*|'Bash(wget '*)
+      printf 'MEDIUM\t%s\tNetwork fetch pre-approval\n' "$e" ;;
+    'Bash(nc '*|'Bash(ncat '*|'Bash(netcat '*|'Bash(socat '*)
+      printf 'MEDIUM\t%s\tRaw socket pre-approval\n' "$e" ;;
+    # Database ops
+    'Bash(psql '*|'Bash(mongosh '*|'Bash(mysql '*|'Bash(redis-cli '*)
+      printf 'MEDIUM\t%s\tDatabase CLI pre-approval — includes destructive statements\n' "$e" ;;
+    # VCS push
+    'Bash(git push'*|'Bash(gh pr merge'*|'Bash(gh release'*)
+      printf 'MEDIUM\t%s\tVCS push / release pre-approval\n' "$e" ;;
+    # Cloud / IAC
+    'Bash(aws '*|'Bash(gcloud '*|'Bash(az '*|'Bash(terraform apply'*|'Bash(pulumi up'*)
+      printf 'MEDIUM\t%s\tCloud / IAC-apply pre-approval\n' "$e" ;;
+    # Broad Write globs
+    'Write(*.'*|'Edit(*.'*|'Write(**/*)'|'Edit(**/*)')
+      printf 'MEDIUM\t%s\tBroad Write/Edit glob — pre-approves large swaths of the tree\n' "$e" ;;
+    # Uncontained docker
+    'Bash(docker run '*)
+      printf 'MEDIUM\t%s\t`docker run` pre-approval — uncontained container spawn\n' "$e" ;;
+    *)
+      return 1 ;;
+  esac
+  return 0
+}
+
+_classify_low() {
+  local e="$1"
+  case "$e" in
+    # Container-context exempt
+    'Bash(docker exec '*|'Bash(kubectl exec '*)
+      printf 'LOW\t%s\tContainer-context — pre-approval exempted (blast radius confined to container)\n' "$e" ;;
+    # Read-only tools
+    'Read('*|'Glob('*|'Grep('*)
+      printf 'LOW\t%s\tRead-only tool pre-approval\n' "$e" ;;
+    'Bash(ls '*|'Bash(ls)'|'Bash(cat '*|'Bash(head '*|'Bash(tail '*|'Bash(grep '*|'Bash(find '*|'Bash(wc '*|'Bash(file '*)
+      printf 'LOW\t%s\tRead-only Bash pre-approval\n' "$e" ;;
+    # Safe git
+    'Bash(git status'*|'Bash(git log'*|'Bash(git diff'*|'Bash(git branch'*|'Bash(git show'*)
+      printf 'LOW\t%s\tRead-only git subcommand\n' "$e" ;;
+    # Project-scoped Write
+    'Write(src/'*|'Write(tests/'*|'Write(lib/'*|'Write(docs/'*)
+      printf 'LOW\t%s\tProject-scoped Write — narrow blast radius\n' "$e" ;;
+    *)
+      return 1 ;;
+  esac
+  return 0
+}
+
+_classify() {
+  local entry="$1"
+  # First HIGH (bail out early on hits), then MEDIUM, then LOW.
+  _classify_high "$entry" && return 0
+  _classify_medium "$entry" && return 0
+  _classify_low "$entry" && return 0
+  printf 'INFO\t%s\tUnclassified pre-approval — review manually\n' "$entry"
+  return 0
+}
+
+# --- Scan each settings file ---
+_findings_high=()
+_findings_medium=()
+_findings_low=()
+_findings_info=()
+_findings_json=()
+
+for f in "${_SETTINGS_FILES[@]}"; do
+  # Extract permissions.allow as newline-separated entries.
+  # Handle malformed JSON gracefully (report as error).
+  entries=$(jq -r '(.permissions.allow // [])[]' "$f" 2>/dev/null) || {
+    echo "Error: malformed JSON in $f" >&2
+    exit 2
+  }
+  while IFS= read -r entry; do
+    [ -z "$entry" ] && continue
+    IFS=$'\t' read -r sev raw rat < <(_classify "$entry")
+    case "$sev" in
+      HIGH)   _findings_high+=("$f|$raw|$rat") ;;
+      MEDIUM) _findings_medium+=("$f|$raw|$rat") ;;
+      LOW)    _findings_low+=("$f|$raw|$rat") ;;
+      *)      _findings_info+=("$f|$raw|$rat") ;;
+    esac
+    if [ "$OUTPUT_JSON" = true ]; then
+      _findings_json+=("$(jq -n --arg s "$sev" --arg f "$f" --arg e "$raw" --arg r "$rat" \
+        '{severity:$s, file:$f, entry:$e, rationale:$r}')")
+    fi
+  done <<< "$entries"
+done
+
+# --- Report ---
+if [ "$OUTPUT_JSON" = true ]; then
+  jq -n \
+    --argjson findings "$(printf '%s\n' "${_findings_json[@]:-}" | jq -sc '.' 2>/dev/null || echo '[]')" \
+    --argjson high "${#_findings_high[@]}" \
+    --argjson medium "${#_findings_medium[@]}" \
+    --argjson low "${#_findings_low[@]}" \
+    --argjson info "${#_findings_info[@]}" \
+    --argjson scanned "${#_SETTINGS_FILES[@]}" \
+    '{
+      findings: $findings,
+      summary: {
+        high: $high, medium: $medium, low: $low, info: $info,
+        files_scanned: $scanned
+      }
+    }'
+else
+  echo "LaneKeep — audit-settings"
+  echo ""
+  echo "Scanned:"
+  for f in "${_SETTINGS_FILES[@]}"; do echo "  $f"; done
+  echo ""
+  _print_group() {
+    local label="$1" color="$2"
+    shift 2
+    [ $# -eq 0 ] && return
+    printf '%s[%s]%s\n' "$color" "$label" $'\033[0m'
+    for entry in "$@"; do
+      IFS='|' read -r file raw rat <<< "$entry"
+      printf '  %s\n    entry: %s\n    file:  %s\n' "$rat" "$raw" "$file"
+    done
+    echo ""
+  }
+  # Use plain text if not on a TTY; otherwise colorise.
+  if [ -t 1 ]; then
+    _CRED=$'\033[31m'; _CYEL=$'\033[33m'; _CBLU=$'\033[34m'; _CGRY=$'\033[90m'
+  else
+    _CRED=""; _CYEL=""; _CBLU=""; _CGRY=""
+  fi
+  _print_group "HIGH"   "$_CRED"  "${_findings_high[@]:-}"
+  _print_group "MEDIUM" "$_CYEL"  "${_findings_medium[@]:-}"
+  _print_group "LOW"    "$_CBLU"  "${_findings_low[@]:-}"
+  _print_group "INFO"   "$_CGRY"  "${_findings_info[@]:-}"
+
+  printf 'Summary: %d HIGH · %d MEDIUM · %d LOW · %d INFO (across %d file%s)\n' \
+    "${#_findings_high[@]}" "${#_findings_medium[@]}" "${#_findings_low[@]}" \
+    "${#_findings_info[@]}" "${#_SETTINGS_FILES[@]}" \
+    "$([ "${#_SETTINGS_FILES[@]}" -eq 1 ] && echo "" || echo "s")"
+fi
+
+if [ "${#_findings_high[@]}" -gt 0 ] && [ "$NO_FAIL" != true ]; then
+  exit 1
+fi
+exit 0
