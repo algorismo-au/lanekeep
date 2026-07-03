@@ -805,8 +805,33 @@ set and positive-integer.
 | `LANEKEEP_CORRELATION_ID` | Sidecar correlation ID (SHA256 of canonical project path) | auto, set by `lanekeep-serve` |
 | `LANEKEEP_HEADLESS` | When set to `1`/`true`/`yes`, rewrites `ask` decisions to `deny` and persists an escalation bundle. See [Headless Escalation Sink](#headless-escalation-sink). | unset |
 | `LANEKEEP_ESCALATION_DIR` | Override for the headless escalation bundle directory | `${PROJECT_DIR}/.lanekeep/escalations` |
-| `LANEKEEP_TASK_ID` | Task identifier; used to name escalation bundles and as the per-task budget scope key | unset |
+| `LANEKEEP_TASK_ID` | Task identifier; used to name escalation bundles, embedded in trace entries as `task_id`, and as the per-task budget scope key | unset |
+| `LANEKEEP_STORY_ID` | Story identifier; embedded in trace entries as `story_id`. Filterable in the dashboard Insights view (`/api/trace?story=<id>`). Enables story-level audit trails across multiple sessions. See [Story-Correlated Traces](#story-correlated-traces). | unset |
+| `LANEKEEP_EPIC_ID` | Epic identifier; embedded in trace entries as `epic_id`. Filterable in the dashboard (`/api/trace?epic=<id>`). Groups multiple stories under a larger initiative. | unset |
+| `LANEKEEP_AGENT_TEAM_ID` | Team identifier; embedded in trace entries as `agent_team_id`. Used for team-scoped budget policy and cross-session aggregation. | unset |
 | `LANEKEEP_LOOP_ID` | Optional orchestrator loop id; recorded in escalation bundle `env_snapshot` for correlation | unset |
+
+### Story-Correlated Traces
+
+Setting `LANEKEEP_STORY_ID` and/or `LANEKEEP_EPIC_ID` in the environment embeds those values in every trace entry LaneKeep writes — `write_trace` (per-tool decisions), `write_policy_event` (policy enable/disable), and `write_rule_event` (rule config changes). This closes the audit trail so a story-level retrospective can pull every session, every decision, and every governance change that happened under that story.
+
+```bash
+LANEKEEP_STORY_ID=feat-auth-oidc LANEKEEP_EPIC_ID=epic-Q3-2026 lanekeep start
+```
+
+Trace entries then carry:
+
+```json
+{
+  "story_id": "feat-auth-oidc",
+  "epic_id": "epic-Q3-2026",
+  ...
+}
+```
+
+The dashboard Insights page accepts `story` and `epic` query params on `/api/trace` and exposes them as filter inputs above the trace table. Distinct story/epic IDs seen in the current corpus are returned as `.stories[]` and `.epics[]` on the same endpoint so the dashboard can populate suggestion lists without a separate roundtrip.
+
+These IDs are stable strings the operator chooses — LaneKeep does not generate them. Common patterns: linear/jira issue IDs (`ENG-1234`), feature slugs (`feat-auth-oidc`), or roadmap entry IDs (`feat-story-traces`). Empty/unset means the fields are omitted from trace entries entirely (no `"story_id": null` — the key is absent).
 
 ### Headless Escalation Sink
 

@@ -1054,10 +1054,12 @@ class Handler(BaseHTTPRequestHandler):
         sort_col = qs.get('sort', [''])[0] or ''
         sort_dir = qs.get('sort_dir', ['desc'])[0]
         decision_filter = qs.get('decision', [''])[0]
+        story_filter = (qs.get('story', [''])[0] or '').strip()
+        epic_filter = (qs.get('epic', [''])[0] or '').strip()
 
         trace_dir = PROJECT_DIR / '.lanekeep' / 'traces'
         empty_summary = {'total': 0, 'deny': 0, 'warn': 0, 'ask': 0, 'allow': 0, 'pii_input': 0}
-        result = {'file': None, 'entries': [], 'summary': empty_summary, 'total_filtered': 0, 'total_all': 0}
+        result = {'file': None, 'entries': [], 'summary': empty_summary, 'total_filtered': 0, 'total_all': 0, 'stories': [], 'epics': []}
         if not trace_dir.exists():
             self._respond(200, json.dumps(result), 'application/json')
             return
@@ -1070,6 +1072,11 @@ class Handler(BaseHTTPRequestHandler):
             result['summary'] = summary
             result['total_all'] = len(all_entries)
 
+            # Distinct story/epic IDs from the full trace corpus (before filtering)
+            # so the dashboard dropdown can show every option even when filtered.
+            result['stories'] = sorted({e['story_id'] for e in all_entries if e.get('story_id')})
+            result['epics'] = sorted({e['epic_id'] for e in all_entries if e.get('epic_id')})
+
             # Apply decision filter server-side
             if decision_filter and decision_filter != 'all':
                 if decision_filter == 'pii_input':
@@ -1078,6 +1085,12 @@ class Handler(BaseHTTPRequestHandler):
                     filtered = [e for e in all_entries if e.get('decision') == decision_filter]
             else:
                 filtered = all_entries
+
+            # Apply story/epic filters (exact match on the ID). Empty string skips.
+            if story_filter:
+                filtered = [e for e in filtered if e.get('story_id') == story_filter]
+            if epic_filter:
+                filtered = [e for e in filtered if e.get('epic_id') == epic_filter]
 
             # Sort server-side
             valid_sort_cols = {'timestamp', 'tool_name', 'decision', 'latency_ms', 'reason', 'source', 'event_type', 'file_path'}

@@ -218,10 +218,16 @@ write_policy_event() {
     --arg cc_sid "${_TRACE_CC_SESSION_ID:-}" \
     --arg corr_id "${LANEKEEP_CORRELATION_ID:-}" \
     --arg proj_dir "${PROJECT_DIR:-}" \
+    --arg story_id "${LANEKEEP_STORY_ID:-}" \
+    --arg epic_id "${LANEKEEP_EPIC_ID:-}" \
+    --arg task_id "${LANEKEEP_TASK_ID:-}" \
     '{timestamp:$ts,source:"lanekeep",session_id:$sid,event:$ev,policy:$pol,type:$typ,user:$usr,reason:$rea}
      | if $cc_sid != "" then .cc_session_id = $cc_sid else . end
      | if $corr_id != "" then .correlation_id = $corr_id else . end
-     | if $proj_dir != "" then .project_dir = $proj_dir else . end')
+     | if $proj_dir != "" then .project_dir = $proj_dir else . end
+     | if $story_id != "" then .story_id = $story_id else . end
+     | if $epic_id != "" then .epic_id = $epic_id else . end
+     | if $task_id != "" then .task_id = $task_id else . end')
   _locked_append "$LANEKEEP_TRACE_FILE" "$entry"
 }
 
@@ -247,10 +253,16 @@ write_rule_event() {
     --arg cc_sid "${_TRACE_CC_SESSION_ID:-}" \
     --arg corr_id "${LANEKEEP_CORRELATION_ID:-}" \
     --arg proj_dir "${PROJECT_DIR:-}" \
+    --arg story_id "${LANEKEEP_STORY_ID:-}" \
+    --arg epic_id "${LANEKEEP_EPIC_ID:-}" \
+    --arg task_id "${LANEKEEP_TASK_ID:-}" \
     '{timestamp:$ts,source:"lanekeep",session_id:$sid,event:$ev,rule_index:$idx,type:$typ,user:$usr,reason:$rea}
      | if $cc_sid != "" then .cc_session_id = $cc_sid else . end
      | if $corr_id != "" then .correlation_id = $corr_id else . end
-     | if $proj_dir != "" then .project_dir = $proj_dir else . end')
+     | if $proj_dir != "" then .project_dir = $proj_dir else . end
+     | if $story_id != "" then .story_id = $story_id else . end
+     | if $epic_id != "" then .epic_id = $epic_id else . end
+     | if $task_id != "" then .task_id = $task_id else . end')
   _locked_append "$LANEKEEP_TRACE_FILE" "$entry"
 }
 

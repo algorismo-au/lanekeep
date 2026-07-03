@@ -521,6 +521,13 @@ tbody tr.selected { background: var(--bg-hover); }
 .insights-offline-banner .offline-dot { width: 8px; height: 8px; border-radius: 50%; background: #d4442e; flex-shrink: 0; }
 .insights-offline-banner .offline-time { margin-left: auto; font-size: 11px; opacity: 0.8; }
 .insights-cards-dimmed { opacity: 0.45; pointer-events: none; filter: saturate(0.3); }
+.story-filter-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding: 8px 10px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; }
+.story-filter-bar label { color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; }
+.story-filter-bar input, .story-filter-bar select { background: transparent; border: 1px solid var(--border); border-radius: 4px; color: var(--text-body); font-family: inherit; font-size: 12px; padding: 4px 8px; min-width: 140px; }
+.story-filter-bar input:focus, .story-filter-bar select:focus { outline: none; border-color: var(--accent); }
+.story-filter-bar .story-filter-clear { margin-left: auto; background: transparent; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 4px; padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: inherit; }
+.story-filter-bar .story-filter-clear:hover { color: var(--text-body); border-color: var(--text-secondary); }
+.story-filter-bar .story-filter-active { color: var(--accent); font-weight: 600; }
 .insights-table th.sortable { cursor: pointer; user-select: none; }
 .insights-table th.sortable:hover { color: var(--text-body); }
 .sort-arrow { font-size: 10px; color: var(--text-muted); margin-left: 4px; }
@@ -1219,6 +1226,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
   <div id="insights-trends"></div>
   <div id="insights-analytics"></div>
   <div class="insights-cards" id="insights-cards"></div>
+  <div id="insights-story-filter" class="story-filter-bar" style="display:none"></div>
   <div id="insights-body"></div>
 </div>
 
@@ -3595,12 +3603,40 @@ let insightsFilter = new Set(['all']); // 'all' = show everything; individual fi
 let insightsTimelineEntries = null; // unfiltered entries for Decision Timeline — fetched separately when a filter is active
 let insightsSortCol = 'timestamp';
 let insightsSortDir = 'desc';
+let insightsStoryFilter = '';
+let insightsEpicFilter = '';
 let trendRange = 'all';
 let trendCache = {};  // keyed by range, stores last non-empty trend data
 
 function setTrendRange(range) {
   trendRange = range;
   insightsLastHash = '';
+  loadInsights();
+}
+
+function setInsightsStoryFilter(value) {
+  insightsStoryFilter = (value || '').trim();
+  insightsPage = 1;
+  insightsLastHash = '';
+  loadInsights();
+}
+
+function setInsightsEpicFilter(value) {
+  insightsEpicFilter = (value || '').trim();
+  insightsPage = 1;
+  insightsLastHash = '';
+  loadInsights();
+}
+
+function clearInsightsStoryEpicFilter() {
+  insightsStoryFilter = '';
+  insightsEpicFilter = '';
+  insightsPage = 1;
+  insightsLastHash = '';
+  var storyEl = document.getElementById('insights-story-select');
+  var epicEl = document.getElementById('insights-epic-select');
+  if (storyEl) storyEl.value = '';
+  if (epicEl) epicEl.value = '';
   loadInsights();
 }
 let insightsPage = 1;
@@ -4326,7 +4362,9 @@ async function loadInsights() {
     var serverFilterParam = filterParam;
     var traceUrl = API + '/api/trace?limit=' + insightsPageSize + '&offset=' + offset
       + '&sort=' + encodeURIComponent(insightsSortCol) + '&sort_dir=' + encodeURIComponent(insightsSortDir)
-      + (serverFilterParam ? '&decision=' + encodeURIComponent(serverFilterParam) : '');
+      + (serverFilterParam ? '&decision=' + encodeURIComponent(serverFilterParam) : '')
+      + (insightsStoryFilter ? '&story=' + encodeURIComponent(insightsStoryFilter) : '')
+      + (insightsEpicFilter ? '&epic=' + encodeURIComponent(insightsEpicFilter) : '');
     var timelineUrl = API + '/api/trace?limit=1000&sort=timestamp&sort_dir=asc';
     const pricingPromise = !_bundledPricing ? fetch(API + '/api/pricing') : Promise.resolve(null);
     const [res, statusRes, trendsRes, timelineRes, heatmapRes, pricingRes] = await Promise.all([
@@ -4380,6 +4418,7 @@ async function loadInsights() {
       '<div class="insights-separator"></div>' +
       '<div class="insight-card pii' + (!isAll && insightsFilter.has('pii_input') ? ' active' : '') + '" data-filter="pii_input" data-action="setInsightsFilter"><div class="card-value">0</div><div class="card-label">PII Input</div></div>'; // safe: no user data interpolated
     updateInsightCards();
+    renderStoryEpicFilter(data);
     document.getElementById('section-insights').classList.add('no-entrance-anim');
     if (!data.entries.length) {
       bodyEl.innerHTML = '<div class="insights-empty">No trace entries found. Trace data appears when LaneKeep evaluates tool calls.</div>';
@@ -4389,6 +4428,55 @@ async function loadInsights() {
   } catch (e) {
     document.getElementById('insights-body').innerHTML = '<div class="insights-empty">Failed to load trace data: ' + esc(e.message) + '</div>';
   }
+}
+
+function renderStoryEpicFilter(data) {
+  var bar = document.getElementById('insights-story-filter');
+  if (!bar) return;
+  var stories = Array.isArray(data.stories) ? data.stories : [];
+  var epics = Array.isArray(data.epics) ? data.epics : [];
+  var filterActive = insightsStoryFilter || insightsEpicFilter;
+  if (!stories.length && !epics.length && !filterActive) {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+    return;
+  }
+  bar.style.display = '';
+  function buildOptions(all, selected) {
+    var out = '<option value="">— any —</option>';
+    for (var i = 0; i < all.length; i++) {
+      var v = all[i];
+      out += '<option value="' + esc(v) + '"' + (v === selected ? ' selected' : '') + '>' + esc(v) + '</option>';
+    }
+    // Preserve current selection even if it's not in the visible corpus (e.g. filtered out)
+    if (selected && all.indexOf(selected) === -1) {
+      out += '<option value="' + esc(selected) + '" selected>' + esc(selected) + ' (no matches)</option>';
+    }
+    return out;
+  }
+  var storyPart = '';
+  if (stories.length || insightsStoryFilter) {
+    storyPart = '<label for="insights-story-select">Story</label>' +
+      '<select id="insights-story-select" data-on-change="setInsightsStoryFilter">' +
+        buildOptions(stories, insightsStoryFilter) +
+      '</select>';
+  }
+  var epicPart = '';
+  if (epics.length || insightsEpicFilter) {
+    epicPart = '<label for="insights-epic-select">Epic</label>' +
+      '<select id="insights-epic-select" data-on-change="setInsightsEpicFilter">' +
+        buildOptions(epics, insightsEpicFilter) +
+      '</select>';
+  }
+  var status = '';
+  if (filterActive) {
+    var n = (data.total_filtered != null) ? data.total_filtered : (data.entries || []).length;
+    status = '<span class="story-filter-active">' + n + ' matching</span>';
+  }
+  var clearBtn = filterActive
+    ? '<button type="button" class="story-filter-clear" data-action="clearInsightsStoryEpicFilter">Clear</button>'
+    : '';
+  bar.innerHTML = storyPart + epicPart + status + clearBtn;
 }
 
 function toggleTraceDetail(idx) {
@@ -6509,6 +6597,7 @@ document.addEventListener('visibilitychange', function() {
         case 'jumpToInsightsPage': jumpToInsightsPage(); break;
         case 'setInsightsFilter': setInsightsFilter(el.dataset.filter || null); break;
         case 'setTrendRange': setTrendRange(el.dataset.range); break;
+        case 'clearInsightsStoryEpicFilter': clearInsightsStoryEpicFilter(); break;
         case 'editCompliance': editCompliance(parseInt(el.dataset.idx)); break;
         case 'moveRuleUp': moveRule(parseInt(el.dataset.idx), -1); break;
         case 'moveRuleDown': moveRule(parseInt(el.dataset.idx), 1); break;
@@ -6553,6 +6642,8 @@ document.addEventListener('visibilitychange', function() {
       case 'updatePolicyDefault': updatePolicyDefault(el.dataset.cat, el.value); el.className = 'policy-default-select ' + el.value; break;
       case 'addPolicyCategory': addPolicyCategory(el.value); el.value = ''; break;
       case 'setInsightsPageSize': setInsightsPageSize(el.value); break;
+      case 'setInsightsStoryFilter': setInsightsStoryFilter(el.value); break;
+      case 'setInsightsEpicFilter': setInsightsEpicFilter(el.value); break;
     }
   });
 
