@@ -862,7 +862,7 @@ match wins; each class carries its own decision.
 | `evaluators.repo_injection.classes.<name>.decision` | `warn`/`ask`/`deny` | see table | Per-class decision |
 | `evaluators.repo_injection.classes.<name>.patterns` | string[] (PCRE) | see [defaults/lanekeep.json](defaults/lanekeep.json) | Per-class regexes |
 
-Compliance mapping: OWASP-ASI01, OWASP-ASI06, CWE-1039, ATLAS AML.T0051.
+Compliance mapping: OWASP-ASI01, OWASP-ASI06, CWE-1039, ATLAS-AML.T0051.
 
 **Scope limits** (documented so operators know the ceiling):
 
