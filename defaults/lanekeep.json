@@ -307,6 +307,16 @@
         ]
       }
     },
+    "scope_containment": {
+      "enabled": true,
+      "decision": "deny",
+      "compliance_by_category": {
+        "scope_violation": [
+          "OWASP-ASI02",
+          "CWE-73"
+        ]
+      }
+    },
     "repo_injection": {
       "enabled": true,
       "max_scan_bytes": 262144,

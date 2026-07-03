@@ -153,6 +153,10 @@ _CFG_HEADLESS_DIR=""
 _CFG_HEADLESS_TAIL="20"
 # MCP inventory policy (gates the distinct-tool count pre-query in policies_check)
 _CFG_MCP_INVENTORY_ENABLED="false"
+# Scope containment evaluator (Tier 0.6)
+_CFG_SCOPE_ENABLED="true"
+_CFG_SCOPE_DECISION="deny"
+_CFG_SCOPE_ALLOWED_PATHS=""
 if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
   eval "$(jq -r '
     "_CFG_RULES_COUNT=" + (.rules | length | tostring | @sh),
@@ -247,7 +251,9 @@ if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
     "_CFG_MCP_INVENTORY_ENABLED=" + (if .policies.mcp_inventory.enabled == true then "true" else "false" end | @sh),
     "_CFG_INPUT_PII_ALLOWLIST=" + ((.evaluators.input_pii.pii_allowlist // []) | join("\u001e") | @sh),
     "_CFG_HEADLESS_DIR=" + (.headless.escalation_dir // "" | @sh),
-    "_CFG_HEADLESS_TAIL=" + (.headless.include_trace_tail_lines // 20 | tostring | @sh)
+    "_CFG_HEADLESS_TAIL=" + (.headless.include_trace_tail_lines // 20 | tostring | @sh),
+    "_CFG_SCOPE_ENABLED=" + (if .evaluators.scope_containment.enabled == false then "false" else "true" end | @sh),
+    "_CFG_SCOPE_DECISION=" + (.evaluators.scope_containment.decision // "deny" | @sh)
   ' "$LANEKEEP_CONFIG_FILE" 2>/dev/null)" || true
 fi
 
@@ -259,6 +265,9 @@ source "$LANEKEEP_DIR/lib/headless.sh"
 source "$LANEKEEP_DIR/lib/eval-rules.sh"
 source "$LANEKEEP_DIR/lib/eval-budget.sh"
 source "$LANEKEEP_DIR/lib/eval-schema.sh"
+if [ "$_CFG_SCOPE_ENABLED" != "false" ]; then
+  source "$LANEKEEP_DIR/lib/eval-scope-containment.sh"
+fi
 
 # Phase 3: Conditionally source evaluator modules based on config flags
 # Hardblock always runs as a non-optional pre-filter (Finding 2: security parity)
@@ -339,6 +348,24 @@ case "$HOOK_EVENT" in
       _se_score=1; [ "$SCHEMA_PASSED" = true ] && _se_score=0
       RESULTS+=("$(printf '{"name":"SchemaEvaluator","tier":0.5,"score":%d,"passed":%s,"detail":"%s"}' \
         "$_se_score" "$SCHEMA_PASSED" "$(_json_escape "$SCHEMA_REASON")")")
+    fi
+
+    # --- Tier 0.6: Scope containment (TaskSpec allowed_paths) ---
+    # Opt-in — no-op unless the TaskSpec declares .allowed_paths. Denies
+    # Write/Edit outside declared paths and destructive Bash commands
+    # (rm/mv/truncate/dd/shred/wipe/unlink and find … -delete) targeting
+    # paths outside scope. Compliance: OWASP-ASI02, CWE-73.
+    if [ "$BLOCKED" = false ] && [ "$_CFG_SCOPE_ENABLED" != "false" ]; then
+      if declare -f scope_containment_eval >/dev/null 2>&1; then
+        if ! scope_containment_eval "$TOOL_NAME" "$TOOL_INPUT"; then
+          BLOCKED=true
+          BLOCK_REASON="$SCOPE_REASON"
+          BLOCK_DECISION="$SCOPE_DECISION"
+        fi
+        _sc_score="0.9"; [ "$SCOPE_PASSED" = true ] && _sc_score="0"
+        RESULTS+=("$(printf '{"name":"ScopeContainmentEvaluator","tier":0.6,"score":%s,"passed":%s,"detail":"%s","compliance":["OWASP-ASI02","CWE-73"]}' \
+          "$_sc_score" "$SCOPE_PASSED" "$(_json_escape "$SCOPE_REASON")")")
+      fi
     fi
 
     # --- Tier 1: Hardblock (always runs — input normalization + substring match) ---

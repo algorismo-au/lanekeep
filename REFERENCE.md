@@ -663,6 +663,45 @@ attribute redacted content to a field name.
 | `Bearer …` tokens | `Bearer [REDACTED]` |
 | `api_key` / `secret_key` / `access_token` / `auth_token` / `password` / `credential` / `secret` fields with ≥32-char values | `[REDACTED:secret]` |
 
+### Scope Containment
+
+Tier 0.6 evaluator. Enforces the `allowed_paths` array declared in the
+[TaskSpec](#budget--taskspec) (`$LANEKEEP_TASKSPEC_FILE`). Denies operations
+targeting files outside declared scope:
+
+- **`Write` / `Edit`** — target = `tool_input.file_path`.
+- **`Bash`** — destructive commands only. When the command begins with
+  `rm`, `rmdir`, `mv`, `truncate`, `dd`, `shred`, `wipe`, or `unlink`,
+  all path-shaped arguments are treated as targets. `find <root> …
+  -delete` and `find <root> … -exec rm` also fire — the search roots
+  are checked.
+
+Non-destructive Bash commands (`ls`, `cat`, `git status`, `mkdir`, etc.)
+are not gated by this evaluator regardless of their arguments — scope
+containment is about **write-side blast radius**, not read-side data
+sensitivity (which is `input_pii` / `repo_injection` / hidden_text).
+
+Opt-in — when the TaskSpec has no `allowed_paths` (or the array is
+empty), the evaluator is a no-op. Ships enabled by default so any
+TaskSpec-authored `allowed_paths` take effect immediately.
+
+The path matcher canonicalizes both target and each allowed path:
+strips surrounding quotes, resolves relative paths against
+`PROJECT_DIR`, expands `~`, collapses `./`, `//`, and `../` segments,
+and strips trailing slashes. A target matches an allowed path when
+they are equal, or when the target lives under the allowed path
+(prefix match with an appended `/`). Traversal attempts like
+`src/../etc/hosts` collapse before comparison, so they cannot
+spuriously satisfy an `src/`-prefix rule.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `evaluators.scope_containment.enabled` | bool | `true` | Enable / disable the evaluator |
+| `evaluators.scope_containment.decision` | `"deny"`/`"ask"`/`"warn"` | `"deny"` | Decision when a target is outside scope |
+| TaskSpec `allowed_paths` | string[] | *(absent)* | Path prefixes / files that operations may target. Empty or absent = no enforcement. |
+
+Compliance: OWASP-ASI02 (Tool Misuse), CWE-73 (Path Traversal).
+
 ### Semantic Evaluator
 
 The semantic evaluator uses an LLM to judge whether each tool call aligns
