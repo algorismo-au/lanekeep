@@ -100,6 +100,7 @@ _rt_extract_patterns() {
 result_transform_eval() {
   local tool_name="$1"
   local tool_result_text="$2"
+  local tool_input="${3:-}"    # optional; used for path_allowlist lookup
   RESULT_TRANSFORM_PASSED=true
   RESULT_TRANSFORM_REASON="Passed"
   RESULT_TRANSFORM_ACTION="pass"
@@ -114,6 +115,16 @@ result_transform_eval() {
   local config="$LANEKEEP_CONFIG_FILE"
   if [ ! -f "$config" ]; then
     return 0
+  fi
+
+  # Short-circuit for path-allowlisted files (SECURITY.md contact emails, etc)
+  if declare -F should_skip_by_path > /dev/null && [ -n "$tool_input" ]; then
+    local _rt_file_path
+    _rt_file_path=$(printf '%s' "$tool_input" | jq -r '.file_path // empty' 2>/dev/null)
+    if [ -n "$_rt_file_path" ] && should_skip_by_path "$_rt_file_path" "result_transform"; then
+      RESULT_TRANSFORM_REASON="Skipped: file path allowlisted for result_transform"
+      return 0
+    fi
   fi
 
   # Extract result_transform section once (57KB config → ~2KB section)

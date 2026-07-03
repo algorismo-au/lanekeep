@@ -357,6 +357,12 @@
       "exclude_extensions": [
         ".md"
       ],
+      "path_allowlist": [
+        "(^|/)SECURITY\\.md$",
+        "(^|/)CONTRIBUTING\\.md$",
+        "(^|/)CODE_OF_CONDUCT\\.md$",
+        "(^|/)\\.github/ISSUE_TEMPLATE/"
+      ],
       "pii_patterns": [
         "[0-9]{3}-[0-9]{2}-[0-9]{4}",
         "[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}",
@@ -380,6 +386,12 @@
     "result_transform": {
       "enabled": true,
       "on_detect": "redact",
+      "path_allowlist": [
+        "(^|/)SECURITY\\.md$",
+        "(^|/)CONTRIBUTING\\.md$",
+        "(^|/)CODE_OF_CONDUCT\\.md$",
+        "(^|/)\\.github/ISSUE_TEMPLATE/"
+      ],
       "injection_patterns": [
         "ignore previous instructions",
         "system prompt:",
@@ -420,7 +432,7 @@
         "[\\x{00AD}]",
         "[\\x{FEFF}]",
         "[\\x{FFF9}\\x{FFFA}\\x{FFFB}]",
-        "\\x1b\\["
+        "\\x1b\\]8;"
       ],
       "css_hiding_patterns": [],
       "html_comment_injection_patterns": [

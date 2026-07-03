@@ -126,7 +126,7 @@ INPUT=$(cat)
 
 # LaneKeep not running
 if [ ! -S "$SOCKET" ]; then
-  _lanekeep_fail_policy "LaneKeep sidecar not running."
+  _lanekeep_fail_policy "LaneKeep sidecar not running. Run: lanekeep-serve"
 fi
 
 # Forward to LaneKeep via socat (already a LaneKeep dependency, unlike nc which varies by distro)
@@ -148,16 +148,16 @@ if ! RESPONSE=$(printf '%s' "$INPUT" | socat -t "$TIMEOUT" - UNIX-CONNECT:"$SOCK
           # Recovery succeeded — fall through to decision parsing
           :
         else
-          _lanekeep_fail_policy "Sidecar restart attempted but still unreachable."
+          _lanekeep_fail_policy "Sidecar restart attempted but still unreachable. Check logs at .lanekeep/lanekeep-serve.log and restart: lanekeep-serve"
         fi
       else
-        _lanekeep_fail_policy "Sidecar restart attempted but socket not ready."
+        _lanekeep_fail_policy "Sidecar restart attempted but socket not ready. Restart manually: lanekeep-serve"
       fi
     else
-      _lanekeep_fail_policy "Stale socket detected. Run: lanekeep serve"
+      _lanekeep_fail_policy "Stale socket detected. Run: lanekeep-serve"
     fi
   else
-    _lanekeep_fail_policy "Failed to reach LaneKeep sidecar."
+    _lanekeep_fail_policy "Failed to reach LaneKeep sidecar. Check sidecar status and restart: lanekeep-serve"
   fi
 fi
 

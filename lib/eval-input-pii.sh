@@ -26,6 +26,16 @@ input_pii_eval() {
     return 0
   fi
 
+  # Short-circuit for path-allowlisted files (SECURITY.md contact emails, etc)
+  if declare -F should_skip_by_path > /dev/null; then
+    local _ip_file_path
+    _ip_file_path=$(printf '%s' "$tool_input" | jq -r '.file_path // empty' 2>/dev/null)
+    if [ -n "$_ip_file_path" ] && should_skip_by_path "$_ip_file_path" "input_pii"; then
+      INPUT_PII_REASON="Skipped: file path allowlisted for input_pii"
+      return 0
+    fi
+  fi
+
   local config="$LANEKEEP_CONFIG_FILE"
 
   # Resolve config: use pre-extracted _CFG_INPUT_PII_* vars or fall back to jq
