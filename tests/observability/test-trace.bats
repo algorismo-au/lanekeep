@@ -263,3 +263,63 @@ teardown() {
   line=$(head -1 "$LANEKEEP_TRACE_FILE")
   [ "$(printf '%s' "$line" | jq -r '.epic_id // "absent"')" = "absent" ]
 }
+
+# --- feat-story-traces: policy/rule event correlation fields ---
+# write_policy_event and write_rule_event now carry story_id/epic_id/task_id
+# so a story-scoped audit query catches every event under that story, not just
+# per-tool decisions.
+
+@test "story-traces: write_policy_event carries story_id/epic_id/task_id when env set" {
+  LANEKEEP_STORY_ID="story-alpha" \
+    LANEKEEP_EPIC_ID="epic-quarterly" \
+    LANEKEEP_TASK_ID="task-42" \
+    write_policy_event "policy_enable" "network" "session" "user" "enabled network policy"
+  local line
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  [ "$(printf '%s' "$line" | jq -r '.story_id')" = "story-alpha" ]
+  [ "$(printf '%s' "$line" | jq -r '.epic_id')" = "epic-quarterly" ]
+  [ "$(printf '%s' "$line" | jq -r '.task_id')" = "task-42" ]
+}
+
+@test "story-traces: write_rule_event carries story_id/epic_id/task_id when env set" {
+  LANEKEEP_STORY_ID="story-alpha" \
+    LANEKEEP_EPIC_ID="epic-quarterly" \
+    LANEKEEP_TASK_ID="task-42" \
+    write_rule_event "rule_disable" 3 "session" "user" "disabled rule #3"
+  local line
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  [ "$(printf '%s' "$line" | jq -r '.story_id')" = "story-alpha" ]
+  [ "$(printf '%s' "$line" | jq -r '.epic_id')" = "epic-quarterly" ]
+  [ "$(printf '%s' "$line" | jq -r '.task_id')" = "task-42" ]
+}
+
+@test "story-traces: write_policy_event omits correlation fields when env unset" {
+  unset LANEKEEP_STORY_ID LANEKEEP_EPIC_ID LANEKEEP_TASK_ID
+  write_policy_event "policy_enable" "network" "session" "user" "enabled"
+  local line
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  [ "$(printf '%s' "$line" | jq -r '.story_id // "absent"')" = "absent" ]
+  [ "$(printf '%s' "$line" | jq -r '.epic_id // "absent"')" = "absent" ]
+  [ "$(printf '%s' "$line" | jq -r '.task_id // "absent"')" = "absent" ]
+}
+
+@test "story-traces: write_rule_event omits correlation fields when env unset" {
+  unset LANEKEEP_STORY_ID LANEKEEP_EPIC_ID LANEKEEP_TASK_ID
+  write_rule_event "rule_disable" 1 "session" "user" "disabled"
+  local line
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  [ "$(printf '%s' "$line" | jq -r '.story_id // "absent"')" = "absent" ]
+  [ "$(printf '%s' "$line" | jq -r '.epic_id // "absent"')" = "absent" ]
+  [ "$(printf '%s' "$line" | jq -r '.task_id // "absent"')" = "absent" ]
+}
+
+@test "story-traces: partial env set — only defined fields appear" {
+  unset LANEKEEP_EPIC_ID LANEKEEP_TASK_ID
+  LANEKEEP_STORY_ID="story-only" \
+    write_policy_event "policy_enable" "network" "session" "user" "enabled"
+  local line
+  line=$(head -1 "$LANEKEEP_TRACE_FILE")
+  [ "$(printf '%s' "$line" | jq -r '.story_id')" = "story-only" ]
+  [ "$(printf '%s' "$line" | jq -r '.epic_id // "absent"')" = "absent" ]
+  [ "$(printf '%s' "$line" | jq -r '.task_id // "absent"')" = "absent" ]
+}

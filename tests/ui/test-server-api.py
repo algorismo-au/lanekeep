@@ -351,5 +351,130 @@ class ServerAPITestCase(unittest.TestCase):
         self.assertNotIn('context_model', b)
 
 
+class StoryEpicFilterTestCase(unittest.TestCase):
+    """/api/trace ?story=<id>&epic=<id> filter — feat-story-traces."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmpdir = tempfile.mkdtemp()
+        cls.project_dir = Path(cls.tmpdir) / 'project'
+        cls.project_dir.mkdir()
+        cls.traces_dir = cls.project_dir / '.lanekeep' / 'traces'
+        cls.traces_dir.mkdir(parents=True)
+        (cls.project_dir / 'lanekeep.json').write_text('{"rules":[],"policies":{}}')
+
+        # Fixture: three stories under two epics + a few untagged entries
+        entries = []
+        # 4 entries tagged story-alpha / epic-q3
+        for i in range(4):
+            e = make_trace_entry(i * 10, 'allow', 'Bash')
+            e['story_id'] = 'story-alpha'
+            e['epic_id'] = 'epic-q3'
+            entries.append(e)
+        # 3 entries tagged story-beta / epic-q3
+        for i in range(3):
+            e = make_trace_entry(50 + i * 10, 'deny', 'Write')
+            e['story_id'] = 'story-beta'
+            e['epic_id'] = 'epic-q3'
+            entries.append(e)
+        # 2 entries tagged story-gamma / epic-q4
+        for i in range(2):
+            e = make_trace_entry(100 + i * 10, 'warn', 'Edit')
+            e['story_id'] = 'story-gamma'
+            e['epic_id'] = 'epic-q4'
+            entries.append(e)
+        # 2 untagged entries — must not appear in any story/epic filter
+        for i in range(2):
+            entries.append(make_trace_entry(200 + i * 10, 'allow', 'Read'))
+
+        trace_file = cls.traces_dir / 'test-story-session.jsonl'
+        with open(trace_file, 'w') as f:
+            for e in entries:
+                f.write(json.dumps(e) + '\n')
+
+        srv.PROJECT_DIR = cls.project_dir
+        srv.CONFIG_PATH = cls.project_dir / 'lanekeep.json'
+        srv._trace_cache.update({'key': None, 'data': None, 'limit': None})
+        srv._trace_entries_cache.update({'key': None, 'entries': None, 'summary': None})
+        srv._trends_cache.update({'key': None, 'data': None})
+
+        import socket
+        sock = socket.socket()
+        sock.bind(('127.0.0.1', 0))
+        cls.port = sock.getsockname()[1]
+        sock.close()
+
+        from http.server import ThreadingHTTPServer
+        cls.server = ThreadingHTTPServer(('127.0.0.1', cls.port), srv.Handler)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+        time.sleep(0.3)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        import shutil
+        shutil.rmtree(cls.tmpdir, ignore_errors=True)
+
+    def get(self, path):
+        conn = HTTPConnection('127.0.0.1', self.port, timeout=5)
+        conn.request('GET', path)
+        resp = conn.getresponse()
+        body = resp.read().decode()
+        conn.close()
+        return resp.status, json.loads(body)
+
+    def test_stories_and_epics_exposed_in_response(self):
+        _, data = self.get('/api/trace?limit=100')
+        self.assertEqual(sorted(data['stories']), ['story-alpha', 'story-beta', 'story-gamma'])
+        self.assertEqual(sorted(data['epics']), ['epic-q3', 'epic-q4'])
+
+    def test_story_filter_narrows_entries(self):
+        _, data = self.get('/api/trace?limit=100&story=story-alpha')
+        self.assertEqual(data['total_filtered'], 4)
+        for e in data['entries']:
+            self.assertEqual(e['story_id'], 'story-alpha')
+
+    def test_epic_filter_narrows_entries(self):
+        _, data = self.get('/api/trace?limit=100&epic=epic-q3')
+        self.assertEqual(data['total_filtered'], 7)  # 4 alpha + 3 beta
+        for e in data['entries']:
+            self.assertEqual(e['epic_id'], 'epic-q3')
+
+    def test_story_and_epic_filter_combined(self):
+        _, data = self.get('/api/trace?limit=100&story=story-beta&epic=epic-q3')
+        self.assertEqual(data['total_filtered'], 3)
+        for e in data['entries']:
+            self.assertEqual(e['story_id'], 'story-beta')
+            self.assertEqual(e['epic_id'], 'epic-q3')
+
+    def test_story_filter_conflicting_epic_returns_empty(self):
+        # story-alpha is under epic-q3, so filtering by epic-q4 yields 0
+        _, data = self.get('/api/trace?limit=100&story=story-alpha&epic=epic-q4')
+        self.assertEqual(data['total_filtered'], 0)
+        self.assertEqual(len(data['entries']), 0)
+
+    def test_untagged_entries_excluded_by_story_filter(self):
+        _, data = self.get('/api/trace?limit=100&story=story-alpha')
+        # Untagged entries have no story_id, so they must not appear
+        for e in data['entries']:
+            self.assertNotEqual(e.get('story_id'), None)
+
+    def test_unknown_story_filter_returns_empty(self):
+        _, data = self.get('/api/trace?limit=100&story=story-does-not-exist')
+        self.assertEqual(data['total_filtered'], 0)
+
+    def test_empty_story_param_is_noop(self):
+        _, data = self.get('/api/trace?limit=100&story=')
+        self.assertEqual(data['total_filtered'], data['total_all'])
+
+    def test_story_filter_composes_with_decision_filter(self):
+        _, data = self.get('/api/trace?limit=100&story=story-beta&decision=deny')
+        self.assertEqual(data['total_filtered'], 3)
+        for e in data['entries']:
+            self.assertEqual(e['story_id'], 'story-beta')
+            self.assertEqual(e['decision'], 'deny')
+
+
 if __name__ == '__main__':
     unittest.main()
