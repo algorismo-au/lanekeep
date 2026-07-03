@@ -344,3 +344,89 @@ EOF
     [[ "$tags" == *"cis:6"* ]] || { echo "FAIL: $id missing cis:6"; return 1; }
   done
 }
+
+# ── Agentic-2026 frameworks (sg-mai, five-eyes, nist-agent) ──
+#
+# These three frameworks landed in 2026 and are agent-specific:
+#   sg-mai      Singapore IMDA Model AI Governance Framework for Agentic AI
+#               (Jan 22 2026)
+#   five-eyes   Five Eyes joint guidance on secure AI deployment (May 1 2026)
+#   nist-agent  NIST AI Agent Standards Initiative + Interop Profile
+#               (Q4 2026 preview via CAISI)
+# Sub-identifiers are LaneKeep's mapping to each framework's control themes;
+# see REFERENCE.md § Compliance tag frameworks.
+
+@test "defaults: prompt-injection rules carry sg-mai:input-governance" {
+  for id in sec-019 sec-019a sec-020 sec-021 sec-022 sec-023 sec-038; do
+    tags=$(jq -r --arg id "$id" '.rules[] | select(.id==$id) | .compliance_tags[]' \
+      "$LANEKEEP_DIR/defaults/lanekeep.json")
+    [[ "$tags" == *"sg-mai:input-governance"* ]] \
+      || { echo "FAIL: $id missing sg-mai:input-governance"; return 1; }
+    [[ "$tags" == *"five-eyes:content-verification"* ]] \
+      || { echo "FAIL: $id missing five-eyes:content-verification"; return 1; }
+  done
+}
+
+@test "defaults: LaneKeep self-protection rules carry agent-lifecycle + isolation" {
+  for id in sys-086 sys-087 sys-088 sec-039 sec-040 sec-041 sec-042 sec-043 sec-044 sec-045; do
+    tags=$(jq -r --arg id "$id" '.rules[] | select(.id==$id) | .compliance_tags[]' \
+      "$LANEKEEP_DIR/defaults/lanekeep.json")
+    [[ "$tags" == *"sg-mai:agent-lifecycle"* ]] \
+      || { echo "FAIL: $id missing sg-mai:agent-lifecycle"; return 1; }
+    [[ "$tags" == *"five-eyes:agent-isolation"* ]] \
+      || { echo "FAIL: $id missing five-eyes:agent-isolation"; return 1; }
+    [[ "$tags" == *"nist-agent:supervision"* ]] \
+      || { echo "FAIL: $id missing nist-agent:supervision"; return 1; }
+  done
+}
+
+@test "defaults: MCP tool poisoning rules carry nist-agent:interop" {
+  for id in sec-034 sec-035 sec-036 sec-037; do
+    tags=$(jq -r --arg id "$id" '.rules[] | select(.id==$id) | .compliance_tags[]' \
+      "$LANEKEEP_DIR/defaults/lanekeep.json")
+    [[ "$tags" == *"nist-agent:interop"* ]] \
+      || { echo "FAIL: $id missing nist-agent:interop"; return 1; }
+  done
+}
+
+@test "defaults: dependency rules carry five-eyes:supply-chain" {
+  for id in dep-000 dep-001 dep-012 dep-015 dep-018 dep-020 dep-021 dep-022 dep-024 dep-027 dep-029; do
+    tags=$(jq -r --arg id "$id" '.rules[] | select(.id==$id) | .compliance_tags[]' \
+      "$LANEKEEP_DIR/defaults/lanekeep.json")
+    [[ "$tags" == *"five-eyes:supply-chain"* ]] \
+      || { echo "FAIL: $id missing five-eyes:supply-chain"; return 1; }
+  done
+}
+
+@test "defaults: sg-mai framework has broad coverage" {
+  local count
+  count=$(jq '[.rules[] | select(.compliance_tags // [] | any(startswith("sg-mai:")))] | length' \
+    "$LANEKEEP_DIR/defaults/lanekeep.json")
+  # ~50 rules should carry at least one sg-mai:* tag (design target)
+  [ "$count" -ge 40 ] || { echo "FAIL: only $count rules have sg-mai:* tags; expected >=40"; return 1; }
+}
+
+@test "defaults: five-eyes framework has broad coverage" {
+  local count
+  count=$(jq '[.rules[] | select(.compliance_tags // [] | any(startswith("five-eyes:")))] | length' \
+    "$LANEKEEP_DIR/defaults/lanekeep.json")
+  [ "$count" -ge 40 ] || { echo "FAIL: only $count rules have five-eyes:* tags; expected >=40"; return 1; }
+}
+
+@test "defaults: nist-agent framework has coverage" {
+  local count
+  count=$(jq '[.rules[] | select(.compliance_tags // [] | any(startswith("nist-agent:")))] | length' \
+    "$LANEKEEP_DIR/defaults/lanekeep.json")
+  [ "$count" -ge 30 ] || { echo "FAIL: only $count rules have nist-agent:* tags; expected >=30"; return 1; }
+}
+
+@test "defaults: agentic-2026 tags use kebab-case sub-identifiers" {
+  # All sg-mai:*, five-eyes:*, nist-agent:* tags must be lowercase and
+  # kebab-case in the sub-identifier position (no colons after the framework
+  # separator, no whitespace, no uppercase).
+  bad=$(jq -r '[.rules[].compliance_tags // [] | .[]]
+    | map(select(test("^(sg-mai|five-eyes|nist-agent):")))
+    | map(select(test("^[a-z-]+:[a-z-]+$") | not))
+    | unique | .[]' "$LANEKEEP_DIR/defaults/lanekeep.json")
+  [ -z "$bad" ] || { echo "FAIL: malformed tags: $bad"; return 1; }
+}

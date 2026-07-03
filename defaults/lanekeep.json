@@ -791,7 +791,9 @@
       ],
       "type": "free",
       "compliance_tags": [
-        "cis:4"
+        "cis:4",
+        "sg-mai:trust-mgmt",
+        "five-eyes:least-privilege"
       ]
     },
     {
@@ -811,7 +813,9 @@
         "NIST SP800-53 SR-3"
       ],
       "compliance_tags": [
-        "cis:4"
+        "cis:4",
+        "sg-mai:trust-mgmt",
+        "five-eyes:least-privilege"
       ]
     },
     {
@@ -838,7 +842,8 @@
       "type": "free",
       "compliance_tags": [
         "cwe:78",
-        "attck:t1059.004"
+        "attck:t1059.004",
+        "sg-mai:human-oversight"
       ]
     },
     {
@@ -924,7 +929,9 @@
       "compliance_tags": [
         "attck:t1059",
         "atlas:t0072",
-        "nist-ai100-2:abuse"
+        "nist-ai100-2:abuse",
+        "five-eyes:untrusted-default",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -949,7 +956,9 @@
       "intent": "Loading or removing kernel modules can introduce rootkits, crash the kernel, or disable security features",
       "type": "free",
       "compliance_tags": [
-        "attck:t1547"
+        "attck:t1547",
+        "five-eyes:untrusted-default",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -968,7 +977,9 @@
       "compliance_tags": [
         "attck:t1547",
         "attck:t1548",
-        "cis:4"
+        "cis:4",
+        "sg-mai:trust-mgmt",
+        "five-eyes:least-privilege"
       ]
     },
     {
@@ -986,7 +997,9 @@
       "type": "free",
       "compliance_tags": [
         "attck:t1548",
-        "cis:5"
+        "cis:5",
+        "sg-mai:trust-mgmt",
+        "five-eyes:least-privilege"
       ]
     },
     {
@@ -1081,7 +1094,9 @@
       "type": "free",
       "compliance_tags": [
         "attck:t1548",
-        "cis:5"
+        "cis:5",
+        "sg-mai:trust-mgmt",
+        "five-eyes:least-privilege"
       ]
     },
     {
@@ -1110,7 +1125,10 @@
         "attck:t1027",
         "atlas:t0015",
         "atlas:t0068",
-        "nist-ai100-2:evasion"
+        "nist-ai100-2:evasion",
+        "sg-mai:content-provenance",
+        "five-eyes:untrusted-default",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -1128,7 +1146,9 @@
         "attck:t1552",
         "atlas:t0037",
         "atlas:t0055",
-        "nist-ai100-2:privacy"
+        "nist-ai100-2:privacy",
+        "five-eyes:untrusted-default",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -1146,7 +1166,9 @@
         "attck:t1027",
         "atlas:t0015",
         "atlas:t0068",
-        "nist-ai100-2:evasion"
+        "nist-ai100-2:evasion",
+        "sg-mai:content-provenance",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -1164,7 +1186,9 @@
         "attck:t1027",
         "atlas:t0015",
         "atlas:t0068",
-        "nist-ai100-2:evasion"
+        "nist-ai100-2:evasion",
+        "sg-mai:content-provenance",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -1191,7 +1215,9 @@
       "type": "free",
       "compliance_tags": [
         "attck:t1548",
-        "cis:5"
+        "cis:5",
+        "sg-mai:trust-mgmt",
+        "five-eyes:least-privilege"
       ]
     },
     {
@@ -1229,7 +1255,10 @@
       "intent": "Killing lanekeep-serve disables governance enforcement — agents must not terminate the sidecar",
       "type": "free",
       "compliance_tags": [
-        "atlas:t0081"
+        "atlas:t0081",
+        "sg-mai:agent-lifecycle",
+        "five-eyes:agent-isolation",
+        "nist-agent:supervision"
       ]
     },
     {
@@ -1243,7 +1272,10 @@
       "intent": "Catches patterns like `kill $(pgrep lanekeep)` or piped kill commands",
       "type": "free",
       "compliance_tags": [
-        "atlas:t0081"
+        "atlas:t0081",
+        "sg-mai:agent-lifecycle",
+        "five-eyes:agent-isolation",
+        "nist-agent:supervision"
       ]
     },
     {
@@ -1257,7 +1289,10 @@
       "intent": "Env vars control fail policy, config path, and socket location — modification could disable enforcement",
       "type": "free",
       "compliance_tags": [
-        "atlas:t0081"
+        "atlas:t0081",
+        "sg-mai:agent-lifecycle",
+        "five-eyes:agent-isolation",
+        "nist-agent:supervision"
       ]
     },
     {
@@ -1293,7 +1328,9 @@
       "intent": "rm with glob patterns (e.g. rm -i *) deletes all matching files. The -i flag is ineffective when stdin is not a TTY, as in AI agent contexts — the shell expands the glob before rm runs and there is no prompt to protect against accidental mass deletion",
       "type": "free",
       "compliance_tags": [
-        "atlas:t0081"
+        "atlas:t0081",
+        "five-eyes:untrusted-default",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -1328,7 +1365,9 @@
         "attck:t1552",
         "atlas:t0055",
         "cis:3",
-        "nist-ai100-2:privacy"
+        "nist-ai100-2:privacy",
+        "five-eyes:content-verification",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -1351,7 +1390,9 @@
         "attck:t1552",
         "atlas:t0055",
         "cis:3",
-        "nist-ai100-2:privacy"
+        "nist-ai100-2:privacy",
+        "five-eyes:content-verification",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -1374,7 +1415,9 @@
         "attck:t1552",
         "atlas:t0055",
         "cis:3",
-        "nist-ai100-2:privacy"
+        "nist-ai100-2:privacy",
+        "five-eyes:content-verification",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -1424,7 +1467,10 @@
       "compliance_tags": [
         "atlas:t0051",
         "atlas:t0054",
-        "nist-ai100-2:prompt-injection"
+        "nist-ai100-2:prompt-injection",
+        "sg-mai:input-governance",
+        "five-eyes:content-verification",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -1444,7 +1490,10 @@
       "compliance_tags": [
         "atlas:t0051",
         "atlas:t0054",
-        "nist-ai100-2:prompt-injection"
+        "nist-ai100-2:prompt-injection",
+        "sg-mai:input-governance",
+        "five-eyes:content-verification",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -1509,7 +1558,10 @@
       "compliance_tags": [
         "owasp-llm:LLM01:2025",
         "atlas:t0054",
-        "nist-ai100-2:prompt-injection"
+        "nist-ai100-2:prompt-injection",
+        "sg-mai:input-governance",
+        "five-eyes:content-verification",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -1529,7 +1581,10 @@
       "compliance_tags": [
         "owasp-llm:LLM01:2025",
         "atlas:t0054",
-        "nist-ai100-2:prompt-injection"
+        "nist-ai100-2:prompt-injection",
+        "sg-mai:input-governance",
+        "five-eyes:content-verification",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -1549,7 +1604,10 @@
       "compliance_tags": [
         "owasp-llm:LLM01:2025",
         "atlas:t0054",
-        "nist-ai100-2:prompt-injection"
+        "nist-ai100-2:prompt-injection",
+        "sg-mai:input-governance",
+        "five-eyes:content-verification",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -1569,7 +1627,10 @@
       "compliance_tags": [
         "atlas:t0051",
         "atlas:t0054",
-        "nist-ai100-2:prompt-injection"
+        "nist-ai100-2:prompt-injection",
+        "sg-mai:input-governance",
+        "five-eyes:content-verification",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -1617,7 +1678,9 @@
         "attck:t1552",
         "atlas:t0055",
         "cis:3",
-        "nist-ai100-2:privacy"
+        "nist-ai100-2:privacy",
+        "sg-mai:output-governance",
+        "nist-agent:safety-limits"
       ],
       "enabled": true
     },
@@ -1661,7 +1724,10 @@
       "type": "free",
       "compliance_tags": [
         "atlas:t0051",
-        "nist-ai100-2:prompt-injection"
+        "nist-ai100-2:prompt-injection",
+        "sg-mai:agent-lifecycle",
+        "five-eyes:agent-isolation",
+        "nist-agent:supervision"
       ]
     },
     {
@@ -1676,7 +1742,10 @@
       "type": "free",
       "compliance_tags": [
         "atlas:t0051",
-        "nist-ai100-2:prompt-injection"
+        "nist-ai100-2:prompt-injection",
+        "sg-mai:agent-lifecycle",
+        "five-eyes:agent-isolation",
+        "nist-agent:supervision"
       ]
     },
     {
@@ -1692,7 +1761,10 @@
       "type": "free",
       "compliance_tags": [
         "atlas:t0051",
-        "nist-ai100-2:prompt-injection"
+        "nist-ai100-2:prompt-injection",
+        "sg-mai:agent-lifecycle",
+        "five-eyes:agent-isolation",
+        "nist-agent:supervision"
       ]
     },
     {
@@ -1707,7 +1779,10 @@
       "type": "free",
       "compliance_tags": [
         "atlas:t0051",
-        "nist-ai100-2:prompt-injection"
+        "nist-ai100-2:prompt-injection",
+        "sg-mai:agent-lifecycle",
+        "five-eyes:agent-isolation",
+        "nist-agent:supervision"
       ]
     },
     {
@@ -1722,7 +1797,10 @@
       "type": "free",
       "compliance_tags": [
         "atlas:t0051",
-        "nist-ai100-2:prompt-injection"
+        "nist-ai100-2:prompt-injection",
+        "sg-mai:agent-lifecycle",
+        "five-eyes:agent-isolation",
+        "nist-agent:supervision"
       ]
     },
     {
@@ -1737,7 +1815,10 @@
       "type": "free",
       "compliance_tags": [
         "atlas:t0051",
-        "nist-ai100-2:prompt-injection"
+        "nist-ai100-2:prompt-injection",
+        "sg-mai:agent-lifecycle",
+        "five-eyes:agent-isolation",
+        "nist-agent:supervision"
       ]
     },
     {
@@ -1753,7 +1834,10 @@
       "type": "free",
       "compliance_tags": [
         "atlas:t0051",
-        "nist-ai100-2:prompt-injection"
+        "nist-ai100-2:prompt-injection",
+        "sg-mai:agent-lifecycle",
+        "five-eyes:agent-isolation",
+        "nist-agent:supervision"
       ]
     },
     {
@@ -2048,7 +2132,8 @@
       "type": "free",
       "compliance_tags": [
         "attck:t1567",
-        "atlas:t0025"
+        "atlas:t0025",
+        "sg-mai:human-oversight"
       ]
     },
     {
@@ -2063,7 +2148,8 @@
       "type": "free",
       "compliance_tags": [
         "attck:t1567",
-        "atlas:t0025"
+        "atlas:t0025",
+        "sg-mai:human-oversight"
       ]
     },
     {
@@ -2081,7 +2167,9 @@
         "atlas:t0060",
         "cis:15",
         "ntia-sbom:dependency-tracking",
-        "openssf:pinned-dependencies"
+        "openssf:pinned-dependencies",
+        "five-eyes:supply-chain",
+        "sg-mai:content-provenance"
       ]
     },
     {
@@ -2099,7 +2187,9 @@
         "cis:2",
         "ntia-sbom:dependency-tracking",
         "ntia-sbom:provenance",
-        "openssf:pinned-dependencies"
+        "openssf:pinned-dependencies",
+        "five-eyes:supply-chain",
+        "nist-agent:provenance"
       ]
     },
     {
@@ -2118,7 +2208,9 @@
       "type": "free",
       "compliance_tags": [
         "cis:15",
-        "ntia-sbom:dependency-tracking"
+        "ntia-sbom:dependency-tracking",
+        "five-eyes:supply-chain",
+        "sg-mai:content-provenance"
       ]
     },
     {
@@ -2134,7 +2226,10 @@
       "intent": "npm lifecycle scripts (preinstall, postinstall, prepare) auto-execute on install — a persistence and supply-chain attack vector",
       "type": "free",
       "compliance_tags": [
-        "ntia-sbom:lifecycle-scripts"
+        "ntia-sbom:lifecycle-scripts",
+        "five-eyes:supply-chain",
+        "sg-mai:content-provenance",
+        "nist-agent:provenance"
       ]
     },
     {
@@ -2151,7 +2246,10 @@
       "compliance_tags": [
         "nist-ai100-2:poisoning",
         "ntia-sbom:lockfile-integrity",
-        "openssf:sbom"
+        "openssf:sbom",
+        "five-eyes:supply-chain",
+        "sg-mai:content-provenance",
+        "nist-agent:provenance"
       ]
     },
     {
@@ -2165,7 +2263,10 @@
       "intent": "Unpublishing, token management, and ownership changes are sensitive registry operations that should not be automated by AI agents",
       "type": "free",
       "compliance_tags": [
-        "ntia-sbom:provenance"
+        "ntia-sbom:provenance",
+        "five-eyes:supply-chain",
+        "sg-mai:content-provenance",
+        "nist-agent:provenance"
       ]
     },
     {
@@ -2179,7 +2280,10 @@
       "intent": "Setting ignore-scripts to false re-enables automatic lifecycle script execution — bypasses a critical supply chain security control",
       "type": "free",
       "compliance_tags": [
-        "ntia-sbom:lifecycle-scripts"
+        "ntia-sbom:lifecycle-scripts",
+        "five-eyes:supply-chain",
+        "sg-mai:content-provenance",
+        "nist-agent:provenance"
       ]
     },
     {
@@ -2198,7 +2302,9 @@
       "type": "free",
       "compliance_tags": [
         "cis:15",
-        "ntia-sbom:dependency-tracking"
+        "ntia-sbom:dependency-tracking",
+        "sg-mai:human-oversight",
+        "five-eyes:supply-chain"
       ]
     },
     {
@@ -2231,7 +2337,10 @@
         "nist-ai100-2:poisoning",
         "ntia-sbom:lifecycle-scripts",
         "ntia-sbom:provenance",
-        "openssf:dangerous-workflow"
+        "openssf:dangerous-workflow",
+        "five-eyes:supply-chain",
+        "sg-mai:content-provenance",
+        "nist-agent:provenance"
       ]
     },
     {
@@ -2260,7 +2369,9 @@
       "compliance_tags": [
         "cis:2",
         "ntia-sbom:lockfile-integrity",
-        "openssf:dependency-update-tool"
+        "openssf:dependency-update-tool",
+        "five-eyes:supply-chain",
+        "sg-mai:content-provenance"
       ]
     },
     {
@@ -2275,7 +2386,9 @@
       "intent": "The --ignore-scripts flag prevents lifecycle script execution which improves security but can break packages that require post-install steps",
       "type": "free",
       "compliance_tags": [
-        "ntia-sbom:lifecycle-scripts"
+        "ntia-sbom:lifecycle-scripts",
+        "five-eyes:supply-chain",
+        "sg-mai:content-provenance"
       ]
     },
     {
@@ -2360,7 +2473,9 @@
       "type": "free",
       "compliance_tags": [
         "atlas:t0081",
-        "cis:4"
+        "cis:4",
+        "sg-mai:trust-mgmt",
+        "five-eyes:least-privilege"
       ]
     },
     {
@@ -2374,7 +2489,10 @@
       "intent": "Publishing pushes code to a public registry — once published, versions cannot be fully retracted",
       "type": "free",
       "compliance_tags": [
-        "openssf:signed-releases"
+        "openssf:signed-releases",
+        "sg-mai:human-oversight",
+        "five-eyes:supply-chain",
+        "nist-agent:provenance"
       ]
     },
     {
@@ -2433,7 +2551,10 @@
       "intent": "Creating releases can trigger deployment pipelines and publish artifacts — AI agents must not participate in release processes",
       "type": "free",
       "compliance_tags": [
-        "openssf:signed-releases"
+        "openssf:signed-releases",
+        "sg-mai:human-oversight",
+        "five-eyes:supply-chain",
+        "nist-agent:provenance"
       ]
     },
     {
@@ -2492,7 +2613,8 @@
       "intent": "Cloud CLI commands can provision, modify, or destroy resources that cost money and affect production",
       "type": "free",
       "compliance_tags": [
-        "cis:15"
+        "cis:15",
+        "sg-mai:human-oversight"
       ]
     },
     {
@@ -2507,7 +2629,8 @@
       "intent": "AI agents should not autonomously trigger CI/CD pipelines — workflow execution can deploy code, run integration tests against production, or consume CI credits",
       "type": "free",
       "compliance_tags": [
-        "openssf:dangerous-workflow"
+        "openssf:dangerous-workflow",
+        "five-eyes:audit-trail"
       ]
     },
     {
@@ -2537,7 +2660,9 @@
         "atlas:t0072",
         "cis:10",
         "nist-ai100-2:abuse",
-        "openssf:dangerous-workflow"
+        "openssf:dangerous-workflow",
+        "sg-mai:output-governance",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -2607,7 +2732,8 @@
       ],
       "type": "free",
       "compliance_tags": [
-        "cis:8"
+        "cis:8",
+        "five-eyes:audit-trail"
       ]
     },
     {
@@ -2657,7 +2783,8 @@
       ],
       "type": "free",
       "compliance_tags": [
-        "cis:8"
+        "cis:8",
+        "five-eyes:audit-trail"
       ]
     },
     {
@@ -2721,7 +2848,9 @@
       "type": "free",
       "compliance_tags": [
         "attck:t1059",
-        "nist-ai100-2:abuse"
+        "nist-ai100-2:abuse",
+        "sg-mai:output-governance",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -2736,7 +2865,8 @@
       "intent": "stdout/stderr logging lacks levels, formatting, and rotation — use structured logging for operational visibility",
       "type": "free",
       "compliance_tags": [
-        "cis:8"
+        "cis:8",
+        "five-eyes:audit-trail"
       ]
     },
     {
@@ -2851,7 +2981,9 @@
         "attck:t1027",
         "atlas:t0015",
         "atlas:t0068",
-        "nist-ai100-2:evasion"
+        "nist-ai100-2:evasion",
+        "sg-mai:content-provenance",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -2884,7 +3016,9 @@
       ],
       "type": "free",
       "compliance_tags": [
-        "cis:6"
+        "cis:6",
+        "sg-mai:trust-mgmt",
+        "five-eyes:least-privilege"
       ]
     },
     {
@@ -2905,7 +3039,9 @@
       ],
       "type": "free",
       "compliance_tags": [
-        "cis:6"
+        "cis:6",
+        "sg-mai:trust-mgmt",
+        "five-eyes:least-privilege"
       ]
     },
     {
@@ -2924,7 +3060,9 @@
       ],
       "type": "free",
       "compliance_tags": [
-        "cis:6"
+        "cis:6",
+        "sg-mai:trust-mgmt",
+        "five-eyes:least-privilege"
       ]
     },
     {
@@ -2943,7 +3081,9 @@
       ],
       "type": "free",
       "compliance_tags": [
-        "cis:6"
+        "cis:6",
+        "sg-mai:trust-mgmt",
+        "five-eyes:least-privilege"
       ]
     },
     {
@@ -2961,7 +3101,9 @@
       "type": "free",
       "compliance_tags": [
         "attck:t1552.005",
-        "atlas:t0055"
+        "atlas:t0055",
+        "sg-mai:trust-mgmt",
+        "five-eyes:agent-isolation"
       ]
     },
     {
@@ -2979,7 +3121,9 @@
       ],
       "type": "free",
       "compliance_tags": [
-        "attck:t1190"
+        "attck:t1190",
+        "sg-mai:trust-mgmt",
+        "five-eyes:agent-isolation"
       ]
     },
     {
@@ -2993,7 +3137,9 @@
       "intent": "Docker socket provides root-equivalent host access; K8s service account tokens enable cluster-wide lateral movement",
       "type": "free",
       "compliance_tags": [
-        "attck:t1190"
+        "attck:t1190",
+        "sg-mai:trust-mgmt",
+        "five-eyes:agent-isolation"
       ]
     },
     {
@@ -3011,7 +3157,9 @@
       ],
       "type": "free",
       "compliance_tags": [
-        "attck:t1190"
+        "attck:t1190",
+        "sg-mai:trust-mgmt",
+        "five-eyes:agent-isolation"
       ]
     },
     {
@@ -3025,7 +3173,9 @@
       "intent": "Private IP addresses could indicate SSRF probing of internal infrastructure or container/pod networks",
       "type": "free",
       "compliance_tags": [
-        "attck:t1190"
+        "attck:t1190",
+        "sg-mai:trust-mgmt",
+        "five-eyes:agent-isolation"
       ]
     },
     {
@@ -3053,7 +3203,10 @@
       "compliance_tags": [
         "attck:t1557",
         "atlas:t0034",
-        "nist-ai100-2:supply-chain"
+        "nist-ai100-2:supply-chain",
+        "sg-mai:input-governance",
+        "five-eyes:content-verification",
+        "nist-agent:interop"
       ]
     },
     {
@@ -3069,7 +3222,10 @@
       "compliance_tags": [
         "attck:t1195",
         "atlas:t0042",
-        "nist-ai100-2:supply-chain"
+        "nist-ai100-2:supply-chain",
+        "sg-mai:input-governance",
+        "five-eyes:content-verification",
+        "nist-agent:interop"
       ]
     },
     {
@@ -3088,7 +3244,9 @@
       "compliance_tags": [
         "attck:t1059.007",
         "cwe:79",
-        "nist-ai100-2:evasion"
+        "nist-ai100-2:evasion",
+        "sg-mai:output-governance",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -3108,7 +3266,9 @@
       ],
       "compliance_tags": [
         "attck:t1059.007",
-        "cwe:79"
+        "cwe:79",
+        "sg-mai:output-governance",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -3125,7 +3285,9 @@
         "attck:t1567",
         "attck:t1048",
         "atlas:t0025",
-        "nist-ai100-2:exfiltration"
+        "nist-ai100-2:exfiltration",
+        "five-eyes:untrusted-default",
+        "nist-agent:safety-limits"
       ]
     },
     {
@@ -3142,7 +3304,10 @@
       "compliance_tags": [
         "attck:t1195",
         "atlas:t0042",
-        "nist-ai100-2:supply-chain"
+        "nist-ai100-2:supply-chain",
+        "sg-mai:input-governance",
+        "five-eyes:content-verification",
+        "nist-agent:interop"
       ]
     },
     {
@@ -3161,7 +3326,10 @@
         "atlas:t0042",
         "atlas:t0051",
         "nist-ai100-2:prompt-injection",
-        "nist-ai100-2:supply-chain"
+        "nist-ai100-2:supply-chain",
+        "sg-mai:input-governance",
+        "five-eyes:content-verification",
+        "nist-agent:interop"
       ]
     },
     {
@@ -3180,7 +3348,10 @@
         "atlas:t0011.001",
         "nist-ai100-2:supply-chain",
         "ntia-sbom:provenance",
-        "openssf:dangerous-workflow"
+        "openssf:dangerous-workflow",
+        "five-eyes:supply-chain",
+        "sg-mai:content-provenance",
+        "nist-agent:provenance"
       ]
     },
     {
@@ -3199,7 +3370,10 @@
         "attck:t1059",
         "atlas:t0051",
         "atlas:t0043",
-        "nist-ai100-2:prompt-injection"
+        "nist-ai100-2:prompt-injection",
+        "sg-mai:input-governance",
+        "five-eyes:content-verification",
+        "nist-agent:safety-limits"
       ]
     }
   ],

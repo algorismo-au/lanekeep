@@ -30,7 +30,8 @@ Detailed configuration reference for LaneKeep. For getting started, see
 | `reason` | yes | Human-readable explanation (shown on deny) |
 | `category` | no | Grouping label (e.g., `git`, `system`, `custom`) |
 | `intent` | no | Why this rule exists (for audit context) |
-| `compliance` | no | Array of tags (e.g., `["SOC2-CC6.1", "HIPAA"]`) |
+| `compliance` | no | Free-form regulatory references (e.g., `["SOC2-CC6.1", "HIPAA"]`) |
+| `compliance_tags` | no | Machine-readable framework tags (e.g., `["attck:t1059", "cis:4"]`) — see § Compliance Tag Frameworks |
 | `enabled` | no | `false` to disable without removing (default: `true`) |
 
 **Match fields** (AND logic, omitted = match all, case-insensitive):
@@ -110,9 +111,61 @@ If `LANEKEEP_ENV` is unset, `env` rules never match.
   "decision": "deny",
   "reason": "Possible credit card number in tool input",
   "compliance": ["PCI-DSS-3.4"],
+  "compliance_tags": ["cis:3", "nist-ai100-2:privacy"],
   "category": "secrets"
 }
 ```
+
+## Compliance Tag Frameworks
+
+Rules may carry `compliance_tags` — machine-readable tokens of the form
+`framework:identifier`, kebab-case, lowercase. Tags surface in trace entries,
+in the dashboard Coverage page, and in Pro-tier overlay packs (see
+§ Platform Packs).
+
+**Framework prefixes shipped in defaults/lanekeep.json:**
+
+| Prefix | Framework | Sub-identifier meaning |
+|---|---|---|
+| `attck` | MITRE ATT&CK | Technique ID (e.g., `t1059`, `t1552.005`) |
+| `atlas` | MITRE ATLAS (adversarial ML) | Technique ID (e.g., `t0051`, `t0072`) |
+| `cis` | CIS Controls v8 | Control number (e.g., `4`, `15`) |
+| `cwe` | CWE | Weakness ID (e.g., `78`, `79`) |
+| `nist-ai100-2` | NIST AI 100-2 | Category (`prompt-injection`, `privacy`, `supply-chain`, …) |
+| `ntia-sbom` | NTIA SBOM Minimum Elements | Component (`dependency-tracking`, `provenance`, …) |
+| `openssf` | OpenSSF Scorecard | Practice (`pinned-dependencies`, `signed-releases`, …) |
+| `owasp-llm` | OWASP LLM Top 10 | Category + year (e.g., `LLM01:2025`) |
+| `sg-mai` | Singapore IMDA MAI Governance Framework for Agentic AI (Jan 22 2026) | See below |
+| `five-eyes` | Five Eyes joint guidance on secure AI system deployment (May 1 2026) | See below |
+| `nist-agent` | NIST AI Agent Standards Initiative + Interop Profile (Q4 2026 preview, CAISI) | See below |
+
+**Agentic-2026 sub-identifiers** — LaneKeep's mapping of rule intent to each
+framework's control themes. Sub-identifier names are LaneKeep-authored; they
+group rules by the framework theme they operationalise, not by a numeric
+citation into the framework text.
+
+| Tag | Rules match when… |
+|---|---|
+| `sg-mai:trust-mgmt` | Permission, privilege, or trust-boundary rules (chmod/sudo/su, TLS/CORS/CSRF defaults, SSRF) |
+| `sg-mai:human-oversight` | Rule decision is `ask` on a category the framework flags for human review (network, publishing, dependency install, cloud CLI) |
+| `sg-mai:input-governance` | Rule inspects content flowing INTO the agent (prompt-injection markers, MCP tool-description poisoning, AI API config manipulation) |
+| `sg-mai:output-governance` | Rule inspects content flowing OUT of the agent (RCE patterns, dynamic exec, secret echo, inline scripts) |
+| `sg-mai:agent-lifecycle` | Rule guards the agent's own governance boundary (LaneKeep process/env/config self-protection) |
+| `sg-mai:content-provenance` | Rule enforces content authenticity / integrity (lockfile tampering, lifecycle scripts, encoded payloads, npx --yes) |
+| `five-eyes:untrusted-default` | Rule enforces the "untrusted until proven otherwise" posture via a `deny` default on a high-risk operation |
+| `five-eyes:content-verification` | Rule verifies content the agent ingests (prompt injection, secrets in code, MCP description poisoning, lockfile integrity) |
+| `five-eyes:agent-isolation` | Rule prevents the agent from escaping its governance boundary or laterally accessing infra (SSRF, self-protection, config isolation) |
+| `five-eyes:audit-trail` | Rule protects observability signal (debug/logging state, CI/CD triggers) |
+| `five-eyes:least-privilege` | Rule enforces minimum permissions (chmod, sudo, TLS/CORS/CSRF defaults, IDE config) |
+| `five-eyes:supply-chain` | Rule enforces supply-chain integrity (dependency install/publish/registry, MCP mass-enable, signed releases) |
+| `nist-agent:supervision` | Rule protects the supervisor (LaneKeep self-protection, config isolation) |
+| `nist-agent:safety-limits` | Rule enforces a bounded safety limit (dangerous system ops, prompt injection, RCE, exfiltration) |
+| `nist-agent:provenance` | Rule enforces action provenance (dependency provenance, lifecycle-script visibility, signed releases) |
+| `nist-agent:interop` | Rule governs agent-to-agent trust boundaries (MCP server/tool ingestion, AI API redirect) |
+
+Sub-identifier definitions may evolve as the underlying frameworks publish
+their own control catalogues. Consumers that gate CI on specific tags should
+pin the LaneKeep version.
 
 ## Customizing Default Rules
 
