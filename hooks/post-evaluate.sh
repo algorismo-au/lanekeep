@@ -98,13 +98,13 @@ INPUT=$(cat)
 
 # LaneKeep not running
 if [ ! -S "$SOCKET" ]; then
-  _lanekeep_fail_policy "LaneKeep sidecar not running."
+  _lanekeep_fail_policy "LaneKeep sidecar not running. Run: lanekeep-serve"
 fi
 
 # Forward to LaneKeep via socat (already a LaneKeep dependency)
 # Connection failed
 if ! RESPONSE=$(printf '%s' "$INPUT" | socat -t "$TIMEOUT" - UNIX-CONNECT:"$SOCKET" 2>/dev/null) || [ -z "$RESPONSE" ]; then
-  _lanekeep_fail_policy "Failed to reach LaneKeep sidecar."
+  _lanekeep_fail_policy "Failed to reach LaneKeep sidecar. Check sidecar status and restart: lanekeep-serve"
 fi
 
 # Extract decision fields

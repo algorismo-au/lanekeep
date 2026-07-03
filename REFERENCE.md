@@ -743,6 +743,24 @@ Example — also exclude `.txt` tutorial files from PII scanning:
 }
 ```
 
+### Evaluator Path Allowlists
+
+Some documentation files legitimately contain content that matches PII or
+secret patterns — a `SECURITY.md` vuln-reporting email, a `CONTRIBUTING.md`
+sample token, an issue-template placeholder. The `path_allowlist` array on
+`input_pii` and `result_transform` suppresses scanning when the target
+`file_path` matches any listed regex (POSIX ERE, applied to the raw path).
+
+For `input_pii` this covers `Write`/`Edit` payloads; for `result_transform`
+it covers `Read` (and any other PostToolUse) results whose source file is in
+the allowlist. Patterns are regex — anchor with `(^|/)…$` to avoid
+substring matches.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `evaluators.input_pii.path_allowlist` | array of string | `["(^\|/)SECURITY\\.md$", "(^\|/)CONTRIBUTING\\.md$", "(^\|/)CODE_OF_CONDUCT\\.md$", "(^\|/)\\.github/ISSUE_TEMPLATE/"]` | File paths to bypass for the input_pii evaluator |
+| `evaluators.result_transform.path_allowlist` | array of string | (same as above) | File paths to bypass for the result_transform evaluator |
+
 ### Plugins
 
 Plugins are user-installed scripts under `plugins.d/*.plugin.{sh,py,js,...}`

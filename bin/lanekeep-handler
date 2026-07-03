@@ -761,7 +761,7 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
 
     # Run Tier 9 evaluator (skip if result_transform disabled)
     if [ "$_CFG_RESULT_TRANSFORM_ENABLED" != "false" ]; then
-      result_transform_eval "$TOOL_NAME" "$TOOL_RESULT_TEXT" || true
+      result_transform_eval "$TOOL_NAME" "$TOOL_RESULT_TEXT" "$TOOL_INPUT" || true
     else
       RESULT_TRANSFORM_PASSED=true
       RESULT_TRANSFORM_REASON="Skipped (disabled)"

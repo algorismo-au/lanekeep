@@ -673,3 +673,32 @@ should_skip_by_extension() {
   done <<< "$exclude_list"
   return 1
 }
+
+# should_skip_by_path <file_path> <evaluator_key>
+# Returns 0 if the given file path matches any regex in
+# .evaluators.<evaluator_key>.path_allowlist. Used to suppress input_pii and
+# result_transform false positives on conventional documentation files
+# (SECURITY.md vuln-reporting emails, CONTRIBUTING.md sample tokens, etc).
+# Caller extracts file_path — this helper is source-agnostic (works for
+# tool_input.file_path on Write/Edit and derived source paths for other tools).
+should_skip_by_path() {
+  local file_path="$1"
+  local evaluator_key="$2"
+  [ -n "$file_path" ] || return 1
+
+  local config="$LANEKEEP_CONFIG_FILE"
+  [ -f "$config" ] || return 1
+
+  local allowlist
+  allowlist=$(jq -r --arg k "$evaluator_key" '.evaluators[$k].path_allowlist // [] | .[]' "$config" 2>/dev/null) || return 1
+  [ -n "$allowlist" ] || return 1
+
+  local pat
+  while IFS= read -r pat; do
+    [ -z "$pat" ] && continue
+    if printf '%s' "$file_path" | grep -qE -- "$pat"; then
+      return 0
+    fi
+  done <<< "$allowlist"
+  return 1
+}
