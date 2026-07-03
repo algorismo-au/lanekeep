@@ -252,6 +252,8 @@ budget_eval() {
   local task_id task_action_count task_input_tokens_st task_output_tokens_st task_token_count task_start_epoch
   eval "$(jq -r '
     "action_count=" + (.action_count // 0 | tostring | @sh),
+    "warn_count=" + (.warn_count // 0 | tostring | @sh),
+    "ask_count=" + (.ask_count // 0 | tostring | @sh),
     "start_epoch=" + (.start_epoch // 0 | tostring | @sh),
     "token_count=" + (.token_count // 0 | tostring | @sh),
     "input_tokens_st=" + (.input_tokens // 0 | tostring | @sh),
@@ -274,6 +276,11 @@ budget_eval() {
   # Expose pre-increment session action count to downstream evaluators
   # (Tier 5.5 context-budget action-count signal, and any others that need it).
   _SESSION_ACTION_COUNT="$action_count"
+  # Expose cumulative warn/ask counts for feat-cumulative-risk-scoring.
+  [[ "$warn_count" =~ ^[0-9]+$ ]] || warn_count=0
+  [[ "$ask_count" =~ ^[0-9]+$ ]] || ask_count=0
+  _SESSION_WARN_COUNT="$warn_count"
+  _SESSION_ASK_COUNT="$ask_count"
   [[ "$start_epoch" =~ ^[0-9]+$ ]] || start_epoch=$now_epoch
   [[ "$token_count" =~ ^[0-9]+$ ]] || token_count=0
   [[ "$input_tokens_st" =~ ^[0-9]+$ ]] || input_tokens_st=0
@@ -297,8 +304,10 @@ budget_eval() {
         "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$(_json_escape "$session_id")" "$(_json_escape "${LANEKEEP_SESSION_ID:-}")" "$_sb_model" > "${state}.tmp" \
         && mv "${state}.tmp" "$state"
       cumulative_init
-      # Reset counters for new session
+      # Reset counters for new session (incl. cumulative-risk warn/ask counters)
       action_count=0; token_count=0; input_tokens_st=0; output_tokens_st=0; cache_creation_st=0; cache_read_st=0; total_events=0; start_epoch=$now_epoch
+      warn_count=0; ask_count=0
+      _SESSION_WARN_COUNT=0; _SESSION_ASK_COUNT=0
     fi
     session_id="$cc_session_id"
   fi
@@ -382,8 +391,8 @@ budget_eval() {
   if [ -z "$_model_field" ] && [ -n "${_prev_model:-}" ]; then
     _model_field="$(printf ',"model":"%s"' "$(_json_escape "$_prev_model")")"
   fi
-  printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"cache_creation_input_tokens":%d,"cache_read_input_tokens":%d,"total_events":%d,"start_epoch":%d,"elapsed_seconds":%d,"session_id":"%s","lanekeep_session_id":"%s","token_source":"%s","task_id":"%s","task_action_count":%d,"task_input_tokens":%d,"task_output_tokens":%d,"task_token_count":%d,"task_start_epoch":%d%s}\n' \
-    "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$elapsed_seconds" "$(_json_escape "$session_id")" "$(_json_escape "${LANEKEEP_SESSION_ID:-}")" "$_token_source" "$(_json_escape "$task_id")" "$task_action_count" "$task_input_tokens_st" "$task_output_tokens_st" "$task_token_count" "$task_start_epoch" "$_model_field" > "${state}.tmp" \
+  printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"cache_creation_input_tokens":%d,"cache_read_input_tokens":%d,"total_events":%d,"warn_count":%d,"ask_count":%d,"start_epoch":%d,"elapsed_seconds":%d,"session_id":"%s","lanekeep_session_id":"%s","token_source":"%s","task_id":"%s","task_action_count":%d,"task_input_tokens":%d,"task_output_tokens":%d,"task_token_count":%d,"task_start_epoch":%d%s}\n' \
+    "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$warn_count" "$ask_count" "$start_epoch" "$elapsed_seconds" "$(_json_escape "$session_id")" "$(_json_escape "${LANEKEEP_SESSION_ID:-}")" "$_token_source" "$(_json_escape "$task_id")" "$task_action_count" "$task_input_tokens_st" "$task_output_tokens_st" "$task_token_count" "$task_start_epoch" "$_model_field" > "${state}.tmp" \
     && mv "${state}.tmp" "$state"
   exec 9>&-
 

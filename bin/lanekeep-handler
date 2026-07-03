@@ -159,6 +159,10 @@ _CFG_MCP_INVENTORY_ENABLED="false"
 _CFG_SCOPE_ENABLED="true"
 _CFG_SCOPE_DECISION="deny"
 _CFG_SCOPE_ALLOWED_PATHS=""
+# Cumulative risk scoring (session-scoped warn/ask escalation)
+_CFG_RISK_ENABLED="false"
+_CFG_RISK_WARN_THRESHOLD=""
+_CFG_RISK_ASK_THRESHOLD=""
 if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
   eval "$(jq -r '
     "_CFG_RULES_COUNT=" + (.rules | length | tostring | @sh),
@@ -257,7 +261,10 @@ if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
     "_CFG_HEADLESS_DIR=" + (.headless.escalation_dir // "" | @sh),
     "_CFG_HEADLESS_TAIL=" + (.headless.include_trace_tail_lines // 20 | tostring | @sh),
     "_CFG_SCOPE_ENABLED=" + (if .evaluators.scope_containment.enabled == false then "false" else "true" end | @sh),
-    "_CFG_SCOPE_DECISION=" + (.evaluators.scope_containment.decision // "deny" | @sh)
+    "_CFG_SCOPE_DECISION=" + (.evaluators.scope_containment.decision // "deny" | @sh),
+    "_CFG_RISK_ENABLED=" + (if .evaluators.risk_score.enabled == true then "true" else "false" end | @sh),
+    "_CFG_RISK_WARN_THRESHOLD=" + (.evaluators.risk_score.warn_threshold // "" | tostring | @sh),
+    "_CFG_RISK_ASK_THRESHOLD=" + (.evaluators.risk_score.ask_threshold // "" | tostring | @sh)
   ' "$LANEKEEP_CONFIG_FILE" 2>/dev/null)" || true
 fi
 
@@ -775,6 +782,38 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
       REASON=""
     fi
 
+    # --- Cumulative risk scoring (session-scoped warn/ask escalation) ---
+    # Opt-in via .evaluators.risk_score.enabled. Reads _SESSION_WARN_COUNT
+    # and _SESSION_ASK_COUNT exposed by eval-budget.sh; escalates only when
+    # the tentative decision is more permissive than the threshold implies,
+    # never de-escalates. Ask threshold takes precedence over warn.
+    if [ "$_CFG_RISK_ENABLED" = "true" ] && [ "$BLOCKED" = false ]; then
+      _risk_total=$(( ${_SESSION_WARN_COUNT:-0} + ${_SESSION_ASK_COUNT:-0} ))
+      _risk_escalated=false
+      if [[ "$_CFG_RISK_ASK_THRESHOLD" =~ ^[0-9]+$ ]] \
+          && [ "$_CFG_RISK_ASK_THRESHOLD" -gt 0 ] \
+          && [ "$_risk_total" -ge "$_CFG_RISK_ASK_THRESHOLD" ] \
+          && { [ "$DECISION" = "allow" ] || [ "$DECISION" = "warn" ]; }; then
+        DECISION="ask"
+        REASON="[LaneKeep] APPROVAL NEEDED — CumulativeRiskScoring
+Session risk score elevated: ${_risk_total} warn/ask events so far (ask threshold ${_CFG_RISK_ASK_THRESHOLD}).
+Repeated soft-gate events suggest the agent is probing boundaries or the plan is diverging."
+        _risk_escalated=true
+      elif [[ "$_CFG_RISK_WARN_THRESHOLD" =~ ^[0-9]+$ ]] \
+          && [ "$_CFG_RISK_WARN_THRESHOLD" -gt 0 ] \
+          && [ "$_risk_total" -ge "$_CFG_RISK_WARN_THRESHOLD" ] \
+          && [ "$DECISION" = "allow" ]; then
+        DECISION="warn"
+        # WARN branch uses WARN_REASON (per the emission case below).
+        WARN_REASON="[LaneKeep] WARNING — CumulativeRiskScoring: session at ${_risk_total} warn/ask events (warn threshold ${_CFG_RISK_WARN_THRESHOLD})."
+        REASON="$WARN_REASON"
+        _risk_escalated=true
+      fi
+      if [ "$_risk_escalated" = true ]; then
+        RESULTS+=("$(printf '{"name":"CumulativeRiskScoring","tier":7.5,"score":0.6,"passed":false,"detail":"Session warn/ask total: %d","compliance":["CWE-770"]}' "$_risk_total")")
+      fi
+    fi
+
     # --- Headless escalation: rewrite ask -> deny + persist bundle ---
     _TRACE_ORIGINAL_DECISION=""
     if [ "$DECISION" = "ask" ] && headless::is_active; then
@@ -814,6 +853,25 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
 
     # --- Write trace entry (pass cached timestamp) ---
     write_trace "$_NOW_ISO" "$TOOL_NAME" "$TOOL_INPUT" "$DECISION" "$REASON" "$LATENCY_MS" "PreToolUse" "$TOOL_USE_ID" "${RESULTS[@]}" || true
+
+    # --- Cumulative risk scoring: increment session warn/ask counters ---
+    # Runs after eval-budget has written state.json this cycle, so we
+    # patch the field in place. Off-hot-path (post-response), tolerates
+    # missing state file (early session), and skips lock acquisition
+    # since state.json writes are serialized by the hook protocol.
+    if [ "$_CFG_RISK_ENABLED" = "true" ] && [ -f "${LANEKEEP_STATE_FILE:-}" ]; then
+      case "$DECISION" in
+        warn|ask)
+          _risk_field="${DECISION}_count"
+          if jq --arg f "$_risk_field" '.[$f] = ((.[$f] // 0) + 1)' \
+              "$LANEKEEP_STATE_FILE" > "${LANEKEEP_STATE_FILE}.tmp" 2>/dev/null; then
+            mv "${LANEKEEP_STATE_FILE}.tmp" "$LANEKEEP_STATE_FILE"
+          else
+            rm -f "${LANEKEEP_STATE_FILE}.tmp"
+          fi
+          ;;
+      esac
+    fi
 
     # cumulative_record removed from hot path — qualitative metrics now derived from traces
     ;;

@@ -317,6 +317,16 @@
         ]
       }
     },
+    "risk_score": {
+      "enabled": false,
+      "warn_threshold": 5,
+      "ask_threshold": 10,
+      "compliance_by_category": {
+        "resource_limit": [
+          "CWE-770"
+        ]
+      }
+    },
     "repo_injection": {
       "enabled": true,
       "max_scan_bytes": 262144,
