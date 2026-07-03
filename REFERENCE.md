@@ -857,6 +857,57 @@ set and positive-integer.
 | `LANEKEEP_EPIC_ID` | Epic identifier; embedded in trace entries as `epic_id`. Filterable in the dashboard (`/api/trace?epic=<id>`). Groups multiple stories under a larger initiative. | unset |
 | `LANEKEEP_AGENT_TEAM_ID` | Team identifier; embedded in trace entries as `agent_team_id`. Used for team-scoped budget policy and cross-session aggregation. | unset |
 | `LANEKEEP_LOOP_ID` | Optional orchestrator loop id; recorded in escalation bundle `env_snapshot` for correlation | unset |
+| `LANEKEEP_SESSION_START_MAX_BYTES` | Bytes read per memory file by the SessionStart hook | `131072` |
+| `LANEKEEP_COMPACTION_DIR` | Override for the PreCompact snapshot directory | `${PROJECT_DIR}/.lanekeep/compaction-snapshots` |
+
+### Session Lifecycle Hooks
+
+`lanekeep-init` registers two lifecycle hooks alongside the shipped
+PreToolUse / PostToolUse / Stop hooks:
+
+**`hooks/session-start.sh`** — Claude Code `SessionStart` event. Runs at
+session startup or resume and scans a small set of memory-relevant files
+(`CLAUDE.md`, `AGENTS.md`, `CURSOR.md`, `COPILOT.md`, plus
+`.claude/instructions/*.md`) through the shipped hidden-text evaluator.
+Any finding is warned to stderr and logged to the trace as a
+`session_start_scan` policy event. Clean scans emit a `session_start`
+marker. `SessionStart` hooks cannot gate the session — this is defensive
+observability, not enforcement.
+
+- Skipped on `source: "clear"` (fresh session, no prior memory).
+- Cap: `LANEKEEP_SESSION_START_MAX_BYTES` (default 128 KiB per file).
+- Opt-out: `.hooks.session_start.scan_memory: false` in `lanekeep.json`.
+- Appends to any team-shared `SessionStart` hook already present in
+  `.claude/settings.local.json`.
+
+**`hooks/pre-compact.sh`** — Claude Code `PreCompact` event. Runs
+immediately before Claude Code compacts the active session's context.
+Snapshots `cumulative.json` and `state.json` (whichever are present)
+into `${LANEKEEP_COMPACTION_DIR}/<session_id>-<UTC-timestamp>.json` as
+a single JSON blob (`schema: "lanekeep.compaction-snapshot/v1"`).
+Emits a `pre_compact_snapshot` policy event so the compaction is
+auditable in the trace.
+
+- Snapshot dir: `.lanekeep/compaction-snapshots/` by default; override
+  with `LANEKEEP_COMPACTION_DIR`.
+- Opt-out: `.hooks.pre_compact.snapshot: false` in `lanekeep.json`.
+- `PreCompact` hooks cannot cancel the compaction — snapshotting is
+  purely observational.
+
+The snapshot blob shape:
+
+```json
+{
+  "schema": "lanekeep.compaction-snapshot/v1",
+  "session_id": "abc-123",
+  "timestamp": "2026-07-03T12:34:56.789Z",
+  "epoch": 1783123896,
+  "trigger": "auto" | "manual",
+  "cwd": "/path/to/project",
+  "cumulative": { … cumulative.json contents or null … },
+  "state": { … state.json contents or null … }
+}
+```
 
 ### Story-Correlated Traces
 
