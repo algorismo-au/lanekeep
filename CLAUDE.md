@@ -1,5 +1,7 @@
 # LaneKeep — Developer Guide
 
+**Operating protocol:** see `.claude/AGENT_OPERATING_PROTOCOL.md` — read first, always. Synced from `templates/claude-code-packs/AGENT_OPERATING_PROTOCOL.md` via `scaffold/scripts/sync-operating-protocol.sh`.
+
 ## What This Is
 
 LaneKeep is a governance guardrails and insights tool for AI coding agents (Claude Code). It intercepts tool calls
