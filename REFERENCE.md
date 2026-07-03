@@ -1078,6 +1078,8 @@ lanekeep trace --summary json                          # Structured equivalent (
                                                       # Scope: --task <id> | --session <id>
                                                       # Defaults to LANEKEEP_TASK_ID env, else current session
 lanekeep audit               # Validate config
+lanekeep audit-settings      # Audit .claude/settings.json for dangerous permissions.allow
+lanekeep audit-settings --json --no-fail --project DIR
 lanekeep rules list          # List active rules
 lanekeep rules test "CMD"    # Dry-run: which rule matches?
 lanekeep rules validate      # Check rules for errors
@@ -1098,6 +1100,43 @@ lanekeep bookmarks           # Manage bookmarks
 lanekeep-scan <dir>          # Scan plugins for issues
 lanekeep-parse-spec <file>   # Parse PRP markdown to TaskSpec
 lanekeep-parse-plan <file>   # Parse IMPLEMENTATION_PLAN.json to TaskSpec (stdout: TaskSpec, stderr: task id)
+```
+
+### Static Settings Audit — `lanekeep audit-settings`
+
+Scans `.claude/settings.json` + `.claude/settings.local.json` for dangerous
+`permissions.allow` entries and classifies each with a severity band. The
+runtime evaluator pipeline can only govern actions the agent tries to
+perform; pre-approved permissions **bypass most rules entirely**. This
+audit catches them before they cost you an incident.
+
+**Severity model**
+
+| Band | Examples | Rationale |
+|---|---|---|
+| `HIGH` | `Bash(*)`, `Bash(rm -rf *)`, `Bash(sudo *)`, `Bash(chmod 777 *)`, `Bash(dd …)`, piped `\| sh`, `Write(*)`, `Edit(*)`, `Read(~/.ssh/…)`, `Bash(eval …)` | Grants blast-radius to file deletion, shell escape, privilege escalation, or unrestricted Write. Auto-approving these typically defeats governance. |
+| `MEDIUM` | `Bash(curl …)`, `Bash(psql …)`, `Bash(git push …)`, `Bash(terraform apply …)`, `Bash(docker run …)`, broad Write globs like `Write(*.py)` | Widens the tool surface enough to matter (network, database, VCS, IAC). Often legitimate; worth flagging. |
+| `LOW` | `Bash(docker exec …)`, `Bash(kubectl exec …)`, `Read(…)`, `Grep(…)`, `Bash(ls/cat/grep/find …)`, `Bash(git status/log/diff …)`, `Write(src/**)` | Read-only, container-context-exempt (`docker exec` blast radius stays inside the container), or project-scoped. Reported for completeness. |
+| `INFO` | Anything the classifier didn't recognise | Manual review. |
+
+**Options**
+
+- `--json` — emit a machine-readable report `{findings: […], summary: {high, medium, low, info, files_scanned}}`
+- `--no-fail` — always exit 0 (default: HIGH findings return exit code 1)
+- `--project DIR` — audit a directory other than `$PWD`
+
+**Exit codes**
+
+| Code | Meaning |
+|---|---|
+| `0` | No HIGH findings (or `--no-fail`) |
+| `1` | HIGH findings present |
+| `2` | Invocation error (missing `jq`, malformed settings JSON) |
+
+Wire into CI to fail-fast on high-severity pre-approvals:
+
+```yaml
+- run: lanekeep audit-settings
 ```
 
 ## Evaluator Authoring

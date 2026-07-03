@@ -35,6 +35,7 @@ case "${1:-help}" in
   plugin) shift; exec "$LANEKEEP_DIR/bin/lanekeep-plugin" "$@" ;;
   rules)  shift; exec "$LANEKEEP_DIR/bin/lanekeep-rules" "$@" ;;
   audit)  shift; exec "$LANEKEEP_DIR/bin/lanekeep-audit" "$@" ;;
+  audit-settings) shift; exec "$LANEKEEP_DIR/bin/lanekeep-audit-settings" "$@" ;;
   policy) shift; exec "$LANEKEEP_DIR/bin/lanekeep-policy" "$@" ;;
   bookmarks) shift; exec "$LANEKEEP_DIR/bin/lanekeep-bookmarks" "$@" ;;
   status) shift; exec "$LANEKEEP_DIR/bin/lanekeep-status" "$@" ;;
@@ -261,6 +262,7 @@ case "${1:-help}" in
     echo "  migrate [dir]           Convert monolithic lanekeep.json to layered config"
     echo "  selftest                Verify LaneKeep installation and pipeline health"
     echo "  audit                   Validate config and check security posture"
+    echo "  audit-settings          Audit .claude/settings.json for dangerous permissions.allow entries"
     echo "  plugin <subcommand>     Manage plugins (new/list/test)"
     echo "  rules <subcommand>      Manage rules (list/export/import/add/test/validate/update)"
     echo "  license                 Show license tier and API version"
