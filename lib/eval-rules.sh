@@ -693,14 +693,14 @@ policies_check() {
             undeclared_tool)
               RULES_HINT="APPROVAL NEEDED: Tool '${tool_name}' is not in declared_tools. Confirm and add if expected." ;;
             *)
-              RULES_HINT="APPROVAL NEEDED: ${_short}. Wait for human approval." ;;
+              RULES_HINT="APPROVAL NEEDED: ${_short}. Confirm with the user in chat before continuing." ;;
           esac
         elif [ "$policy" = "mcp_servers" ]; then
           local _server
           _server=$(printf '%s' "$tool_name" | awk -F '__' '{print tolower($2)}')
           RULES_HINT="APPROVAL NEEDED: Tool from undeclared server '${_server}'. Confirm this server is expected."
         else
-          RULES_HINT="APPROVAL NEEDED: ${_short}. Wait for human approval."
+          RULES_HINT="APPROVAL NEEDED: ${_short}. Confirm with the user in chat before continuing."
         fi
         return 1
         ;;
@@ -720,7 +720,7 @@ policies_check() {
         if [ "$policy" = "mcp_servers" ]; then
           local _server
           _server=$(printf '%s' "$tool_name" | awk -F '__' '{print tolower($2)}')
-          RULES_HINT="APPROVAL NEEDED: Tool from undeclared server '${_server}'. Confirm this server is expected."
+          RULES_HINT="DENIED: Tool from undeclared server '${_server}'. This server is not in declared_servers."
         elif [ "$policy" = "mcp_inventory" ]; then
           RULES_HINT="DENIED: ${_short}."
         else
@@ -903,7 +903,7 @@ rules_eval() {
       RULES_REASON="[LaneKeep] NEEDS APPROVAL (Rule ${rule_ref}, ${tag})\n${reason}${intent_line}"
       local _r_short="${reason//$'\n'/ }"
       _r_short="${_r_short:0:120}"
-      RULES_HINT="APPROVAL NEEDED: ${_r_short}. Wait for human approval."
+      RULES_HINT="APPROVAL NEEDED: ${_r_short}. Confirm with the user in chat before continuing."
       return 1
       ;;
   esac
