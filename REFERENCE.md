@@ -743,6 +743,53 @@ Example — also exclude `.txt` tutorial files from PII scanning:
 }
 ```
 
+### Repo Content Injection Scanner
+
+Tier 2.5.5 evaluator that scans inbound repository content for indirect prompt
+injection markers before the agent ingests it. Fires on:
+
+- `Read` tool — target is `tool_input.file_path`
+- `Bash` tool when the command starts with a content-fetching helper (`cat`,
+  `head`, `tail`, `less`, `more`, `bat`, `batcat`). The evaluator walks
+  command tokens, skips `-flags`, and picks the first token that resolves to
+  a regular file inside the project.
+
+For each covered call the file is resolved on disk (symlinks required to stay
+inside `PROJECT_DIR`), gated on skip / always-scan / include-extension lists,
+then pattern-matched with `grep -qP` against six configurable classes. First
+match wins; each class carries its own decision.
+
+| Class | Default | What it catches |
+|-------|---------|-----------------|
+| `authority_injection` | `warn` | `<system>` / `<admin>` / `<assistant>` tags, `SYSTEM:` / `ADMIN:` line prefixes, "important instructions … must" prose |
+| `role_reset` | `warn` | "Ignore previous instructions", "you are now a …", "forget everything I told you" |
+| `tool_forcing` | `ask` | "Run the following command", "silently execute", "without asking", "do not mention the user" |
+| `encoded_payload` | `ask` | Long `base64:` / `rot13:` blocks, `\x..\x..` runs, long percent-encoded runs |
+| `invisible_char` | `deny` | Zero-width, bidi, and word-joiner Unicode ranges (`U+200B–U+200F`, `U+202A–U+202E`, `U+2060–U+2064`, `U+FEFF`) |
+| `memory_poison` | `warn` | "Remember this permanently", "save these instructions for future session" |
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `evaluators.repo_injection.enabled` | bool | `true` | Enable / disable the evaluator |
+| `evaluators.repo_injection.max_scan_bytes` | int | `262144` | Bytes read from the target file (256 KiB) |
+| `evaluators.repo_injection.include_extensions` | string[] | `[".md",".mdx",".mdc",".markdown",".txt",".rst",".adoc",".rules",".instructions"]` | File extensions eligible for scanning |
+| `evaluators.repo_injection.always_scan_basenames` | string[] | `["CLAUDE.md","AGENTS.md","CURSOR.md","COPILOT.md","README","README.md","CONTRIBUTING.md","SECURITY.md"]` | Basenames scanned regardless of extension |
+| `evaluators.repo_injection.always_scan_paths` | string[] | `[".claude/",".cursor/",".aider/",".claude-code/",".vscode/"]` | Directory prefixes scanned regardless of extension |
+| `evaluators.repo_injection.skip_paths` | string[] | `["node_modules/","vendor/","dist/","build/","target/",".git/","coverage/"]` | Directory prefixes never scanned (overrides `always_scan_*`) |
+| `evaluators.repo_injection.classes.<name>.enabled` | bool | `true` per class | Per-class enable |
+| `evaluators.repo_injection.classes.<name>.decision` | `warn`/`ask`/`deny` | see table | Per-class decision |
+| `evaluators.repo_injection.classes.<name>.patterns` | string[] (PCRE) | see [defaults/lanekeep.json](defaults/lanekeep.json) | Per-class regexes |
+
+Compliance mapping: OWASP-ASI01, OWASP-ASI06, CWE-1039, ATLAS AML.T0051.
+
+**Scope limits** (documented so operators know the ceiling):
+
+- Content beyond `max_scan_bytes` (256 KiB by default) is not scanned — an
+  attacker can position injection past that boundary.
+- Remote content (`gh pr view`, `WebFetch`) is not scanned pre-fetch in this
+  release — deferred to a phase-2 PostToolUse chain integration.
+- Every pattern runs with `timeout 1` to bound ReDoS risk.
+
 ### Evaluator Path Allowlists
 
 Some documentation files legitimately contain content that matches PII or

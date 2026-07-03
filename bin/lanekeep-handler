@@ -112,6 +112,19 @@ _CFG_HT_HTML_PATTERNS=""
 _CFG_HT_HTML_DECISION="ask"
 # Workflow injection evaluator config
 _CFG_WORKFLOW_INJECT_ENABLED="true"
+# Repo content injection evaluator config (Tier 2.5.5)
+_CFG_RI_ENABLED="true"
+_CFG_RI_MAX_SCAN_BYTES="262144"
+_CFG_RI_INCLUDE_EXTS=""
+_CFG_RI_ALWAYS_BASENAMES=""
+_CFG_RI_ALWAYS_PATHS=""
+_CFG_RI_SKIP_PATHS=""
+_CFG_RI_AUTHORITY_ENABLED="true"; _CFG_RI_AUTHORITY_DECISION="warn"; _CFG_RI_AUTHORITY_PATTERNS=""
+_CFG_RI_ROLE_ENABLED="true";      _CFG_RI_ROLE_DECISION="warn";      _CFG_RI_ROLE_PATTERNS=""
+_CFG_RI_FORCING_ENABLED="true";   _CFG_RI_FORCING_DECISION="ask";    _CFG_RI_FORCING_PATTERNS=""
+_CFG_RI_ENCODED_ENABLED="true";   _CFG_RI_ENCODED_DECISION="ask";    _CFG_RI_ENCODED_PATTERNS=""
+_CFG_RI_INVIS_ENABLED="true";     _CFG_RI_INVIS_DECISION="deny";     _CFG_RI_INVIS_PATTERNS=""
+_CFG_RI_MEMORY_ENABLED="true";    _CFG_RI_MEMORY_DECISION="warn";    _CFG_RI_MEMORY_PATTERNS=""
 # Session write-then-execute evaluator config (Tier 2.1)
 _CFG_SESSION_WRITE_EXEC_ENABLED="true"
 _CFG_SESSION_WRITE_EXEC_SURFACE_AS="info"
@@ -170,6 +183,31 @@ if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
     "_CFG_RESULT_TRANSFORM_ENABLED=" + (if .evaluators.result_transform.enabled == false then "false" else "true" end | @sh),
     "_CFG_SEMANTIC_ENABLED=" + (if .evaluators.semantic.enabled == false then "false" else "true" end | @sh),
     "_CFG_WORKFLOW_INJECT_ENABLED=" + (if .evaluators.workflow_injection.enabled == false then "false" else "true" end | @sh),
+    # -- Repo content injection evaluator (Tier 2.5.5) --
+    "_CFG_RI_ENABLED=" + (if .evaluators.repo_injection.enabled == false then "false" else "true" end | @sh),
+    "_CFG_RI_MAX_SCAN_BYTES=" + (.evaluators.repo_injection.max_scan_bytes // 262144 | tostring | @sh),
+    "_CFG_RI_INCLUDE_EXTS=" + (.evaluators.repo_injection.include_extensions // [] | join("\u001e") | @sh),
+    "_CFG_RI_ALWAYS_BASENAMES=" + (.evaluators.repo_injection.always_scan_basenames // [] | join("\u001e") | @sh),
+    "_CFG_RI_ALWAYS_PATHS=" + (.evaluators.repo_injection.always_scan_paths // [] | join("\u001e") | @sh),
+    "_CFG_RI_SKIP_PATHS=" + (.evaluators.repo_injection.skip_paths // [] | join("\u001e") | @sh),
+    "_CFG_RI_AUTHORITY_ENABLED=" + (if .evaluators.repo_injection.classes.authority_injection.enabled == false then "false" else "true" end | @sh),
+    "_CFG_RI_AUTHORITY_DECISION=" + (.evaluators.repo_injection.classes.authority_injection.decision // "warn" | @sh),
+    "_CFG_RI_AUTHORITY_PATTERNS=" + (.evaluators.repo_injection.classes.authority_injection.patterns // [] | join("\u001e") | @sh),
+    "_CFG_RI_ROLE_ENABLED=" + (if .evaluators.repo_injection.classes.role_reset.enabled == false then "false" else "true" end | @sh),
+    "_CFG_RI_ROLE_DECISION=" + (.evaluators.repo_injection.classes.role_reset.decision // "warn" | @sh),
+    "_CFG_RI_ROLE_PATTERNS=" + (.evaluators.repo_injection.classes.role_reset.patterns // [] | join("\u001e") | @sh),
+    "_CFG_RI_FORCING_ENABLED=" + (if .evaluators.repo_injection.classes.tool_forcing.enabled == false then "false" else "true" end | @sh),
+    "_CFG_RI_FORCING_DECISION=" + (.evaluators.repo_injection.classes.tool_forcing.decision // "ask" | @sh),
+    "_CFG_RI_FORCING_PATTERNS=" + (.evaluators.repo_injection.classes.tool_forcing.patterns // [] | join("\u001e") | @sh),
+    "_CFG_RI_ENCODED_ENABLED=" + (if .evaluators.repo_injection.classes.encoded_payload.enabled == false then "false" else "true" end | @sh),
+    "_CFG_RI_ENCODED_DECISION=" + (.evaluators.repo_injection.classes.encoded_payload.decision // "ask" | @sh),
+    "_CFG_RI_ENCODED_PATTERNS=" + (.evaluators.repo_injection.classes.encoded_payload.patterns // [] | join("\u001e") | @sh),
+    "_CFG_RI_INVIS_ENABLED=" + (if .evaluators.repo_injection.classes.invisible_char.enabled == false then "false" else "true" end | @sh),
+    "_CFG_RI_INVIS_DECISION=" + (.evaluators.repo_injection.classes.invisible_char.decision // "deny" | @sh),
+    "_CFG_RI_INVIS_PATTERNS=" + (.evaluators.repo_injection.classes.invisible_char.patterns // [] | join("\u001e") | @sh),
+    "_CFG_RI_MEMORY_ENABLED=" + (if .evaluators.repo_injection.classes.memory_poison.enabled == false then "false" else "true" end | @sh),
+    "_CFG_RI_MEMORY_DECISION=" + (.evaluators.repo_injection.classes.memory_poison.decision // "warn" | @sh),
+    "_CFG_RI_MEMORY_PATTERNS=" + (.evaluators.repo_injection.classes.memory_poison.patterns // [] | join("\u001e") | @sh),
     # -- Session write-then-execute evaluator (Tier 2.1) --
     "_CFG_SESSION_WRITE_EXEC_ENABLED=" + (if .evaluators.session_write_exec.enabled == false then "false" else "true" end | @sh),
     "_CFG_SESSION_WRITE_EXEC_SURFACE_AS=" + (.evaluators.session_write_exec.surface_as // "info" | @sh),
@@ -239,6 +277,9 @@ if [ "$_CFG_SEMANTIC_ENABLED" != "false" ]; then
 fi
 if [ "$_CFG_WORKFLOW_INJECT_ENABLED" != "false" ]; then
   source "$LANEKEEP_DIR/lib/eval-workflow-injection.sh"
+fi
+if [ "$_CFG_RI_ENABLED" != "false" ]; then
+  source "$LANEKEEP_DIR/lib/eval-repo-injection.sh"
 fi
 if [ "$_CFG_RESULT_TRANSFORM_ENABLED" != "false" ]; then
   source "$LANEKEEP_DIR/lib/eval-result-transform.sh"
@@ -388,6 +429,20 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
         _wi_score="0.9"; [ "$WORKFLOW_INJECT_PASSED" = true ] && _wi_score="0"
         RESULTS+=("$(printf '{"name":"WorkflowInjectionEvaluator","tier":2.5,"score":%s,"passed":%s,"detail":"%s"}' \
           "$_wi_score" "$WORKFLOW_INJECT_PASSED" "$(_json_escape "$WORKFLOW_INJECT_REASON")")")
+      fi
+    fi
+
+    # --- Tier 2.5.5: Repo content injection (scan Read/Bash-fetch target files) ---
+    if [ "$BLOCKED" = false ] && [ "$_CFG_RI_ENABLED" != "false" ]; then
+      if declare -f repo_injection_eval >/dev/null 2>&1; then
+        if ! repo_injection_eval "$TOOL_NAME" "$TOOL_INPUT"; then
+          BLOCKED=true
+          BLOCK_REASON="$REPO_INJECT_REASON"
+          BLOCK_DECISION="$REPO_INJECT_DECISION"
+        fi
+        _ri_score="0.85"; [ "$REPO_INJECT_PASSED" = true ] && _ri_score="0"
+        RESULTS+=("$(printf '{"name":"RepoInjectionEvaluator","tier":2.55,"score":%s,"passed":%s,"detail":"%s","compliance":["OWASP-ASI01","OWASP-ASI06","CWE-1039"]}' \
+          "$_ri_score" "$REPO_INJECT_PASSED" "$(_json_escape "$REPO_INJECT_REASON")")")
       fi
     fi
 

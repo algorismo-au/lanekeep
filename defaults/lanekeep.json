@@ -307,6 +307,119 @@
         ]
       }
     },
+    "repo_injection": {
+      "enabled": true,
+      "max_scan_bytes": 262144,
+      "include_extensions": [
+        ".md",
+        ".mdx",
+        ".mdc",
+        ".markdown",
+        ".txt",
+        ".rst",
+        ".adoc",
+        ".rules",
+        ".instructions"
+      ],
+      "always_scan_basenames": [
+        "CLAUDE.md",
+        "AGENTS.md",
+        "CURSOR.md",
+        "COPILOT.md",
+        "README",
+        "README.md",
+        "CONTRIBUTING.md",
+        "SECURITY.md"
+      ],
+      "always_scan_paths": [
+        ".claude/",
+        ".cursor/",
+        ".aider/",
+        ".claude-code/",
+        ".vscode/"
+      ],
+      "skip_paths": [
+        "node_modules/",
+        "vendor/",
+        "dist/",
+        "build/",
+        "target/",
+        ".git/",
+        "coverage/"
+      ],
+      "classes": {
+        "authority_injection": {
+          "enabled": true,
+          "decision": "warn",
+          "patterns": [
+            "(?i)<(system|admin|root|superuser|assistant)[^>]*>",
+            "(?i)</(system|admin|root|superuser|assistant)>",
+            "(?i)^\\s*(SYSTEM|ADMIN|ROOT|ASSISTANT|OPERATOR)\\s*:",
+            "(?i)\\bimportant instructions\\b.*\\bmust\\b",
+            "(?i)\\bcritical (system )?message\\b"
+          ]
+        },
+        "role_reset": {
+          "enabled": true,
+          "decision": "warn",
+          "patterns": [
+            "(?i)ignore (all )?(previous|prior|above) (instructions|context|prompts)",
+            "(?i)disregard (the )?(above|prior|previous)",
+            "(?i)you are now (a |an )?[a-z]+",
+            "(?i)new (system )?prompt\\s*:",
+            "(?i)forget everything (i|you) (told|said)"
+          ]
+        },
+        "tool_forcing": {
+          "enabled": true,
+          "decision": "ask",
+          "patterns": [
+            "(?i)run\\s+(the\\s+)?following (command|bash|shell)",
+            "(?i)execute\\s+(the\\s+)?following",
+            "(?i)silently (run|execute|perform)",
+            "(?i)without (asking|confirmation|approval)",
+            "(?i)do not (mention|tell|inform) the user"
+          ]
+        },
+        "encoded_payload": {
+          "enabled": true,
+          "decision": "ask",
+          "patterns": [
+            "base64:\\s*[A-Za-z0-9+/]{80,}",
+            "rot13:\\s*[A-Za-z]{40,}",
+            "\\\\x[0-9a-f]{2}(\\\\x[0-9a-f]{2}){20,}",
+            "%[0-9a-f]{2}(%[0-9a-f]{2}){40,}"
+          ]
+        },
+        "invisible_char": {
+          "enabled": true,
+          "decision": "deny",
+          "patterns": [
+            "[\\x{200b}-\\x{200f}]{3,}",
+            "[\\x{202a}-\\x{202e}]",
+            "[\\x{2060}-\\x{2064}]",
+            "[\\x{feff}]"
+          ]
+        },
+        "memory_poison": {
+          "enabled": true,
+          "decision": "warn",
+          "patterns": [
+            "(?i)remember (this|for future|permanently)",
+            "(?i)add (this )?to (your )?(memory|notes|context) (permanently|for future)",
+            "(?i)save (this|these instructions) for (future|later|next) session"
+          ]
+        }
+      },
+      "compliance_by_category": {
+        "content_injection": [
+          "OWASP-ASI01",
+          "OWASP-ASI06",
+          "CWE-1039",
+          "ATLAS-AML.T0051"
+        ]
+      }
+    },
     "session_write_exec": {
       "enabled": true,
       "surface_as": "info",
