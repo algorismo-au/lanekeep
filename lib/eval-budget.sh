@@ -271,6 +271,9 @@ budget_eval() {
   ' "$state" 2>/dev/null)" || { action_count=0; start_epoch=$now_epoch; token_count=0; input_tokens_st=0; output_tokens_st=0; cache_creation_st=0; cache_read_st=0; total_events=0; session_id=""; task_id=""; task_action_count=0; task_input_tokens_st=0; task_output_tokens_st=0; task_token_count=0; task_start_epoch=$now_epoch; _prev_token_source=""; _prev_model=""; }
   # Guard against non-numeric values from corrupted state
   [[ "$action_count" =~ ^[0-9]+$ ]] || action_count=0
+  # Expose pre-increment session action count to downstream evaluators
+  # (Tier 5.5 context-budget action-count signal, and any others that need it).
+  _SESSION_ACTION_COUNT="$action_count"
   [[ "$start_epoch" =~ ^[0-9]+$ ]] || start_epoch=$now_epoch
   [[ "$token_count" =~ ^[0-9]+$ ]] || token_count=0
   [[ "$input_tokens_st" =~ ^[0-9]+$ ]] || input_tokens_st=0
