@@ -115,4 +115,13 @@ else
   echo "[LaneKeep] $SUMMARY" >&2
 fi
 
+# Fixer session-end summary (Phase 1 #6). One-liner if there was any capture
+# during this session, silent otherwise. Fail-open + 500ms cap: a hung or
+# missing fixer must never delay session close. The Tier-9 advisory capture
+# (Phase 1 #5) is the thing that fills this queue.
+if command -v fixer >/dev/null 2>&1; then
+  _lk_fixer_line=$(timeout 0.5 fixer summary --since-session 2>/dev/null || true)
+  [ -n "$_lk_fixer_line" ] && echo "[fixer] $_lk_fixer_line" >&2
+fi
+
 exit 0
