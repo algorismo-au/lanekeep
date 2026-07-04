@@ -165,8 +165,8 @@ write_trace() {
     --arg task_id "${LANEKEEP_TASK_ID:-}" \
     --arg orig_dec "${_TRACE_ORIGINAL_DECISION:-}" \
     '. as $evals |
-     ([.[].compliance? // [] | .[]] | unique | if length == 0 then null else . end) as $comp |
-     ([.[].compliance_tags? // [] | .[]] | unique | if length == 0 then null else . end) as $comp_tags |
+     ([.[] | select(.passed == false) | .compliance? // [] | .[]] | unique | if length == 0 then null else . end) as $comp |
+     ([.[] | select(.passed == false) | .compliance_tags? // [] | .[]] | unique | if length == 0 then null else . end) as $comp_tags |
      {timestamp:$ts,source:"lanekeep",session_id:$sid,event_type:$et,tool_name:$tn,tool_input:$ti,
        decision:$dec,reason:$rea,latency_ms:$lat,evaluators:$evals,ralph:$ralph,
        config_hash:$chash}
