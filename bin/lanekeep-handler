@@ -79,6 +79,7 @@ fi
 eval "$_REQ_EXTRACT"
 
 # AG-002/003: Set trace context vars for cc_session_id and agent metadata
+# shellcheck disable=SC2153  # SESSION_ID set by eval "$_REQ_EXTRACT" above
 _TRACE_CC_SESSION_ID="$SESSION_ID"
 
 # Truncate agent metadata to prevent resource exhaustion from malicious input
@@ -377,6 +378,7 @@ case "$HOOK_EVENT" in
 
     # --- Tier 0.5: Schema (TaskSpec access control — check before content scanners) ---
     if [ "$BLOCKED" = false ]; then
+      # shellcheck disable=SC2153  # TOOL_NAME set by eval "$_REQ_EXTRACT" above
       if ! schema_eval "$TOOL_NAME"; then
         BLOCKED=true
         BLOCK_REASON="$SCHEMA_REASON"
@@ -394,6 +396,7 @@ case "$HOOK_EVENT" in
     # paths outside scope. Compliance: OWASP-ASI02, CWE-73.
     if [ "$BLOCKED" = false ] && [ "$_CFG_SCOPE_ENABLED" != "false" ]; then
       if declare -f scope_containment_eval >/dev/null 2>&1; then
+        # shellcheck disable=SC2153  # TOOL_NAME/TOOL_INPUT set by eval "$_REQ_EXTRACT" above
         if ! scope_containment_eval "$TOOL_NAME" "$TOOL_INPUT"; then
           BLOCKED=true
           BLOCK_REASON="$SCOPE_REASON"
