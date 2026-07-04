@@ -301,6 +301,10 @@ source "$LANEKEEP_DIR/lib/eval-schema.sh"
 if [ "$_CFG_SCOPE_ENABLED" != "false" ]; then
   source "$LANEKEEP_DIR/lib/eval-scope-containment.sh"
 fi
+# Tier 0.7: cwd == WORKTREE_ROOT invariant (advisory-only rollout).
+# Always sourced — the evaluator no-ops when WORKTREE_ROOT is unset, which
+# is the default for non-looper sessions.
+source "$LANEKEEP_DIR/lib/eval-worktree-cwd.sh"
 
 # Phase 3: Conditionally source evaluator modules based on config flags
 # Hardblock always runs as a non-optional pre-filter (Finding 2: security parity)
@@ -399,6 +403,20 @@ case "$HOOK_EVENT" in
         RESULTS+=("$(printf '{"name":"ScopeContainmentEvaluator","tier":0.6,"score":%s,"passed":%s,"detail":"%s","compliance":["OWASP-ASI02","CWE-73"]}' \
           "$_sc_score" "$SCOPE_PASSED" "$(_json_escape "$SCOPE_REASON")")")
       fi
+    fi
+
+    # --- Tier 0.7: cwd == WORKTREE_ROOT invariant (ADVISORY-ONLY) ---
+    # Symphony §9.5. Denies (in a follow-up rollout) cwd-sensitive tool
+    # calls when realpath($PWD) != realpath($WORKTREE_ROOT). Today the
+    # evaluator always returns 0 and this branch only records the finding
+    # so a week of production data can validate the invariant before we
+    # flip to enforcement. Skips entirely when WORKTREE_ROOT is unset
+    # (non-looper sessions).
+    if declare -f worktree_cwd_eval >/dev/null 2>&1; then
+      worktree_cwd_eval "$TOOL_NAME" "$TOOL_INPUT" || true
+      _wc_score="0"; [ "$WORKTREE_CWD_PASSED" = false ] && _wc_score="0.5"
+      RESULTS+=("$(printf '{"name":"WorktreeCwdEvaluator","tier":0.7,"score":%s,"passed":%s,"detail":"%s","advisory":true}' \
+        "$_wc_score" "$WORKTREE_CWD_PASSED" "$(_json_escape "$WORKTREE_CWD_REASON")")")
     fi
 
     # --- Tier 1: Hardblock (always runs — input normalization + substring match) ---
