@@ -299,6 +299,23 @@ class ServerAPITestCase(unittest.TestCase):
         self.assertEqual(b['context_model'], 'claude-opus-4-6')
         self.assertEqual(b['context_source'], 'model')
 
+    def test_context_window_new_1m_models(self):
+        """Claude Opus 4.8, Sonnet 5, Sonnet 4.6, Fable 5 all return 1M context."""
+        for model in ('claude-opus-4-8', 'claude-sonnet-5',
+                      'claude-sonnet-4-6', 'claude-fable-5'):
+            with self.subTest(model=model):
+                state_path = self.project_dir / '.lanekeep' / 'state.json'
+                state_path.parent.mkdir(parents=True, exist_ok=True)
+                state_path.write_text(json.dumps({
+                    'action_count': 1, 'token_count': 100, 'input_tokens': 100,
+                    'output_tokens': 0, 'total_events': 1, 'start_epoch': int(time.time()),
+                    'elapsed_seconds': 1, 'session_id': 'ctx-test',
+                    'token_source': 'transcript', 'model': model
+                }))
+                _, data = self.get('/api/status')
+                self.assertEqual(data['budget']['context_window_size'], 1_000_000)
+                self.assertEqual(data['budget']['context_model'], model)
+
     def test_context_window_unknown_model_returns_default(self):
         """Unknown model returns default 200K context window."""
         state_path = self.project_dir / '.lanekeep' / 'state.json'

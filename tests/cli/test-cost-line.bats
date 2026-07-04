@@ -217,6 +217,21 @@ _write_state() {
   [ "$(cost_line::_normalize_model "claude-haiku-4-5-20251001")" = "haiku-4.5" ]
 }
 
+@test "_normalize_model: claude-opus-4-8 → opus-4.8" {
+  source "$LANEKEEP_DIR/lib/cost-line.sh"
+  [ "$(cost_line::_normalize_model "claude-opus-4-8")" = "opus-4.8" ]
+}
+
+@test "_normalize_model: claude-sonnet-5 → sonnet-5" {
+  source "$LANEKEEP_DIR/lib/cost-line.sh"
+  [ "$(cost_line::_normalize_model "claude-sonnet-5")" = "sonnet-5" ]
+}
+
+@test "_normalize_model: claude-fable-5 → fable-5" {
+  source "$LANEKEEP_DIR/lib/cost-line.sh"
+  [ "$(cost_line::_normalize_model "claude-fable-5")" = "fable-5" ]
+}
+
 @test "_normalize_model: gpt-4o-2024-08-06 → gpt-4o" {
   source "$LANEKEEP_DIR/lib/cost-line.sh"
   [ "$(cost_line::_normalize_model "gpt-4o-2024-08-06")" = "gpt-4o" ]
