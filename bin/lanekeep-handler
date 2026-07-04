@@ -16,6 +16,28 @@ _json_escape() {
   printf '%s' "$s"
 }
 
+# Fire-and-forget capture of a Tier-9 advisory verdict into the repo's fixer
+# queue. Called only from the `warn` branch of the ResultTransform result
+# (allow-with-warn) — never on deny or clean-allow paths. Fail-open: missing
+# fixer binary, timeout, or dedup collision all leave the tool response
+# untouched (which is already sent to Claude by the time this runs).
+_fixer_advisory_capture() {
+  local tool_name="$1" tool_input="$2" session_id="$3" reason="$4"
+  command -v fixer >/dev/null 2>&1 || return 0
+  # Best-effort anchor extraction. Common Claude-Code tool inputs carry
+  # `file_path` (Read/Write/Edit), `path`, or `cwd`. Fall back to the tool
+  # name so every advisory produces *some* anchor for the dedup key.
+  local anchor
+  anchor=$(printf '%s' "$tool_input" | jq -r '.file_path // .path // .cwd // ""' 2>/dev/null)
+  [ -z "$anchor" ] && anchor="$tool_name"
+  timeout 0.2 fixer add \
+    --kind noticed-during \
+    --disposition needs-decision \
+    --anchor "$anchor" \
+    --source "lanekeep@${session_id:-unknown}" \
+    --why "$reason" >/dev/null 2>&1 || true
+}
+
 # Phase 1: Always-needed modules (config resolution, license tier)
 source "$LANEKEEP_DIR/lib/config.sh"
 source "$LANEKEEP_DIR/lib/license.sh"
@@ -935,6 +957,10 @@ Repeated soft-gate events suggest the agent is probing boundaries or the plan is
       printf '{"decision":"deny","reason":"%s"}\n' "$(_json_escape "$RESULT_TRANSFORM_REASON")"
     elif [ "$RESULT_TRANSFORM_ACTION" = "warn" ]; then
       printf '{"decision":"allow","warn":"%s"}\n' "$(_json_escape "$RESULT_TRANSFORM_REASON")"
+      # Response sent — now capture the advisory as debt for later triage.
+      # Fail-open (missing fixer / timeout) is intentional: a capture miss
+      # is preferable to blocking or delaying the tool call.
+      _fixer_advisory_capture "$TOOL_NAME" "$TOOL_INPUT" "$SESSION_ID" "$RESULT_TRANSFORM_REASON" &
     elif [ "$RESULT_TRANSFORM_ACTION" = "redact" ] && [ -n "$RESULT_TRANSFORM_CONTENT" ]; then
       # Use jq to JSON-encode: transformed tool output may contain raw control bytes
       # (0x00–0x1F, e.g. ANSI escapes) that _json_escape does not handle, which
