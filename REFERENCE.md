@@ -534,11 +534,10 @@ exits 0. Fails with exit 1 if the marker or counter file cannot be written.
 Both paths respect `LANEKEEP_HALTED_FILE` / `LANEKEEP_CUMULATIVE_FILE` for
 repos that redirect those files.
 
-**Reference consumer.** [looper](https://github.com/algorismo-au/looper)'s
-`run-next` exports both env vars to the parent repo's `.lanekeep/` before
-the loop starts (so state survives per-task worktree teardown), then
-checks the halt at the top of each iteration. See
-`lib/run-next.sh` + `tests/run-next.bats` for the integration shape.
+**Integration note.** Loop runners that spawn per-task worktrees should
+export both env vars to point at the parent repo's `.lanekeep/` before
+the loop starts (so halt state survives worktree teardown), then check
+the halt marker at the top of each iteration.
 
 **Cost calculation**: Session cost is computed from token counts using a bundled
 pricing table (`lanekeep/data/pricing.json`). The `/api/status` response includes
@@ -583,7 +582,7 @@ LANEKEEP_MAX_ACTIONS=50 LANEKEEP_TIMEOUT_SECONDS=900 lanekeep serve
 
 ### Plan File (input contract)
 
-`lanekeep-parse-plan` is the documented bridge between a scaffold03-style
+`lanekeep-parse-plan` is the documented bridge between a plan-file
 orchestrator and the lanekeep TaskSpec pipeline. The orchestrator writes a
 plan with `{now, next, blocked, done}` buckets; the adapter selects an item
 (default: head of `now[]`) and emits a TaskSpec on stdout, the resolved task
@@ -1195,5 +1194,3 @@ rules. The same rules apply to plugin hints (see `plugins.d/AUTHORING.md`).
 | `ask`  | `APPROVAL NEEDED:` |
 | `warn` (only when shown to humans, never as an `agent_hint`) | `WARNING:` |
 
-Full protocol: [`specs/AGENT-OUTPUT-FORMAT.md`](https://github.com/algorismo-au/buildinglanekeep/blob/main/specs/AGENT-OUTPUT-FORMAT.md)
-(spec lives in the private meta-repo).
