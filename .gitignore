@@ -1,7 +1,7 @@
 .lanekeep/*
 !.lanekeep/defaults_manifest.json
 defaults/.lanekeep/
-.looper/
+.shipper/
 .venv/
 __pycache__/
 *.bak

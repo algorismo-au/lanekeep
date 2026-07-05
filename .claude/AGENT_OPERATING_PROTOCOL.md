@@ -202,7 +202,7 @@ The `done_when` field on a task and each entry in the optional `requirements[]` 
 Rewrite vague criteria before committing the task:
 
 > ❌ `done_when: "PR body Cost line shows real numbers from lanekeep"`
-> ✅ `done_when: "WHEN looper ship runs, THE SYSTEM SHALL populate the PR body Cost line from .lanekeep/cumulative.json"`
+> ✅ `done_when: "WHEN shipper ship runs, THE SYSTEM SHALL populate the PR body Cost line from .lanekeep/cumulative.json"`
 
 When a task has multiple acceptance clauses, the primary one stays in `done_when` and the rest move to `requirements[]` (one EARS clause per array entry).
 
