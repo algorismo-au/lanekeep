@@ -304,7 +304,7 @@ if [ "$_CFG_SCOPE_ENABLED" != "false" ]; then
 fi
 # Tier 0.7: cwd == WORKTREE_ROOT invariant (advisory-only rollout).
 # Always sourced — the evaluator no-ops when WORKTREE_ROOT is unset, which
-# is the default for non-looper sessions.
+# is the default for non-shipper sessions.
 source "$LANEKEEP_DIR/lib/eval-worktree-cwd.sh"
 
 # Phase 3: Conditionally source evaluator modules based on config flags
@@ -414,7 +414,7 @@ case "$HOOK_EVENT" in
     # evaluator always returns 0 and this branch only records the finding
     # so a week of production data can validate the invariant before we
     # flip to enforcement. Skips entirely when WORKTREE_ROOT is unset
-    # (non-looper sessions).
+    # (non-shipper sessions).
     if declare -f worktree_cwd_eval >/dev/null 2>&1; then
       worktree_cwd_eval "$TOOL_NAME" "$TOOL_INPUT" || true
       _wc_score="0"; [ "$WORKTREE_CWD_PASSED" = false ] && _wc_score="0.5"

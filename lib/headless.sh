@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Headless escalation sink — when LANEKEEP_HEADLESS=1, rewrite `ask` decisions
 # to `deny` and persist the asked-about context as .lanekeep/escalations/<id>.json
-# so a parent runtime (looper, CI) can act on it after the agent exits.
+# so a parent runtime (shipper, CI) can act on it after the agent exits.
 #
 # Spec: specs/HEADLESS-ESCALATION-SINK.md (in buildinglanekeep meta-repo)
 
