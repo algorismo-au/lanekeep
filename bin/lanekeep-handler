@@ -117,6 +117,8 @@ _CFG_MAX_TASK_TIME=""
 _CFG_MAX_TASK_COST=""
 _CFG_HIDDEN_TEXT_ENABLED="true"
 _CFG_INPUT_PII_ENABLED="true"
+_CFG_PYTHON_EXEC_ENABLED="true"
+_CFG_NARRATION_ENABLED="true"
 _CFG_RESULT_TRANSFORM_ENABLED="true"
 _CFG_SEMANTIC_ENABLED="true"
 # Hardblock arrays (newline-separated — safe for substrings and single-line regex)
@@ -241,6 +243,19 @@ if [ -f "${LANEKEEP_CONFIG_FILE:-}" ]; then
     "_CFG_RI_MEMORY_ENABLED=" + (if .evaluators.repo_injection.classes.memory_poison.enabled == false then "false" else "true" end | @sh),
     "_CFG_RI_MEMORY_DECISION=" + (.evaluators.repo_injection.classes.memory_poison.decision // "warn" | @sh),
     "_CFG_RI_MEMORY_PATTERNS=" + (.evaluators.repo_injection.classes.memory_poison.patterns // [] | join("\u001e") | @sh),
+    # -- Python exec fragmentation evaluator (Tier 2.2) --
+    "_CFG_PYTHON_EXEC_ENABLED=" + (if .evaluators.python_exec.enabled == false then "false" else "true" end | @sh),
+    "_CFG_PYTHON_EXEC_APIS=" + (.evaluators.python_exec.exec_apis // [] | join("") | @sh),
+    "_CFG_PYTHON_EXEC_FRAG_PATTERNS=" + (.evaluators.python_exec.fragmentation_patterns // [] | join("") | @sh),
+    "_CFG_PYTHON_EXEC_WINDOW=" + (.evaluators.python_exec.fragmentation_window // 10 | tostring | @sh),
+    "_CFG_PYTHON_EXEC_SHELL_TRUE_DECISION=" + (.evaluators.python_exec.shell_true_decision // "warn" | @sh),
+    "_CFG_PYTHON_EXEC_FRAG_DECISION=" + (.evaluators.python_exec.fragmentation_decision // "ask" | @sh),
+    "_CFG_PYTHON_EXEC_CHR_CHAIN_DECISION=" + (.evaluators.python_exec.chr_chain_decision // "deny" | @sh),
+    # -- Narration evaluator (Tier 3.1) --
+    "_CFG_NARRATION_ENABLED=" + (if .evaluators.narration.enabled == false then "false" else "true" end | @sh),
+    "_CFG_NARRATION_PATTERNS=" + (.evaluators.narration.patterns // [] | join("") | @sh),
+    "_CFG_NARRATION_WHITELIST_PATHS=" + (.evaluators.narration.whitelist_paths // [] | join("") | @sh),
+    "_CFG_NARRATION_DECISION=" + (.evaluators.narration.decision // "ask" | @sh),
     # -- Session write-then-execute evaluator (Tier 2.1) --
     "_CFG_SESSION_WRITE_EXEC_ENABLED=" + (if .evaluators.session_write_exec.enabled == false then "false" else "true" end | @sh),
     "_CFG_SESSION_WRITE_EXEC_SURFACE_AS=" + (.evaluators.session_write_exec.surface_as // "info" | @sh),
@@ -327,6 +342,12 @@ if [ "$_CFG_WORKFLOW_INJECT_ENABLED" != "false" ]; then
 fi
 if [ "$_CFG_RI_ENABLED" != "false" ]; then
   source "$LANEKEEP_DIR/lib/eval-repo-injection.sh"
+fi
+if [ "$_CFG_PYTHON_EXEC_ENABLED" != "false" ]; then
+  source "$LANEKEEP_DIR/lib/eval-python-exec.sh"
+fi
+if [ "$_CFG_NARRATION_ENABLED" != "false" ]; then
+  source "$LANEKEEP_DIR/lib/eval-narration.sh"
 fi
 if [ "$_CFG_RESULT_TRANSFORM_ENABLED" != "false" ]; then
   source "$LANEKEEP_DIR/lib/eval-result-transform.sh"
@@ -425,10 +446,17 @@ case "$HOOK_EVENT" in
     # --- Tier 1: Hardblock (always runs — input normalization + substring match) ---
     if [ "$BLOCKED" = false ]; then
       if ! hardblock_check "$TOOL_NAME" "$TOOL_INPUT"; then
-        BLOCKED=true
-        BLOCK_REASON="$HARDBLOCK_REASON"
-        BLOCK_HINT="${HARDBLOCK_HINT:-}"
-        RESULTS+=("$(printf '{"name":"HardBlock","tier":1,"score":1.0,"passed":false,"detail":"%s"}' "$(_json_escape "$BLOCK_REASON")")")
+        if [ "$HARDBLOCK_DECISION" = "ask" ]; then
+          # Escalated hardblock (Control 1) — let later tiers run; final decision is ask
+          BLOCK_DECISION="ask"
+          BLOCK_REASON="$HARDBLOCK_REASON"
+          BLOCK_HINT="${HARDBLOCK_HINT:-}"
+        else
+          BLOCKED=true
+          BLOCK_REASON="$HARDBLOCK_REASON"
+          BLOCK_HINT="${HARDBLOCK_HINT:-}"
+        fi
+        RESULTS+=("$(printf '{"name":"HardBlock","tier":1,"score":1.0,"passed":false,"detail":"%s","escalated":%s}' "$(_json_escape "$BLOCK_REASON")" "$HARDBLOCK_ESCALATED")")
       fi
     fi
 
@@ -499,6 +527,33 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
       fi
     fi
 
+    # --- Tier 2.2: Python exec fragmentation (subprocess/os.system + dynamic args in .py) ---
+    if [ "$BLOCKED" = false ] && [ "$_CFG_PYTHON_EXEC_ENABLED" != "false" ]; then
+      if declare -f python_exec_eval >/dev/null 2>&1; then
+        if ! python_exec_eval "$TOOL_NAME" "$TOOL_INPUT"; then
+          if [ "$PYTHON_EXEC_DECISION" = "ask" ]; then
+            if [ "$BLOCK_DECISION" = "ask" ] && [ -n "$BLOCK_REASON" ]; then
+              BLOCK_REASON="${BLOCK_REASON}; ${PYTHON_EXEC_REASON}"
+            else
+              BLOCK_DECISION="ask"
+              BLOCK_REASON="$PYTHON_EXEC_REASON"
+            fi
+            [ -z "$BLOCK_HINT" ] && BLOCK_HINT="${PYTHON_EXEC_HINT:-}"
+          elif [ "$PYTHON_EXEC_DECISION" = "warn" ]; then
+            [ -z "$WARN_REASON" ] && WARN_REASON="$PYTHON_EXEC_REASON"
+          else
+            BLOCKED=true
+            BLOCK_REASON="$PYTHON_EXEC_REASON"
+            BLOCK_HINT="${PYTHON_EXEC_HINT:-}"
+            BLOCK_DECISION="$PYTHON_EXEC_DECISION"
+          fi
+        fi
+        _pe_score="0.9"; [ "$PYTHON_EXEC_PASSED" = true ] && _pe_score="0"
+        RESULTS+=("$(printf '{"name":"PythonExecEvaluator","tier":2.2,"score":%s,"passed":%s,"detail":"%s","subtype":"%s"}' \
+          "$_pe_score" "$PYTHON_EXEC_PASSED" "$(_json_escape "$PYTHON_EXEC_REASON")" "$PYTHON_EXEC_SUBTYPE")")
+      fi
+    fi
+
     # --- Tier 2.5: Workflow expression injection (GitHub Actions ${{ }} in run: steps) ---
     if [ "$BLOCKED" = false ] && [ "$_CFG_WORKFLOW_INJECT_ENABLED" != "false" ]; then
       if declare -f workflow_inject_eval >/dev/null 2>&1; then
@@ -537,6 +592,31 @@ Compliance: CWE-78 (OS Command Injection), ATT&CK T1059.004"
       _ht_score="0.9"; [ "$HIDDEN_TEXT_PASSED" = true ] && _ht_score="0"
       RESULTS+=("$(printf '{"name":"HiddenTextEvaluator","tier":3,"score":%s,"passed":%s,"detail":"%s"}' \
         "$_ht_score" "$HIDDEN_TEXT_PASSED" "$(_json_escape "$HIDDEN_TEXT_REASON")")")
+    fi
+
+    # --- Tier 3.1: Narration (agent-output confession keyword scan) ---
+    if [ "$BLOCKED" = false ] && [ "$_CFG_NARRATION_ENABLED" != "false" ]; then
+      if declare -f narration_eval >/dev/null 2>&1; then
+        if ! narration_eval "$TOOL_NAME" "$TOOL_INPUT"; then
+          if [ "$NARRATION_DECISION" = "ask" ]; then
+            if [ "$BLOCK_DECISION" = "ask" ] && [ -n "$BLOCK_REASON" ]; then
+              BLOCK_REASON="${BLOCK_REASON}; ${NARRATION_REASON}"
+            else
+              BLOCK_DECISION="ask"
+              BLOCK_REASON="$NARRATION_REASON"
+            fi
+            [ -z "$BLOCK_HINT" ] && BLOCK_HINT="${NARRATION_HINT:-}"
+          else
+            BLOCKED=true
+            BLOCK_REASON="$NARRATION_REASON"
+            BLOCK_HINT="${NARRATION_HINT:-}"
+            BLOCK_DECISION="$NARRATION_DECISION"
+          fi
+        fi
+        _n_score="0.85"; [ "$NARRATION_PASSED" = true ] && _n_score="0"
+        RESULTS+=("$(printf '{"name":"NarrationEvaluator","tier":3.1,"score":%s,"passed":%s,"detail":"%s"}' \
+          "$_n_score" "$NARRATION_PASSED" "$(_json_escape "$NARRATION_REASON")")")
+      fi
     fi
 
     # --- Tier 4: Input PII ---

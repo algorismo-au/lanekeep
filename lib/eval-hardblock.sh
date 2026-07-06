@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2034  # HARDBLOCK_REASON set here, read externally via indirection
+# shellcheck disable=SC2034  # HARDBLOCK_* set here, read externally via indirection
 # Hard-block: fast substring match before evaluation pipeline
 
 HARDBLOCK_REASON=""
 HARDBLOCK_HINT=""
 HARDBLOCK_WARNED=""
+HARDBLOCK_DECISION="deny"
+HARDBLOCK_ESCALATED=false
 
 # Cache uconv availability at module load time
 _LANEKEEP_HAS_UCONV=""
@@ -16,6 +18,8 @@ hardblock_check() {
   HARDBLOCK_REASON=""
   HARDBLOCK_HINT=""
   HARDBLOCK_WARNED=""
+  HARDBLOCK_DECISION="deny"
+  HARDBLOCK_ESCALATED=false
   local _hb_overridden=""
 
   local search_text
@@ -74,6 +78,12 @@ hardblock_check() {
         _hb_overridden=1
         HARDBLOCK_WARNED="[LaneKeep] WARN (Tier 1 — overridden)\nPattern matched: '$_matched'\nAction: $tool_name"
         echo -e "$HARDBLOCK_WARNED" >&2
+      elif [ "$_override_decision" = "ask" ]; then
+        HARDBLOCK_DECISION="ask"
+        HARDBLOCK_ESCALATED=true
+        HARDBLOCK_REASON="[LaneKeep] ESCALATED (Tier 1 — hardblock)\nPattern matched: '$_matched'\nAction: $tool_name\nOperator approval required."
+        HARDBLOCK_HINT="ESCALATE: pattern '$_matched' requires operator approval. Show the operator the full verbatim command; do not restate without full arguments."
+        return 1
       else
         HARDBLOCK_REASON="[LaneKeep] HARD-BLOCKED (Tier 1)\nPattern matched: '$_matched'\nAction: $tool_name"
         # Detect unicode evasion: the normalized search_text contains the
