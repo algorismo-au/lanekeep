@@ -666,6 +666,40 @@
           "OWASP A05:2025"
         ]
       }
+    },
+    "narration": {
+      "enabled": true,
+      "patterns": [
+        "fragment(ing|ed)?",
+        "work[- ]?around",
+        "bypass(es|ed|ing)?",
+        "gets? the code shipped",
+        "lane[- ]?keep"
+      ],
+      "whitelist_paths": [
+        "lanekeep/**",
+        "buildinglanekeep/specs/**",
+        "**/*.md"
+      ],
+      "decision": "ask"
+    },
+    "python_exec": {
+      "enabled": true,
+      "exec_apis": [
+        "subprocess\\.(run|Popen|call|check_output|check_call)",
+        "os\\.(system|popen)"
+      ],
+      "fragmentation_patterns": [
+        "\\+\\s*[\"'][^\"']*[\"']",
+        "\\.join\\(",
+        "f[\"'][^\"']*\\{",
+        "chr\\(\\d+\\)\\s*\\+\\s*chr\\(",
+        "b64decode|bytes\\.fromhex"
+      ],
+      "fragmentation_window": 10,
+      "shell_true_decision": "warn",
+      "fragmentation_decision": "ask",
+      "chr_chain_decision": "deny"
     }
   },
   "hard_block_overrides": {},
