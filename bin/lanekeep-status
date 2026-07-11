@@ -57,8 +57,8 @@ if [ -d "$TRACE_DIR" ]; then
   if [ -n "$latest" ]; then
     trace_file=$(basename "$latest")
     trace_entries=$(wc -l < "$latest" 2>/dev/null | tr -d ' ')
-    trace_denies=$(grep -c '"decision":"deny"' "$latest" 2>/dev/null || echo 0)
-    trace_asks=$(grep -c '"decision":"ask"' "$latest" 2>/dev/null || echo 0)
+    trace_denies=$(grep -c '"decision":"deny"' "$latest" 2>/dev/null || true)
+    trace_asks=$(grep -c '"decision":"ask"' "$latest" 2>/dev/null || true)
   fi
 fi
 tier="${LANEKEEP_LICENSE_TIER:-community}"
