@@ -143,6 +143,24 @@ The agent does not self-declare a gate passed, ever. This is the single most imp
 
 ---
 
+## 7a. Task safety tier — plan-file vocabulary
+
+The `IMPLEMENTATION_PLAN.json` schema carries an optional per-task `safety` field with three levels. Loop runners (shipper) key off it to decide whether a shipped PR merges automatically or waits for human review; PR reviewers key off it to recognise how much autonomy went into the change at a glance.
+
+The vocabulary maps onto Linear's coding-mode terminology so PR readers coming from that world can translate without a lookup:
+
+| Plan field | Linear equivalent | Meaning |
+|---|---|---|
+| `safety: report` | (no direct equivalent — closest: "handoff") | Agent investigates and reports; opens a PR for a human decision. Under `--auto-merge` the merge step is suppressed. |
+| `safety: assist` | **Coding Session** | Agent codes with a human review in the loop. PR opens; loop continues without auto-merge. |
+| `safety: auto` (or absent) | **Agent** (autonomous) | Agent handles the task end-to-end. Under `--auto-merge`, the PR squash-merges without further human touch. Absent field back-compats to today's `--auto-merge` behaviour. |
+
+Rule of thumb: anything that shapes UX, migrations, RLS, billing, or legal copy is `safety: report` or `safety: assist`. Reserve `auto` for internal refactors, doc typos, dependency bumps under a cap, and other changes where a diff review is sufficient rather than necessary.
+
+The mapping to Linear vocabulary is documentation-only — the plan-field names don't change. Read a plan JSON, translate mentally: `assist` = "Coding Session", `auto` = "Agent".
+
+---
+
 ## 8. Code conventions baseline
 
 These apply unless a pack overrides them in `BOOTSTRAP.md` §A5.
