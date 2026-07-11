@@ -33,6 +33,18 @@ if [[ "${FULL_TESTS:-0}" == "1" ]]; then
   changed="FORCE_FULL"
 fi
 
+# Fast-path for docs/harness-only commits (README, CLAUDE.md, .claude/…, SHA
+# pins). No test suite covers these files, and the "no suite matched → full
+# suite" fallback below takes 60+s — long enough for GitHub to close the SSH
+# push connection idle-side. Skip tests when nothing test-relevant changed.
+# Force full via FULL_TESTS=1 if you want the full suite anyway.
+if [[ "$changed" != "FORCE_FULL" ]] && [[ -n "$changed" ]] \
+  && ! echo "$changed" | grep -qvE '(\.md$|\.sha256$|^\.claude/|^CLAUDE\.md$|^README\.md$|^SECURITY\.md$|^CONTRIBUTING\.md$|^docs/)'; then
+  echo "[pre-push] Only docs/harness files changed — skipping tests." >&2
+  echo "[pre-push] (Force full suite with FULL_TESTS=1 git push)" >&2
+  exit 0
+fi
+
 # Path → test directory mapping
 declare -A suite_map=(
   ["defaults/"]="tests/rules/"
