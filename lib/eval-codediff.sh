@@ -9,6 +9,54 @@ CODEDIFF_DECISION="deny"  # "deny" or "ask"
 MUTATION_TOOLS="Bash Write Edit"
 SENSITIVE_PATH_TOOLS="Bash Write Edit Read"
 
+# Iterate a newline-separated pattern list and match each (lowercased) against
+# the caller's $input_str (lowercased tool input) using grep -F. On the first
+# match set CODEDIFF_PASSED=false, CODEDIFF_DECISION=$3 (default "deny"), and
+# CODEDIFF_REASON built from $2 with the literal placeholder %PAT% replaced by
+# the matched pattern. Returns 1 on match, 0 otherwise. Relies on bash dynamic
+# scoping to read $input_str from the calling function's locals.
+_cd_check_grepf() {
+  local list="$1" reason_tpl="$2" decision="${3:-deny}"
+  local pattern lower_pattern
+  while IFS= read -r pattern; do
+    [ -z "$pattern" ] && continue
+    lower_pattern=$(printf '%s' "$pattern" | tr '[:upper:]' '[:lower:]')
+    if printf '%s' "$input_str" | grep -qF -- "$lower_pattern"; then
+      CODEDIFF_PASSED=false
+      CODEDIFF_DECISION="$decision"
+      CODEDIFF_REASON="${reason_tpl//%PAT%/$pattern}"
+      return 1
+    fi
+  done <<< "$list"
+  return 0
+}
+
+# Iterate a newline-separated regex list and match each against $input_str via
+# `timeout 1 grep -qP`. Enforces the caller's cumulative PCRE budget
+# ($_cd_pcre_start / $_cd_pcre_budget). On match set CODEDIFF_PASSED=false,
+# CODEDIFF_DECISION=$3, CODEDIFF_REASON=$2 (no pattern interpolation — regex
+# reasons in the caller don't quote the source pattern). Returns 1 on match or
+# budget-exceeded, 0 otherwise. Dynamic-scoped locals like _cd_check_grepf.
+_cd_check_grepp() {
+  local list="$1" reason="$2" decision="${3:-deny}"
+  local pattern
+  while IFS= read -r pattern; do
+    [ -z "$pattern" ] && continue
+    if (( ${EPOCHSECONDS:-$(date +%s)} - _cd_pcre_start >= _cd_pcre_budget )); then
+      CODEDIFF_PASSED=false
+      CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2)\nPCRE timeout budget exceeded (${_cd_pcre_budget}s cumulative)"
+      return 1
+    fi
+    if printf '%s' "$input_str" | timeout 1 grep -qP "$pattern" 2>/dev/null; then
+      CODEDIFF_PASSED=false
+      CODEDIFF_DECISION="$decision"
+      CODEDIFF_REASON="$reason"
+      return 1
+    fi
+  done <<< "$list"
+  return 0
+}
+
 codediff_eval() {
   local tool_name="$1"
   local tool_input="$2"
@@ -76,34 +124,18 @@ codediff_eval() {
   # --- Sensitive path checks (applies to read and write tools) ---
   case " $SENSITIVE_PATH_TOOLS " in
     *" $tool_name "*)
-      local pattern
-      while IFS= read -r pattern; do
-        [ -z "$pattern" ] && continue
-        local lower_pattern
-        lower_pattern=$(printf '%s' "$pattern" | tr '[:upper:]' '[:lower:]')
-        if printf '%s' "$input_str" | grep -qF -- "$lower_pattern"; then
-          CODEDIFF_PASSED=false
-          CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nSensitive path accessed: '$pattern'\nSuggestion: Do not read or modify sensitive files"
-          return 1
-        fi
-      done <<< "$_CD_SENSITIVE_PATHS"
+      _cd_check_grepf "$_CD_SENSITIVE_PATHS" \
+        "[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nSensitive path accessed: '%PAT%'\nSuggestion: Do not read or modify sensitive files" \
+        || return 1
       ;;
   esac
 
   # --- Protected directory checks (applies to write tools) ---
   case " $MUTATION_TOOLS " in
     *" $tool_name "*)
-      local pattern
-      while IFS= read -r pattern; do
-        [ -z "$pattern" ] && continue
-        local lower_pattern
-        lower_pattern=$(printf '%s' "$pattern" | tr '[:upper:]' '[:lower:]')
-        if printf '%s' "$input_str" | grep -qF -- "$lower_pattern"; then
-          CODEDIFF_PASSED=false
-          CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nProtected directory: '$pattern'\nSuggestion: CI/CD and infrastructure files require manual changes"
-          return 1
-        fi
-      done <<< "$_CD_PROTECTED_DIRS"
+      _cd_check_grepf "$_CD_PROTECTED_DIRS" \
+        "[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nProtected directory: '%PAT%'\nSuggestion: CI/CD and infrastructure files require manual changes" \
+        || return 1
       ;;
   esac
 
@@ -133,96 +165,40 @@ codediff_eval() {
   done <<< "$_CD_SAFE_EXCEPTIONS"
 
   # --- Secret patterns → deny ---
-  local pattern
-  while IFS= read -r pattern; do
-    [ -z "$pattern" ] && continue
-    local lower_pattern
-    lower_pattern=$(printf '%s' "$pattern" | tr '[:upper:]' '[:lower:]')
-    if printf '%s' "$input_str" | grep -qF -- "$lower_pattern"; then
-      CODEDIFF_PASSED=false
-      CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nSecret pattern detected: '$pattern'\nSuggestion: Remove secrets from code, use environment variables"
-      return 1
-    fi
-  done <<< "$_CD_SECRET_PATTERNS"
+  _cd_check_grepf "$_CD_SECRET_PATTERNS" \
+    "[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nSecret pattern detected: '%PAT%'\nSuggestion: Remove secrets from code, use environment variables" \
+    || return 1
 
   # --- Destructive patterns → deny ---
-  while IFS= read -r pattern; do
-    [ -z "$pattern" ] && continue
-    local lower_pattern
-    lower_pattern=$(printf '%s' "$pattern" | tr '[:upper:]' '[:lower:]')
-    if printf '%s' "$input_str" | grep -qF -- "$lower_pattern"; then
-      CODEDIFF_PASSED=false
-      CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nDestructive pattern detected: '$pattern'\nSuggestion: Use safer alternatives"
-      return 1
-    fi
-  done <<< "$_CD_DESTRUCTIVE_PATTERNS"
+  _cd_check_grepf "$_CD_DESTRUCTIVE_PATTERNS" \
+    "[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nDestructive pattern detected: '%PAT%'\nSuggestion: Use safer alternatives" \
+    || return 1
 
   # --- Destructive regex patterns → deny (flag-reordering-aware) ---
-  while IFS= read -r pattern; do
-    [ -z "$pattern" ] && continue
-    if (( ${EPOCHSECONDS:-$(date +%s)} - _cd_pcre_start >= _cd_pcre_budget )); then
-      CODEDIFF_PASSED=false
-      CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2)\nPCRE timeout budget exceeded (${_cd_pcre_budget}s cumulative)"
-      return 1
-    fi
-    if printf '%s' "$input_str" | timeout 1 grep -qP "$pattern" 2>/dev/null; then
-      CODEDIFF_PASSED=false
-      CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nDestructive pattern detected (regex)\nSuggestion: Use safer alternatives"
-      return 1
-    fi
-  done <<< "$_CD_DESTRUCTIVE_REGEX"
+  _cd_check_grepp "$_CD_DESTRUCTIVE_REGEX" \
+    "[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nDestructive pattern detected (regex)\nSuggestion: Use safer alternatives" \
+    || return 1
 
   # --- Dangerous git patterns → deny ---
-  while IFS= read -r pattern; do
-    [ -z "$pattern" ] && continue
-    local lower_pattern
-    lower_pattern=$(printf '%s' "$pattern" | tr '[:upper:]' '[:lower:]')
-    if printf '%s' "$input_str" | grep -qF -- "$lower_pattern"; then
-      CODEDIFF_PASSED=false
-      CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nDangerous git operation detected: '$pattern'\nSuggestion: Use non-destructive git operations"
-      return 1
-    fi
-  done <<< "$_CD_DANGEROUS_GIT_PATTERNS"
+  _cd_check_grepf "$_CD_DANGEROUS_GIT_PATTERNS" \
+    "[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nDangerous git operation detected: '%PAT%'\nSuggestion: Use non-destructive git operations" \
+    || return 1
 
   # --- Dangerous git regex patterns → deny (flag-reordering-aware) ---
-  while IFS= read -r pattern; do
-    [ -z "$pattern" ] && continue
-    if (( ${EPOCHSECONDS:-$(date +%s)} - _cd_pcre_start >= _cd_pcre_budget )); then
-      CODEDIFF_PASSED=false
-      CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2)\nPCRE timeout budget exceeded (${_cd_pcre_budget}s cumulative)"
-      return 1
-    fi
-    if printf '%s' "$input_str" | timeout 1 grep -qP "$pattern" 2>/dev/null; then
-      CODEDIFF_PASSED=false
-      CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nDangerous git operation detected (regex)\nSuggestion: Use non-destructive git operations"
-      return 1
-    fi
-  done <<< "$_CD_DANGEROUS_GIT_REGEX"
+  _cd_check_grepp "$_CD_DANGEROUS_GIT_REGEX" \
+    "[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nDangerous git operation detected (regex)\nSuggestion: Use non-destructive git operations" \
+    || return 1
 
   # --- Additional deny patterns → deny ---
-  while IFS= read -r pattern; do
-    [ -z "$pattern" ] && continue
-    local lower_pattern
-    lower_pattern=$(printf '%s' "$pattern" | tr '[:upper:]' '[:lower:]')
-    if printf '%s' "$input_str" | grep -qF -- "$lower_pattern"; then
-      CODEDIFF_PASSED=false
-      CODEDIFF_REASON="[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nBlocked pattern detected: '$pattern'\nSuggestion: This operation is not permitted"
-      return 1
-    fi
-  done <<< "$_CD_DENY_PATTERNS"
+  _cd_check_grepf "$_CD_DENY_PATTERNS" \
+    "[LaneKeep] DENIED by CodeDiffEvaluator (Tier 2, score: 0.9)\nBlocked pattern detected: '%PAT%'\nSuggestion: This operation is not permitted" \
+    || return 1
 
   # --- Ask patterns → ask (escalate to user) ---
-  while IFS= read -r pattern; do
-    [ -z "$pattern" ] && continue
-    local lower_pattern
-    lower_pattern=$(printf '%s' "$pattern" | tr '[:upper:]' '[:lower:]')
-    if printf '%s' "$input_str" | grep -qF -- "$lower_pattern"; then
-      CODEDIFF_PASSED=false
-      CODEDIFF_DECISION="ask"
-      CODEDIFF_REASON="[LaneKeep] NEEDS APPROVAL — CodeDiffEvaluator (Tier 2)\nPattern matched: '$pattern'\nThis operation requires user confirmation"
-      return 1
-    fi
-  done <<< "$_CD_ASK_PATTERNS"
+  _cd_check_grepf "$_CD_ASK_PATTERNS" \
+    "[LaneKeep] NEEDS APPROVAL — CodeDiffEvaluator (Tier 2)\nPattern matched: '%PAT%'\nThis operation requires user confirmation" \
+    "ask" \
+    || return 1
 
   # --- Encoding detection → ask (pre-execution) ---
   # Detects base64 decode pipes, hex escape sequences, nested decode-to-eval
