@@ -19,6 +19,7 @@ _pm_policy_toggle() {
   type=$(jq -r --arg cat "$category" '.policies[$cat].type // "free"' "$config" 2>/dev/null)
 
   local filter event
+  # shellcheck disable=SC2016  # $cat is a jq variable (--arg cat), not bash
   case "$action" in
     disable) filter='.policies[$cat].enabled = false'; event="policy_disabled" ;;
     enable)  filter='.policies[$cat] |= del(.enabled)'; event="policy_enabled" ;;
@@ -56,6 +57,7 @@ _pm_rule_toggle() {
   type=$(jq -r --argjson idx "$index" '.rules[$idx].type // "free"' "$config" 2>/dev/null)
 
   local filter event
+  # shellcheck disable=SC2016  # $idx is a jq variable (--argjson idx), not bash
   case "$action" in
     disable) filter='.rules[$idx].enabled = false'; event="rule_disabled" ;;
     enable)  filter='.rules[$idx] |= del(.enabled)'; event="rule_enabled" ;;
