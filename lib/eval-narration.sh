@@ -16,6 +16,32 @@ _narration_path_matches() {
   [[ "$path" == $pattern ]]
 }
 
+# Extract path-like tokens from a Bash command line for whitelist matching.
+# Deliberately dumb: whitespace-split (no subshell/heredoc parsing), strip balanced
+# surrounding quotes, drop flags/operators/pure-dot expressions. Prints one token per line.
+_narration_bash_path_tokens() {
+  local cmd="$1"
+  local -a raw
+  IFS=$' \t' read -ra raw <<< "$cmd"
+  local w
+  for w in "${raw[@]}"; do
+    if [[ "$w" == \'*\' ]]; then w="${w#\'}"; w="${w%\'}"; fi
+    if [[ "$w" == \"*\" ]]; then w="${w#\"}"; w="${w%\"}"; fi
+    [ -z "$w" ] && continue
+    [[ "$w" == -* ]] && continue
+    case "$w" in
+      '&&'|'||'|'|'|'>'|'<'|';'|'>>'|'<<'|'&') continue ;;
+    esac
+    if [[ "$w" == */* ]]; then
+      printf '%s\n' "$w"
+    elif [[ "$w" == .* ]]; then
+      continue
+    elif [[ "$w" == *.* ]]; then
+      printf '%s\n' "$w"
+    fi
+  done
+}
+
 narration_eval() {
   local tool_name="$1"
   local tool_input="$2"
@@ -93,6 +119,36 @@ narration_eval() {
   [ -z "$search_content" ] && return 0
   # Content size limit — skip pathological payloads
   [ ${#search_content} -gt 1048576 ] && return 0
+
+  # Bash-only: extend whitelist_paths to command path tokens (Write/Edit already handled above).
+  # Skips only when ALL extracted path tokens match at least one whitelist pattern —
+  # a mixed command (whitelisted + non-whitelisted paths) still falls through to pattern scan.
+  if [ "$tool_name" = "Bash" ] && [ -n "$_n_whitelist_paths" ]; then
+    local -a _bash_tokens
+    mapfile -t _bash_tokens < <(_narration_bash_path_tokens "$search_content")
+    if [ "${#_bash_tokens[@]}" -gt 0 ]; then
+      local _wp_arr
+      IFS=$'\x1e' read -ra _wp_arr <<< "$_n_whitelist_paths"
+      local _tok _wp _all_matched=true _tok_matched
+      for _tok in "${_bash_tokens[@]}"; do
+        _tok_matched=false
+        for _wp in "${_wp_arr[@]}"; do
+          [ -z "$_wp" ] && continue
+          if _narration_path_matches "$_tok" "$_wp"; then
+            _tok_matched=true
+            break
+          fi
+        done
+        if [ "$_tok_matched" = false ]; then
+          _all_matched=false
+          break
+        fi
+      done
+      if [ "$_all_matched" = true ]; then
+        return 0
+      fi
+    fi
+  fi
 
   # Iterate patterns, match against content
   local _p_arr

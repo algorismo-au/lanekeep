@@ -53,3 +53,46 @@ setup() {
   [ "$NARRATION_PASSED" = false ]
   [[ "$NARRATION_HINT" == "DENIED:"* ]]
 }
+
+@test "narration_eval Bash whitelists command when all path tokens match whitelist_paths" {
+  # jq/grep/etc on a whitelisted file — the 'lanekeep' substring in the arg
+  # would otherwise trip lane[- ]?keep. Whitelist should apply to Bash too.
+  narration_eval "Bash" '{"command":"jq .budget lanekeep/foo.json"}' || true
+  [ "$NARRATION_PASSED" = true ]
+}
+
+@test "narration_eval Bash denies when one path token escapes the whitelist" {
+  # Mixed command: lanekeep/foo.json whitelisted, /etc/passwd is not.
+  # ALL tokens must match — one unmatched forces fall-through to pattern scan.
+  narration_eval "Bash" '{"command":"jq .x lanekeep/foo.json /etc/passwd"}' || true
+  [ "$NARRATION_PASSED" = false ]
+  [ "$NARRATION_DECISION" = "ask" ]
+}
+
+@test "narration_eval Bash falls through to pattern scan when no path tokens" {
+  # No slash, no filename extension — no path tokens extracted.
+  # Behaviour must match today: pattern scan runs, matches 'work-around'.
+  narration_eval "Bash" '{"command":"echo work-around now"}' || true
+  [ "$NARRATION_PASSED" = false ]
+}
+
+@test "narration_eval Bash whitelists nested .md path against **/*.md" {
+  # grep for 'lane-keep' inside a whitelisted .md file — the literal in the command
+  # would trip lane[- ]?keep. Whitelist skip must apply.
+  narration_eval "Bash" '{"command":"grep -oiP lane-keep buildinglanekeep/specs/foo.md"}' || true
+  [ "$NARRATION_PASSED" = true ]
+}
+
+@test "narration_eval Bash ignores leading-dot jq expressions during tokenization" {
+  # '.budget' looks path-ish (has a dot) but is a jq program, not a path.
+  # Tokenizer must skip it so the file arg alone drives the whitelist decision.
+  narration_eval "Bash" '{"command":"jq .budget.max_actions lanekeep/foo.json"}' || true
+  [ "$NARRATION_PASSED" = true ]
+}
+
+@test "narration_eval Bash whitelist does not affect Write path check (regression)" {
+  # Write with whitelisted file_path continues to short-circuit via the file_path branch,
+  # independent of the Bash tokenizer path.
+  narration_eval "Write" '{"file_path":"lanekeep/README.md","content":"fragment the string to work around this"}' || true
+  [ "$NARRATION_PASSED" = true ]
+}
