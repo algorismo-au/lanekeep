@@ -253,7 +253,17 @@ Hooks into the [PreToolUse hook](https://docs.anthropic.com/en/docs/claude-code/
 
 The Semantic evaluator reads the task goal from TaskSpec. Set it with
 `lanekeep serve --spec DESIGN.md` or write `.lanekeep/taskspec.json` directly.
-See [REFERENCE.md](REFERENCE.md#budget--taskspec) for details.
+
+**TaskSpec vs config, at a glance:** TaskSpec fields override `lanekeep.json`
+per-session, and **omitted fields defer** to the config default — a TaskSpec
+can tighten only what it cares about. The recommended pattern is
+**allow-list in TaskSpec, deny-list in config**: use `allowed_tools` in the
+TaskSpec to narrow what a single task can do, and put project-wide denies in
+top-level `denied_tools` in `lanekeep.json` (or as rules for conditional
+matches). Both layers are enforced by the Schema evaluator — deny-lists
+union, allow-lists intersect. See
+[TaskSpec Resolution & Override Semantics](REFERENCE.md#taskspec-resolution--override-semantics)
+in REFERENCE for the merge chain and `LANEKEEP_TASKSPEC_FILE` details.
 
 See [CLAUDE.md](CLAUDE.md) for detailed tier descriptions and data flow.
 

@@ -414,7 +414,15 @@ the whole run. Only cumulative caps emit the [halt signal](#halt-signal).
 | `budget.max_output_tokens` | `LANEKEEP_MAX_OUTPUT_TOKENS` | 2500000 | 2500000 |
 | `budget.max_tokens` | `LANEKEEP_MAX_TOKENS` | 5000000 | 5000000 |
 | `budget.max_cost` | `LANEKEEP_MAX_COST` | 200 (USD) | 200 |
-| `budget.timeout_seconds` | `LANEKEEP_TIMEOUT_SECONDS` | 432000 | 36000 |
+| `budget.timeout_seconds` | `LANEKEEP_TIMEOUT_SECONDS` | 3600 | 36000 |
+
+The base defaults are a defensive per-session baseline for users who don't
+opt into a profile. Profile overlays (`strict`, `guided`, `autonomous`) can
+override *in either direction* — for example, `guided` deliberately widens
+`timeout_seconds` to 36000 (10h) to accommodate longer scoped work, while
+tightening `max_actions` to 2000. Opting into a profile is an informed
+choice to use that profile's calibration in place of the base value for
+every field the overlay defines.
 
 **Cumulative (cross-session):**
 
@@ -579,6 +587,90 @@ judge intent alignment):
 ```bash
 LANEKEEP_MAX_ACTIONS=50 LANEKEEP_TIMEOUT_SECONDS=900 lanekeep serve
 ```
+
+### TaskSpec Resolution & Override Semantics
+
+**Layering.** Budget and tool-access settings resolve through three layers,
+later wins:
+
+1. `defaults/lanekeep.json` (built-in) → merged with `lanekeep.json` (project)
+2. `.lanekeep/taskspec.json` (TaskSpec, immutable per session)
+3. Environment variables (`LANEKEEP_MAX_ACTIONS`, `LANEKEEP_TIMEOUT_SECONDS`,
+   `LANEKEEP_MAX_TOKENS`, `LANEKEEP_MAX_COST`, …)
+
+**Omission defers to config.** Only TaskSpec fields with a non-empty value
+override the config layer. Omitted fields, empty strings, and — for the
+per-file fast-path — a whole-file `{}` (size ≤4 bytes) fall through to the
+config default. This lets a TaskSpec pin *only* the dimensions you want to
+tighten without restating every other budget knob. The merge is implemented
+in `eval-budget.sh`: each `_ts_*` value is extracted via jq's `// ""`, and
+the override is applied only when the resulting string is non-empty.
+
+Example — TaskSpec drops per-task caps for actions and cost; every other
+limit (tokens, timeout, cumulative caps) keeps its config-level value:
+
+```json
+{
+  "goal": "Fix login bug",
+  "budget": { "max_actions": 30, "max_cost": 5 }
+}
+```
+
+Under this TaskSpec, `budget.timeout_seconds` still resolves to `3600` from
+`defaults/lanekeep.json` (or whatever the project `lanekeep.json` set),
+`budget.max_tokens` still resolves to `5000000`, etc.
+
+**Recommended pattern — allow-list in TaskSpec, deny-list in config.** The
+TaskSpec is the right place for a per-task **allow-list** (`allowed_tools`):
+the narrow scope constrains what a single task can touch, and the
+immutable-after-startup contract means the constraint cannot drift
+mid-session. Baseline **denies** belong in `lanekeep.json` via top-level
+`denied_tools` (applies to every session — a TaskSpec cannot re-enable a
+tool the config has denied). Rules and policies (`governance_tools`,
+rule-engine entries with `match.tool` and `decision: "deny"`) are the more
+expressive alternative when you need conditional matching. In practice:
+
+```json
+// .lanekeep/taskspec.json — per-task narrowing
+{ "goal": "Fix login bug", "allowed_tools": ["Read", "Edit", "Bash"] }
+```
+
+```json
+// lanekeep.json — project-wide baseline denies
+{
+  "denied_tools": ["WebFetch"]
+}
+```
+
+**Layering.** Both `allowed_tools` and `denied_tools` are enforced at Tier
+0.5 by the Schema evaluator (`lib/eval-schema.sh`), reading from both
+`lanekeep.json` (config) and `.lanekeep/taskspec.json` (TaskSpec). The
+merge rule:
+
+- **Deny-lists union.** Any tool named in *either* the config or the
+  TaskSpec `denied_tools` is denied. Config denies are non-overridable.
+- **Allow-lists intersect.** When both layers set a non-empty
+  `allowed_tools`, a tool must appear in *both* to reach ALLOW.
+  Null/absent/empty on a layer means that layer imposes no restriction.
+
+The denial message identifies which layer fired
+(`in config denied_tools list` vs `in TaskSpec denied_tools list`) to make
+debugging unambiguous.
+
+**`LANEKEEP_TASKSPEC_FILE`.** The resolved path to the TaskSpec file. When
+unset, `load_config` defaults to `${PROJECT_DIR}/.lanekeep/taskspec.json`.
+When pre-set, the env var wins — useful for per-worktree TaskSpecs, CI runs
+supplying a pre-built spec, or bats tests pointing at a fixture. Downstream
+evaluators (`eval-schema.sh`, `eval-budget.sh`, `eval-scope-containment.sh`,
+`eval-semantic.sh`) all read the resolved value.
+
+Validation matches `LANEKEEP_CONFIG_FILE`: the file must exist, be a regular
+file (symlinks rejected), and resolve inside `PROJECT_DIR`. A failing check
+falls back to the default path with a warning to stderr — never silently
+accepted. Setting `LANEKEEP_TASKSPEC_FILE=""` (empty string) is a legitimate
+value and disables TaskSpec enforcement — the Schema evaluator returns
+"allow all" and the Budget merge is skipped, so only config-level limits
+apply. `--spec DESIGN.md` writes to whichever path is resolved.
 
 ### Plan File (input contract)
 

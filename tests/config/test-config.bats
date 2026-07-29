@@ -87,3 +87,34 @@ teardown() {
   epoch=$(jq -r '.start_epoch' "$LANEKEEP_STATE_FILE")
   [ "$epoch" -gt 0 ]
 }
+
+@test "load_config: LANEKEEP_TASKSPEC_FILE env var overrides default path" {
+  local custom="$PROJECT_DIR/custom-spec.json"
+  printf '{"goal":"env-override"}\n' > "$custom"
+  export LANEKEEP_TASKSPEC_FILE="$custom"
+  load_config "$PROJECT_DIR"
+  [ "$LANEKEEP_TASKSPEC_FILE" = "$custom" ]
+  local goal
+  goal=$(jq -r '.goal' "$LANEKEEP_TASKSPEC_FILE")
+  [ "$goal" = "env-override" ]
+}
+
+@test "load_config: LANEKEEP_TASKSPEC_FILE rejects symlinks" {
+  local target="$PROJECT_DIR/real-spec.json"
+  local link="$PROJECT_DIR/link-spec.json"
+  printf '{"goal":"real"}\n' > "$target"
+  ln -s "$target" "$link"
+  export LANEKEEP_TASKSPEC_FILE="$link"
+  load_config "$PROJECT_DIR" 2>/dev/null
+  # Symlink rejected → falls back to default
+  [ "$LANEKEEP_TASKSPEC_FILE" = "$PROJECT_DIR/.lanekeep/taskspec.json" ]
+}
+
+@test "load_config: LANEKEEP_TASKSPEC_FILE rejects paths outside PROJECT_DIR" {
+  local outside="$TEST_TMP/outside-spec.json"
+  printf '{"goal":"outside"}\n' > "$outside"
+  export LANEKEEP_TASKSPEC_FILE="$outside"
+  load_config "$PROJECT_DIR" 2>/dev/null
+  # Outside PROJECT_DIR → falls back to default
+  [ "$LANEKEEP_TASKSPEC_FILE" = "$PROJECT_DIR/.lanekeep/taskspec.json" ]
+}
