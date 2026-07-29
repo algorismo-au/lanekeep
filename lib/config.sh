@@ -60,6 +60,34 @@ validate_env_overrides() {
     fi
   fi
 
+  # LANEKEEP_TASKSPEC_FILE: same rules as LANEKEEP_CONFIG_FILE — must be a
+  # regular file (not symlink) resolving inside project_dir. The empty string
+  # is a legitimate value (disables TaskSpec enforcement) and passes through.
+  if [ -n "${LANEKEEP_TASKSPEC_FILE:-}" ]; then
+    local _valid=true
+    if [ -L "$LANEKEEP_TASKSPEC_FILE" ]; then
+      echo "[LaneKeep] WARNING: LANEKEEP_TASKSPEC_FILE is a symlink — rejecting for security. Falling back to default." >&2
+      _valid=false
+    elif [ ! -f "$LANEKEEP_TASKSPEC_FILE" ]; then
+      echo "[LaneKeep] WARNING: LANEKEEP_TASKSPEC_FILE='$LANEKEEP_TASKSPEC_FILE' does not exist or is not a regular file. Falling back to default." >&2
+      _valid=false
+    else
+      local _resolved _proj_real
+      _resolved=$(cd "$(dirname "$LANEKEEP_TASKSPEC_FILE")" && pwd -P)/$(basename "$LANEKEEP_TASKSPEC_FILE")
+      _proj_real=$(cd "$project_dir" && pwd -P)
+      case "$_resolved" in
+        "$_proj_real"/*) ;;
+        *)
+          echo "[LaneKeep] WARNING: LANEKEEP_TASKSPEC_FILE resolves outside project directory. Falling back to default." >&2
+          _valid=false
+          ;;
+      esac
+    fi
+    if [ "$_valid" = "false" ]; then
+      unset LANEKEEP_TASKSPEC_FILE
+    fi
+  fi
+
   # LANEKEEP_MAX_* vars: must be positive integers
   local _max_var
   for _max_var in \
@@ -151,7 +179,11 @@ load_config() {
   prune_traces "$project_dir/.lanekeep/traces" "$_trace_ret_days" "$_trace_max_sess" true "${LANEKEEP_SESSION_ID:-}" || true
 
   # --- Parse TaskSpec if spec file provided ---
-  LANEKEEP_TASKSPEC_FILE="$project_dir/.lanekeep/taskspec.json"
+  # Env-var LANEKEEP_TASKSPEC_FILE (validated above) wins over the default
+  # path so callers can redirect the TaskSpec (e.g. per-worktree specs, CI
+  # runs supplying a pre-built spec). --spec still writes to the resolved
+  # path, wherever that is.
+  LANEKEEP_TASKSPEC_FILE="${LANEKEEP_TASKSPEC_FILE:-$project_dir/.lanekeep/taskspec.json}"
   if [ -n "$spec_file" ] && [ -f "$spec_file" ]; then
     if [ -x "$LANEKEEP_DIR/bin/lanekeep-parse-spec" ]; then
       "$LANEKEEP_DIR/bin/lanekeep-parse-spec" "$spec_file" > "$LANEKEEP_TASKSPEC_FILE" 2>/dev/null || true

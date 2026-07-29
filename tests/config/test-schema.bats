@@ -75,3 +75,100 @@ JSON
   rm -f "$tmpspec"
   [ "$status" -eq 1 ]
 }
+
+# --- Config-level layering (LANEKEEP_CONFIG_FILE) ---
+
+# AC7: Config-level denied_tools is enforced
+@test "schema_eval denies tool listed in config denied_tools" {
+  local tmpcfg
+  tmpcfg=$(mktemp)
+  printf '{"denied_tools":["WebFetch"]}\n' > "$tmpcfg"
+  export LANEKEEP_CONFIG_FILE="$tmpcfg"
+  export LANEKEEP_TASKSPEC_FILE=""
+  run schema_eval "WebFetch"
+  rm -f "$tmpcfg"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"denied_tools"* ]] || true
+}
+
+@test "schema_eval config-deny reason identifies the config layer" {
+  local tmpcfg
+  tmpcfg=$(mktemp)
+  printf '{"denied_tools":["WebFetch"]}\n' > "$tmpcfg"
+  export LANEKEEP_CONFIG_FILE="$tmpcfg"
+  export LANEKEEP_TASKSPEC_FILE=""
+  schema_eval "WebFetch" || true
+  rm -f "$tmpcfg"
+  [[ "$SCHEMA_REASON" == *"denied_tools list (config)"* ]]
+}
+
+# AC8: Config allow-list narrows access
+@test "schema_eval denies tool not in config allowed_tools" {
+  local tmpcfg
+  tmpcfg=$(mktemp)
+  printf '{"allowed_tools":["Read","Edit"]}\n' > "$tmpcfg"
+  export LANEKEEP_CONFIG_FILE="$tmpcfg"
+  export LANEKEEP_TASKSPEC_FILE=""
+  run schema_eval "Bash"
+  rm -f "$tmpcfg"
+  [ "$status" -eq 1 ]
+}
+
+@test "schema_eval allows tool in config allowed_tools" {
+  local tmpcfg
+  tmpcfg=$(mktemp)
+  printf '{"allowed_tools":["Read","Edit"]}\n' > "$tmpcfg"
+  export LANEKEEP_CONFIG_FILE="$tmpcfg"
+  export LANEKEEP_TASKSPEC_FILE=""
+  run schema_eval "Read"
+  rm -f "$tmpcfg"
+  [ "$status" -eq 0 ]
+}
+
+# AC9: Config deny wins over TaskSpec allow (config is non-overridable)
+@test "schema_eval config denied_tools overrides TaskSpec allowed_tools" {
+  local tmpcfg tmpspec
+  tmpcfg=$(mktemp)
+  tmpspec=$(mktemp)
+  printf '{"denied_tools":["WebFetch"]}\n' > "$tmpcfg"
+  cat > "$tmpspec" <<'JSON'
+{"goal":"t","allowed_tools":["WebFetch"],"denied_tools":[],"budget":{}}
+JSON
+  export LANEKEEP_CONFIG_FILE="$tmpcfg"
+  export LANEKEEP_TASKSPEC_FILE="$tmpspec"
+  run schema_eval "WebFetch"
+  rm -f "$tmpcfg" "$tmpspec"
+  [ "$status" -eq 1 ]
+}
+
+# AC10: Allow-lists intersect — tool must satisfy both when both are non-empty
+@test "schema_eval requires tool in both allow-lists when both are non-empty" {
+  local tmpcfg tmpspec
+  tmpcfg=$(mktemp)
+  tmpspec=$(mktemp)
+  printf '{"allowed_tools":["Read","Edit","Bash"]}\n' > "$tmpcfg"
+  cat > "$tmpspec" <<'JSON'
+{"goal":"t","allowed_tools":["Read"],"denied_tools":[],"budget":{}}
+JSON
+  export LANEKEEP_CONFIG_FILE="$tmpcfg"
+  export LANEKEEP_TASKSPEC_FILE="$tmpspec"
+  # Bash is in config allow-list but not TaskSpec allow-list → deny
+  run schema_eval "Bash"
+  [ "$status" -eq 1 ]
+  # Read is in both → allow
+  run schema_eval "Read"
+  rm -f "$tmpcfg" "$tmpspec"
+  [ "$status" -eq 0 ]
+}
+
+# AC11: Empty/null config lists are inert
+@test "schema_eval allows all when config has no allowed_tools/denied_tools" {
+  local tmpcfg
+  tmpcfg=$(mktemp)
+  printf '{"budget":{"max_actions":100}}\n' > "$tmpcfg"
+  export LANEKEEP_CONFIG_FILE="$tmpcfg"
+  export LANEKEEP_TASKSPEC_FILE=""
+  run schema_eval "Bash"
+  rm -f "$tmpcfg"
+  [ "$status" -eq 0 ]
+}
