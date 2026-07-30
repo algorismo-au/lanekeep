@@ -1,5 +1,4 @@
-.lanekeep/*
-!.lanekeep/defaults_manifest.json
+.lanekeep/
 defaults/.lanekeep/
 .shipper/
 .venv/
