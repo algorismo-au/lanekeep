@@ -39,12 +39,12 @@
 
 AI coding agents type `rm -rf`, read `.env` files, push to the wrong branch, and burn tokens in runaway loops. **LaneKeep intercepts every tool call and enforces deterministic rules before they execute.**
 
-**171 default rules · 12 evaluators · zero network calls · Apache 2.0**
+**173 default rules · 17 evaluators · zero network calls · Apache 2.0**
 
 - **Live dashboard:** every decision logged locally
 - **Budget limits:** usage patterns, cost caps, token and action limits
 - **Full audit trail:** every tool call logged with matched rule and reason
-- **Defense in depth:** extendable policy layers: 12 deterministic evaluators and an optional semantic layer (another LLM) as an evaluator; PII detection, config integrity checks, and injection detection
+- **Defense in depth:** extendable policy layers: 17 deterministic evaluators and an optional semantic layer (another LLM) as an evaluator; PII detection, config integrity checks, and injection detection
 - **Agent memory/knowledge view:** see what your agent sees
 - **Coverage and alignment:** built-in compliance tags (NIST, OWASP, CWE, ATT&CK); add your own
 - **No data leaves your machine.** Every policy and rule is controlled by you.
