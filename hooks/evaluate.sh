@@ -66,7 +66,7 @@ fi
 _write_fallback_trace() {
   local decision="$1" reason="$2"
   (
-    local trace_dir="$PWD/.lanekeep/traces"
+    local trace_dir="${PROJECT_DIR:-$PWD}/.lanekeep/traces"
     (umask 077; mkdir -p "$trace_dir")
     local trace_file="$trace_dir/hook-fallback.jsonl"
     local entry
