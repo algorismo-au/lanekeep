@@ -19,7 +19,7 @@ and enforces allow/deny decisions. Disabled by default — opt-in.
 
 ```
 lanekeep/
-  bin/            CLI entry points (18 executables: lanekeep, lanekeep-serve,
+  bin/            CLI entry points (20 executables: lanekeep, lanekeep-serve,
                   lanekeep-handler, lanekeep-trace, lanekeep-audit, lanekeep-rules,
                   lanekeep-policy, lanekeep-scan, lanekeep-parse-spec, etc.)
   lib/            Evaluator modules and shared libraries
