@@ -271,7 +271,7 @@ Event (raw hook call)
 
 ### 策略
 
-在规则之前评估。内置 20 个策略类别，每个类别有专用的提取逻辑（如 `domains` 解析 URL，`branches` 提取 git 分支名）。
+在规则之前评估。内置 21 个策略类别，每个类别有专用的提取逻辑（如 `domains` 解析 URL，`branches` 提取 git 分支名）。
 类别：`tools`、`extensions`、`paths`、`commands`、`domains`、`mcp_servers` 等。可通过 `lanekeep policy` 或仪表盘的**治理**选项卡进行切换。
 
 **策略 vs 规则：** 策略是面向预定义类别的结构化类型控制。规则是灵活的通用方案：可匹配任意工具名 + 任意正则表达式，对完整工具输入进行检查。如果你的需求不符合现有策略类别，请编写规则。

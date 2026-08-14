@@ -271,7 +271,7 @@ La configurazione viene verificata con hash all'avvio; le modifiche a metà sess
 
 ### Policy
 
-Valutate prima delle regole. 20 categorie integrate, ciascuna con logica di estrazione dedicata (es. `domains` analizza gli URL, `branches` estrae i nomi dei branch git). Categorie: `tools`, `extensions`, `paths`, `commands`, `domains`, `mcp_servers`, e altro. Gestiscile con `lanekeep policy` o dalla scheda **Governance** nella dashboard.
+Valutate prima delle regole. 21 categorie integrate, ciascuna con logica di estrazione dedicata (es. `domains` analizza gli URL, `branches` estrae i nomi dei branch git). Categorie: `tools`, `extensions`, `paths`, `commands`, `domains`, `mcp_servers`, e altro. Gestiscile con `lanekeep policy` o dalla scheda **Governance** nella dashboard.
 
 **Policy vs Regole:** Le policy sono controlli strutturati e tipizzati per categorie predefinite. Le regole sono il meccanismo flessibile catch-all: corrispondono a qualsiasi nome di strumento + qualsiasi pattern regex sull'intero input dello strumento. Se il tuo caso d'uso non rientra in una categoria di policy, scrivi invece una regola.
 

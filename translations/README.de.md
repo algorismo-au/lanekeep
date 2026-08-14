@@ -285,7 +285,7 @@ Die Konfiguration wird beim Start per Hash geprüft; Änderungen während der Si
 
 ### Richtlinien
 
-Werden vor Regeln ausgewertet. 20 integrierte Kategorien, jede mit dedizierter Extraktionslogik
+Werden vor Regeln ausgewertet. 21 integrierte Kategorien, jede mit dedizierter Extraktionslogik
 (z.B. `domains` analysiert URLs, `branches` extrahiert Git-Branch-Namen).
 Kategorien: `tools`, `extensions`, `paths`, `commands`, `domains`,
 `mcp_servers` und weitere. Umschalten mit `lanekeep policy` oder über den **Governance**-Tab im Dashboard.

@@ -269,7 +269,7 @@ Cấu hình giải quyết: `$PROJECT_DIR/lanekeep.json` -> `$LANEKEEP_DIR/defau
 
 ### Chính sách
 
-Được đánh giá trước quy tắc. 20 danh mục tích hợp sẵn, mỗi danh mục có logic chiết xuất chuyên dụng (ví dụ: `domains` phân tích các URL, `branches` trích xuất tên nhánh git). Danh mục: `tools`, `extensions`, `paths`, `commands`, `domains`, `mcp_servers` và hơn thế nữa. Chuyển đổi với `lanekeep policy` hoặc từ tab **Governance** trong bảng điều khiển.
+Được đánh giá trước quy tắc. 21 danh mục tích hợp sẵn, mỗi danh mục có logic chiết xuất chuyên dụng (ví dụ: `domains` phân tích các URL, `branches` trích xuất tên nhánh git). Danh mục: `tools`, `extensions`, `paths`, `commands`, `domains`, `mcp_servers` và hơn thế nữa. Chuyển đổi với `lanekeep policy` hoặc từ tab **Governance** trong bảng điều khiển.
 
 **Chính sách vs Quy tắc:** Chính sách là các kiểm soát có cấu trúc, được nhập cho các danh mục được xác định trước. Quy tắc là catch-all linh hoạt: chúng khớp với bất kỳ tên công cụ + bất kỳ mẫu regex nào dựa trên toàn bộ đầu vào công cụ. Nếu trường hợp sử dụng của bạn không phù hợp với danh mục chính sách, hãy viết một quy tắc thay thế.
 
