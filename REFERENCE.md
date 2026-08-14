@@ -39,7 +39,7 @@ Detailed configuration reference for LaneKeep. For getting started, see
 | Field | Type | Matches against |
 |-------|------|----------------|
 | `command` | substring | Tool input |
-| `target` | substring | Tool input |
+| `target` | regex | Tool input |
 | `pattern` | regex | Tool input |
 | `tool` | regex | Tool name (e.g., `^Bash$`, `^(Write\|Edit)$`) |
 | `env` | regex | `LANEKEEP_ENV` value (unset env = no match) |
@@ -50,10 +50,12 @@ First match wins. No match = allow.
 
 **Block a specific command:**
 
+`match.command` is a case-insensitive substring check against the tool input. Use it for command-name matches (`rm`, `--no-verify`). For phrases whose flag order varies at the call site — like `git push … --force`, which shows up as `git push --force main` *and* `git push origin main --force` — use `match.pattern` with a regex so both variants are caught:
+
 ```json
 {
   "id": "no-force-push",
-  "match": { "command": "git push --force" },
+  "match": { "pattern": "\\bgit\\s+push\\b.*--force\\b" },
   "decision": "deny",
   "reason": "Force push is not allowed"
 }
@@ -230,7 +232,7 @@ non-`sys-*` platform-pack rules using the same `overrides` syntax.
 ## Policy Categories
 
 Each category: `enabled`, `default` (`allow`/`deny`), `allowed[]`, `denied[]`.
-Denied wins over allowed, then fallback to default. All patterns are regex.
+Denied wins over allowed, then fallback to default. Patterns are regex — except `extensions` (exact string match) and `paths` (glob auto-detected, regex otherwise).
 
 **Categories:** Tool-level (`tools`), File-based (`extensions`, `paths`,
 `governance_paths`, `shell_configs`, `registry_configs`), Command-based
