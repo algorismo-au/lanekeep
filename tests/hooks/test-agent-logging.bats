@@ -672,6 +672,340 @@ all_trace_entries() {
 # TEST 18: AG-004 — Registry symlink created and cleaned up
 # ============================================================================
 
+# ============================================================================
+# Helpers for AG-005 / AG-006 tests
+# ============================================================================
+
+# Build a request payload with an embedded agent_id — mirrors the AG-003
+# helper style used in tests 13-16.
+make_agent_request() {
+  local tool_name="$1"
+  local session_id="$2"
+  local agent_id="$3"
+  local tool_input="${4:-}"
+  if [ -z "$tool_input" ]; then
+    tool_input='{"file_path":"src/main.py"}'
+  fi
+  jq -n -c \
+    --arg tn "$tool_name" \
+    --arg ti "$tool_input" \
+    --arg tuid "toolu_$RANDOM" \
+    --arg sid "$session_id" \
+    --arg aid "$agent_id" \
+    '{hook_event_name:"PreToolUse",tool_name:$tn,tool_input:($ti|fromjson),tool_use_id:$tuid,session_id:$sid,cwd:"/home/user/project",agent_id:$aid}'
+}
+
+# ============================================================================
+# TEST 19: AG-005-1 — single tagged agent creates a per_agent bucket
+# ============================================================================
+
+@test "AG-005: single tagged agent produces per_agent bucket and increments top-level" {
+  start_server
+
+  local req
+  req=$(make_agent_request "Read" "sess-single" "agent-solo" '{"file_path":"solo.py"}')
+  send_json "$req" > /dev/null
+  sleep 0.5
+
+  local state="$PROJECT_DIR/.lanekeep/state.json"
+  [ -f "$state" ]
+
+  # Top-level action_count still increments
+  local top_actions
+  top_actions=$(jq -r '.action_count' "$state")
+  [ "$top_actions" -eq 1 ]
+
+  # per_agent bucket appears with action_count=1
+  local agt_actions
+  agt_actions=$(jq -r '.per_agent."agent-solo".action_count' "$state")
+  echo "# per_agent.agent-solo.action_count: $agt_actions" >&3
+  [ "$agt_actions" -eq 1 ]
+
+  # last_seen_epoch and start_epoch present and numeric
+  local last_seen
+  last_seen=$(jq -r '.per_agent."agent-solo".last_seen_epoch' "$state")
+  [[ "$last_seen" =~ ^[0-9]+$ ]]
+}
+
+# ============================================================================
+# TEST 20: AG-005-2 — two agents same session get separate buckets
+# ============================================================================
+
+@test "AG-005: two agents same session — separate buckets, top-level sums" {
+  start_server
+
+  local req_a req_b
+  req_a=$(make_agent_request "Read" "sess-two" "agent-A" '{"file_path":"a.py"}')
+  send_json "$req_a" > /dev/null
+  sleep 0.2
+
+  req_b=$(make_agent_request "Read" "sess-two" "agent-B" '{"file_path":"b.py"}')
+  send_json "$req_b" > /dev/null
+  sleep 0.5
+
+  local state="$PROJECT_DIR/.lanekeep/state.json"
+  local top_actions
+  top_actions=$(jq -r '.action_count' "$state")
+  echo "# top-level action_count: $top_actions" >&3
+  [ "$top_actions" -eq 2 ]
+
+  local a_actions b_actions
+  a_actions=$(jq -r '.per_agent."agent-A".action_count' "$state")
+  b_actions=$(jq -r '.per_agent."agent-B".action_count' "$state")
+  echo "# agent-A: $a_actions, agent-B: $b_actions" >&3
+  [ "$a_actions" -eq 1 ]
+  [ "$b_actions" -eq 1 ]
+}
+
+# ============================================================================
+# TEST 21: AG-005-3 — repeated writes from same agent accumulate
+# ============================================================================
+
+@test "AG-005: repeated writes from same agent accumulate per-agent counter" {
+  start_server
+
+  for i in 1 2 3; do
+    local req
+    req=$(make_agent_request "Read" "sess-repeat" "agent-repeat" '{"file_path":"r'$i'.py"}')
+    send_json "$req" > /dev/null
+    sleep 0.1
+  done
+  sleep 0.4
+
+  local state="$PROJECT_DIR/.lanekeep/state.json"
+  local agt_actions
+  agt_actions=$(jq -r '.per_agent."agent-repeat".action_count' "$state")
+  echo "# agent-repeat.action_count: $agt_actions" >&3
+  [ "$agt_actions" -eq 3 ]
+}
+
+# ============================================================================
+# TEST 22: AG-005-4 — untagged sessions never create per_agent
+# ============================================================================
+
+@test "AG-005: state.json has no per_agent key when AGENT_ID never set" {
+  start_server
+
+  for i in 1 2; do
+    local req
+    req=$(make_request "Read" "sess-untagged" '{"file_path":"u'$i'.py"}')
+    send_json "$req" > /dev/null
+    sleep 0.1
+  done
+  sleep 0.4
+
+  local state="$PROJECT_DIR/.lanekeep/state.json"
+  local has_pa
+  has_pa=$(jq 'has("per_agent")' "$state")
+  echo "# has(per_agent): $has_pa" >&3
+  [ "$has_pa" = "false" ]
+
+  # Top-level counter still increments normally
+  local top_actions
+  top_actions=$(jq -r '.action_count' "$state")
+  [ "$top_actions" -eq 2 ]
+}
+
+# ============================================================================
+# TEST 23: AG-005-5 — mixed tagged/untagged: only tagged writes create buckets
+# ============================================================================
+
+@test "AG-005: mixed tagged + untagged writes — buckets only for tagged" {
+  start_server
+
+  # Two tagged, one untagged, all in the same CC session
+  local r1 r2 r3
+  r1=$(make_agent_request "Read" "sess-mixed" "agent-M" '{"file_path":"m1.py"}')
+  send_json "$r1" > /dev/null
+  sleep 0.1
+  r2=$(make_request "Read" "sess-mixed" '{"file_path":"m2.py"}')
+  send_json "$r2" > /dev/null
+  sleep 0.1
+  r3=$(make_agent_request "Read" "sess-mixed" "agent-M" '{"file_path":"m3.py"}')
+  send_json "$r3" > /dev/null
+  sleep 0.4
+
+  local state="$PROJECT_DIR/.lanekeep/state.json"
+  local top_actions
+  top_actions=$(jq -r '.action_count' "$state")
+  echo "# top-level action_count: $top_actions" >&3
+  [ "$top_actions" -eq 3 ]
+
+  local agt_actions
+  agt_actions=$(jq -r '.per_agent."agent-M".action_count' "$state")
+  echo "# agent-M.action_count: $agt_actions" >&3
+  [ "$agt_actions" -eq 2 ]
+
+  # Only one bucket
+  local bucket_count
+  bucket_count=$(jq '.per_agent | length' "$state")
+  [ "$bucket_count" -eq 1 ]
+}
+
+# ============================================================================
+# TEST 24: AG-006-1 — session boundary folds per-agent state into cumulative
+# ============================================================================
+
+@test "AG-006: session boundary folds per-agent counters into cumulative.per_agent" {
+  start_server
+
+  # Two tagged reads in sess-1
+  local r1 r2
+  r1=$(make_agent_request "Read" "sess-1" "agent-A" '{"file_path":"x1.py"}')
+  send_json "$r1" > /dev/null
+  sleep 0.1
+  r2=$(make_agent_request "Read" "sess-1" "agent-A" '{"file_path":"x2.py"}')
+  send_json "$r2" > /dev/null
+  sleep 0.2
+
+  # Boundary: read in sess-2 (any tag; here we use the same agent)
+  local r3
+  r3=$(make_agent_request "Read" "sess-2" "agent-A" '{"file_path":"y1.py"}')
+  send_json "$r3" > /dev/null
+  sleep 0.5
+
+  local cumfile="$PROJECT_DIR/.lanekeep/cumulative.json"
+  [ -f "$cumfile" ] || { echo "# cumulative.json missing"; return 1; }
+
+  # Per-agent total_actions = 2 (from finalized sess-1), total_sessions = 1
+  local a_actions a_sessions
+  a_actions=$(jq -r '.per_agent."agent-A".total_actions' "$cumfile")
+  a_sessions=$(jq -r '.per_agent."agent-A".total_sessions' "$cumfile")
+  echo "# per_agent.agent-A: actions=$a_actions sessions=$a_sessions" >&3
+  [ "$a_actions" -eq 2 ]
+  [ "$a_sessions" -eq 1 ]
+
+  # Global total_sessions = 1 (one session finalized)
+  local g_sessions
+  g_sessions=$(jq -r '.total_sessions' "$cumfile")
+  echo "# global total_sessions: $g_sessions" >&3
+  [ "$g_sessions" -eq 1 ]
+
+  # Per-agent cost stays 0 (deferred to AG-006-cost)
+  local a_cost
+  a_cost=$(jq -r '.per_agent."agent-A".total_cost' "$cumfile")
+  [ "$a_cost" = "0" ]
+}
+
+# ============================================================================
+# TEST 25: AG-006-2 — same agent across two sessions accumulates
+# ============================================================================
+
+@test "AG-006: same agent across two finalized sessions accumulates counters" {
+  start_server
+
+  # Session 1: 2 reads
+  local r1 r2
+  r1=$(make_agent_request "Read" "sess-alpha" "agent-X" '{"file_path":"a.py"}')
+  send_json "$r1" > /dev/null
+  sleep 0.1
+  r2=$(make_agent_request "Read" "sess-alpha" "agent-X" '{"file_path":"b.py"}')
+  send_json "$r2" > /dev/null
+  sleep 0.1
+
+  # Boundary → sess-beta, 3 reads
+  local r3 r4 r5
+  r3=$(make_agent_request "Read" "sess-beta" "agent-X" '{"file_path":"c.py"}')
+  send_json "$r3" > /dev/null
+  sleep 0.1
+  r4=$(make_agent_request "Read" "sess-beta" "agent-X" '{"file_path":"d.py"}')
+  send_json "$r4" > /dev/null
+  sleep 0.1
+  r5=$(make_agent_request "Read" "sess-beta" "agent-X" '{"file_path":"e.py"}')
+  send_json "$r5" > /dev/null
+  sleep 0.2
+
+  # Boundary → sess-gamma finalizes sess-beta (3 actions)
+  local r6
+  r6=$(make_agent_request "Read" "sess-gamma" "agent-X" '{"file_path":"f.py"}')
+  send_json "$r6" > /dev/null
+  sleep 0.5
+
+  local cumfile="$PROJECT_DIR/.lanekeep/cumulative.json"
+  local x_actions x_sessions
+  x_actions=$(jq -r '.per_agent."agent-X".total_actions' "$cumfile")
+  x_sessions=$(jq -r '.per_agent."agent-X".total_sessions' "$cumfile")
+  echo "# per_agent.agent-X: actions=$x_actions sessions=$x_sessions" >&3
+  [ "$x_actions" -eq 5 ]
+  [ "$x_sessions" -eq 2 ]
+}
+
+# ============================================================================
+# TEST 26: AG-006-3 — no tagged sessions → no per_agent in cumulative.json
+# ============================================================================
+
+@test "AG-006: cumulative.json omits per_agent when no session had tagged activity" {
+  start_server
+
+  # Two untagged reads in sess-u1
+  local r1 r2
+  r1=$(make_request "Read" "sess-u1" '{"file_path":"u1.py"}')
+  send_json "$r1" > /dev/null
+  sleep 0.1
+  r2=$(make_request "Read" "sess-u1" '{"file_path":"u2.py"}')
+  send_json "$r2" > /dev/null
+  sleep 0.2
+
+  # Boundary → sess-u2 to finalize sess-u1
+  local r3
+  r3=$(make_request "Read" "sess-u2" '{"file_path":"u3.py"}')
+  send_json "$r3" > /dev/null
+  sleep 0.5
+
+  local cumfile="$PROJECT_DIR/.lanekeep/cumulative.json"
+  [ -f "$cumfile" ] || return 1
+
+  local has_pa
+  has_pa=$(jq 'has("per_agent")' "$cumfile")
+  echo "# cumulative.json has(per_agent): $has_pa" >&3
+  [ "$has_pa" = "false" ]
+
+  # Global counters still work — a session was finalized
+  local g_sessions g_actions
+  g_sessions=$(jq -r '.total_sessions' "$cumfile")
+  g_actions=$(jq -r '.total_actions' "$cumfile")
+  [ "$g_sessions" -eq 1 ]
+  [ "$g_actions" -eq 2 ]
+}
+
+# ============================================================================
+# TEST 27: AG-006-4 — mixed session: per-agent counts only tagged writes
+# ============================================================================
+
+@test "AG-006: mixed session — per-agent counts only tagged, global counts all" {
+  start_server
+
+  # sess-mix: 2 tagged (agent-Q) + 1 untagged
+  local r1 r2 r3
+  r1=$(make_agent_request "Read" "sess-mix" "agent-Q" '{"file_path":"q1.py"}')
+  send_json "$r1" > /dev/null
+  sleep 0.1
+  r2=$(make_agent_request "Read" "sess-mix" "agent-Q" '{"file_path":"q2.py"}')
+  send_json "$r2" > /dev/null
+  sleep 0.1
+  r3=$(make_request "Read" "sess-mix" '{"file_path":"n1.py"}')
+  send_json "$r3" > /dev/null
+  sleep 0.2
+
+  # Boundary → sess-next finalizes sess-mix
+  local r4
+  r4=$(make_request "Read" "sess-next" '{"file_path":"next.py"}')
+  send_json "$r4" > /dev/null
+  sleep 0.5
+
+  local cumfile="$PROJECT_DIR/.lanekeep/cumulative.json"
+  local q_actions g_actions
+  q_actions=$(jq -r '.per_agent."agent-Q".total_actions' "$cumfile")
+  g_actions=$(jq -r '.total_actions' "$cumfile")
+  echo "# per_agent.agent-Q.total_actions: $q_actions global: $g_actions" >&3
+  [ "$q_actions" -eq 2 ]
+  [ "$g_actions" -eq 3 ]
+}
+
+# ============================================================================
+# TEST 28: AG-004 — Registry symlink created and cleaned up
+# ============================================================================
+
 @test "AG-004: socket registry symlink created at startup and cleaned on shutdown" {
   start_server
 
