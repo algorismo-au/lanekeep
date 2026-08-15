@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0" /></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Licenza: Apache 2.0" /></a>
   <a href="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml"><img src="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
   <img src="https://img.shields.io/badge/version-1.0.5-green.svg" alt="Version: 1.0.5" />
   <img src="https://img.shields.io/badge/Made_with-Bash-1f425f.svg?logo=gnubash&logoColor=white" alt="Made with Bash" />
@@ -36,6 +36,8 @@
 
 LaneKeep consente al tuo agente di codifica AI di operare entro i limiti che tu controlli.
 
+**173 regole predefinite · 17 valutatori · zero chiamate di rete · Apache 2.0**
+
 **Nessun dato lascia la tua macchina.**
 
 **Ogni policy e regola è sotto il tuo controllo.**
@@ -43,7 +45,7 @@ LaneKeep consente al tuo agente di codifica AI di operare entro i limiti che tu 
 - **Dashboard in tempo reale:** ogni decisione registrata localmente
 - **Limiti di budget:** monitoraggio dei pattern di utilizzo, limiti di costo, limiti di token e azioni
 - **Audit trail completo:** ogni chiamata agli strumenti registrata con la regola corrispondente e il motivo
-- **Difesa in profondità:** livelli di policy estendibili: 9+ valutatori deterministici e un livello semantico opzionale (un altro LLM) come valutatore; rilevamento PII, controlli di integrità della configurazione e rilevamento di iniezioni
+- **Difesa in profondità:** livelli di policy estendibili: 17 valutatori deterministici e un livello semantico opzionale (un altro LLM) come valutatore; rilevamento PII, controlli di integrità della configurazione e rilevamento di iniezioni
 - **Vista memoria/conoscenza dell'agente:** vedi cosa vede il tuo agente
 - **Copertura e conformità:** tag di conformità integrati (NIST, OWASP, CWE, ATT&CK); aggiungi i tuoi
 

@@ -36,6 +36,8 @@
 
 LaneKeep cho phép đại lý mã hóa AI của bạn chạy trong các ranh giới mà bạn kiểm soát.
 
+**173 quy tắc mặc định · 17 bộ đánh giá · không có lệnh gọi mạng · Apache 2.0**
+
 **Không có dữ liệu rời khỏi máy của bạn.**
 
 **Mọi chính sách và quy tắc đều được kiểm soát bởi bạn.**
@@ -43,7 +45,7 @@ LaneKeep cho phép đại lý mã hóa AI của bạn chạy trong các ranh gi�
 - **Bảng điều khiển trực tiếp:** mỗi quyết định được ghi lại cục bộ
 - **Giới hạn ngân sách:** các mẫu sử dụng, giới hạn chi phí, giới hạn mã thông báo và hành động
 - **Kiểm tra toàn bộ:** mỗi lệnh gọi công cụ được ghi lại với quy tắc phù hợp và lý do
-- **Bảo vệ từ nhiều lớp:** các lớp chính sách có thể mở rộng: hơn 9 bộ đánh giá xác định và một lớp ngữ nghĩa tùy chọn (LLM khác) như một bộ đánh giá; phát hiện PII, kiểm tra tính toàn vẹn cấu hình và phát hiện chèn
+- **Bảo vệ từ nhiều lớp:** các lớp chính sách có thể mở rộng: 17 bộ đánh giá xác định và một lớp ngữ nghĩa tùy chọn (LLM khác) như một bộ đánh giá; phát hiện PII, kiểm tra tính toàn vẹn cấu hình và phát hiện chèn
 - **Xem bộ nhớ/kiến thức của đại lý:** xem những gì đại lý của bạn thấy
 - **Bảo hiểm và căn chỉnh:** các thẻ tuân thủ tích hợp sẵn (NIST, OWASP, CWE, ATT&CK); thêm của bạn
 

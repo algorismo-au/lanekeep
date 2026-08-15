@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0" /></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Licence : Apache 2.0" /></a>
   <a href="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml"><img src="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
   <img src="https://img.shields.io/badge/version-1.0.5-green.svg" alt="Version: 1.0.5" />
   <img src="https://img.shields.io/badge/Made_with-Bash-1f425f.svg?logo=gnubash&logoColor=white" alt="Made with Bash" />
@@ -36,6 +36,8 @@
 
 LaneKeep permet a votre agent IA de coder dans les limites que vous definissez.
 
+**173 regles par defaut · 17 evaluateurs · zero appel reseau · Apache 2.0**
+
 **Aucune donnee ne quitte votre machine.**
 
 **Chaque politique et chaque regle est sous votre controle.**
@@ -43,7 +45,7 @@ LaneKeep permet a votre agent IA de coder dans les limites que vous definissez.
 - **Tableau de bord en temps reel** — chaque decision enregistree localement
 - **Limites de budget** — suivi d'utilisation, plafonds de couts, limites de tokens et d'actions
 - **Piste d'audit complete** — chaque appel d'outil journalise avec la regle correspondante et la raison
-- **Defense en profondeur** — couches de politiques extensibles : 9+ evaluateurs deterministes et une couche semantique optionnelle (un autre LLM) comme evaluateur ; detection de donnees personnelles, verification d'integrite de la configuration et detection d'injection
+- **Defense en profondeur** — couches de politiques extensibles : 17 evaluateurs deterministes et une couche semantique optionnelle (un autre LLM) comme evaluateur ; detection de donnees personnelles, verification d'integrite de la configuration et detection d'injection
 - **Vue memoire/connaissances de l'agent** — voyez ce que votre agent voit
 - **Couverture et conformite** — tags de conformite integres (NIST, OWASP, CWE, ATT&CK) ; ajoutez les votres
 

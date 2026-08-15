@@ -36,6 +36,8 @@
 
 LaneKeep, yapay zeka kodlama aracınızın kontrol ettiğiniz sınırlar içinde çalışmasını sağlar.
 
+**173 varsayılan kural · 17 değerlendirici · sıfır ağ çağrısı · Apache 2.0**
+
 **Hiçbir veri makinenizden çıkmaz.**
 
 **Her ilke ve kural tamamen sizin tarafından kontrol edilir.**
@@ -43,7 +45,7 @@ LaneKeep, yapay zeka kodlama aracınızın kontrol ettiğiniz sınırlar içinde
 - **Canlı gösterge paneli:** her karar yerel olarak günlüğe kaydedilir
 - **Bütçe sınırları:** kullanım desenleri, maliyet sınırları, token ve eylem sınırları
 - **Tam denetim izi:** her araç çağrısı eşleşen kural ve nedeniyle günlüğe kaydedilir
-- **Derinlik içinde savunma:** genişletilebilir ilke katmanları: 9+ belirleyici değerlendiriciler ve isteğe bağlı bir anlam katmanı (başka bir LLM) değerlendiricisi olarak; PII algılaması, yapılandırma bütünlüğü kontrolleri ve enjeksiyon tespiti
+- **Derinlik içinde savunma:** genişletilebilir ilke katmanları: 17 belirleyici değerlendirici ve isteğe bağlı bir anlam katmanı (başka bir LLM) değerlendiricisi olarak; PII algılaması, yapılandırma bütünlüğü kontrolleri ve enjeksiyon tespiti
 - **Ajan belleği/bilgi görünümü:** aracınızın gördüğü şeyi görün
 - **Kapsam ve hizalama:** yerleşik uyum etiketleri (NIST, OWASP, CWE, ATT&CK); kendi etiketlerinizi ekleyin
 
