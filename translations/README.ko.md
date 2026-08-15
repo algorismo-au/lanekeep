@@ -272,7 +272,7 @@ Event (raw hook call)
 
 ### 정책
 
-규칙보다 먼저 평가됩니다. 20개의 내장 카테고리, 각각 전용 추출 로직을 갖습니다(예: `domains`는 URL을 파싱하고, `branches`는 git 브랜치명을 추출합니다).
+규칙보다 먼저 평가됩니다. 21개의 내장 카테고리, 각각 전용 추출 로직을 갖습니다(예: `domains`는 URL을 파싱하고, `branches`는 git 브랜치명을 추출합니다).
 카테고리: `tools`, `extensions`, `paths`, `commands`, `domains`, `mcp_servers` 등. `lanekeep policy` 또는 대시보드의 **Governance** 탭에서 전환하세요.
 
 **정책 vs 규칙:** 정책은 미리 정의된 카테고리를 위한 구조화된 타입 제어입니다. 규칙은 유연한 범용 매칭으로: 모든 도구 이름 + 도구 입력 전체에 대한 정규표현식 매칭이 가능합니다. 정책 카테고리에 맞지 않는 경우 규칙을 작성하세요.

@@ -271,7 +271,7 @@ La configuracion se verifica por hash al inicio; las modificaciones durante la s
 
 ### Politicas
 
-Se evaluan antes que las reglas. 20 categorias integradas, cada una con logica de extraccion dedicada (ej. `domains` analiza URLs, `branches` extrae nombres de ramas git). Categorias: `tools`, `extensions`, `paths`, `commands`, `domains`, `mcp_servers` y mas. Alterna con `lanekeep policy` o desde la pestana **Governance** del panel.
+Se evaluan antes que las reglas. 21 categorias integradas, cada una con logica de extraccion dedicada (ej. `domains` analiza URLs, `branches` extrae nombres de ramas git). Categorias: `tools`, `extensions`, `paths`, `commands`, `domains`, `mcp_servers` y mas. Alterna con `lanekeep policy` o desde la pestana **Governance** del panel.
 
 **Politicas vs Reglas:** Las politicas son controles estructurados y tipados para categorias predefinidas. Las reglas son el mecanismo flexible general: coinciden con cualquier nombre de herramienta + cualquier patron regex contra la entrada completa de la herramienta. Si tu caso de uso no encaja en una categoria de politica, escribe una regla en su lugar.
 

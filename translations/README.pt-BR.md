@@ -278,7 +278,7 @@ A configuracao e verificada por hash na inicializacao; modificacoes durante a se
 
 ### Politicas
 
-Avaliadas antes das regras. 20 categorias integradas, cada uma com logica de extracao
+Avaliadas antes das regras. 21 categorias integradas, cada uma com logica de extracao
 dedicada (ex: `domains` analisa URLs, `branches` extrai nomes de branch do git).
 Categorias: `tools`, `extensions`, `paths`, `commands`, `domains`,
 `mcp_servers` e mais. Alterne com `lanekeep policy` ou pela aba **Governance** no dashboard.

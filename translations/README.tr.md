@@ -272,7 +272,7 @@ Yapılandırma başlangıçta hash kontrol edilir; oturum sırasında değişikl
 
 ### İlkeler
 
-Kurallardan önce değerlendirilir. 20 yerleşik kategori, her biri adanmış çıkarma mantığına sahip (ör. `domains` URL'leri ayrıştırır, `branches` git dal adlarını çıkarır).
+Kurallardan önce değerlendirilir. 21 yerleşik kategori, her biri adanmış çıkarma mantığına sahip (ör. `domains` URL'leri ayrıştırır, `branches` git dal adlarını çıkarır).
 Kategoriler: `tools`, `extensions`, `paths`, `commands`, `domains`,
 `mcp_servers`, ve daha fazlası. `lanekeep policy` ile veya gösterge panelindeki **Yönetişim** sekmesinden değiştirin.
 

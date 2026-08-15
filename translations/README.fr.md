@@ -271,7 +271,7 @@ La configuration est verifiee par hash au demarrage ; toute modification en cour
 
 ### Politiques
 
-Evaluees avant les regles. 20 categories integrees, chacune avec sa propre logique d'extraction (ex. `domains` analyse les URL, `branches` extrait les noms de branches git). Categories : `tools`, `extensions`, `paths`, `commands`, `domains`, `mcp_servers`, et plus encore. Gerez-les avec `lanekeep policy` ou depuis l'onglet **Governance** du tableau de bord.
+Evaluees avant les regles. 21 categories integrees, chacune avec sa propre logique d'extraction (ex. `domains` analyse les URL, `branches` extrait les noms de branches git). Categories : `tools`, `extensions`, `paths`, `commands`, `domains`, `mcp_servers`, et plus encore. Gerez-les avec `lanekeep policy` ou depuis l'onglet **Governance** du tableau de bord.
 
 **Politiques vs Regles :** Les politiques sont des controles structures et types pour des categories predefinies. Les regles sont le filet de securite flexible : elles peuvent faire correspondre n'importe quel nom d'outil + n'importe quelle expression reguliere sur l'ensemble de l'entree de l'outil. Si votre cas d'utilisation ne correspond a aucune categorie de politique, ecrivez une regle a la place.
 
