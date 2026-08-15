@@ -296,7 +296,7 @@ Config is hash-checked at startup; mid-session modifications deny all calls.
 
 ### Policies
 
-Evaluated before rules. 20 built-in categories, each with dedicated extraction
+Evaluated before rules. 21 built-in categories, each with dedicated extraction
 logic (e.g. `domains` parses URLs, `branches` extracts git branch names).
 Categories: `tools`, `extensions`, `paths`, `commands`, `domains`,
 `mcp_servers`, and more. Toggle with `lanekeep policy` or from the **Governance** tab in the dashboard.
