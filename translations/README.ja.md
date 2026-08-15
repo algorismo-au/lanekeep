@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0" /></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="ライセンス: Apache 2.0" /></a>
   <a href="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml"><img src="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
   <img src="https://img.shields.io/badge/version-1.0.5-green.svg" alt="Version: 1.0.5" />
   <img src="https://img.shields.io/badge/Made_with-Bash-1f425f.svg?logo=gnubash&logoColor=white" alt="Made with Bash" />
@@ -36,6 +36,8 @@
 
 LaneKeepは、AIコーディングエージェントをあなたが管理する境界内で動作させるためのツールです。
 
+**173個のデフォルトルール · 17個の評価器 · ネットワーク呼び出しゼロ · Apache 2.0**
+
 **データがマシンの外に出ることはありません。**
 
 **すべてのポリシーとルールはあなたが管理します。**
@@ -43,7 +45,7 @@ LaneKeepは、AIコーディングエージェントをあなたが管理する�
 - **ライブダッシュボード** — すべての判定をローカルに記録
 - **予算制限** — 使用パターン、コスト上限、トークンおよびアクション制限
 - **完全な監査証跡** — すべてのツール呼び出しを、一致したルールと理由とともに記録
-- **多層防御** — 拡張可能なポリシーレイヤー：9つ以上の決定論的評価器と、オプションのセマンティックレイヤー（別のLLM）を評価器として使用可能。PII検出、設定整合性チェック、インジェクション検出
+- **多層防御** — 拡張可能なポリシーレイヤー：17個の決定論的評価器と、オプションのセマンティックレイヤー（別のLLM）を評価器として使用可能。PII検出、設定整合性チェック、インジェクション検出
 - **エージェントのメモリ・ナレッジビュー** — エージェントが見ているものを確認
 - **カバレッジとアラインメント** — 組み込みのコンプライアンスタグ（NIST、OWASP、CWE、ATT&CK）に加え、独自タグも追加可能
 

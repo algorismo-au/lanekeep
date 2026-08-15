@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0" /></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="许可证: Apache 2.0" /></a>
   <a href="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml"><img src="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
   <img src="https://img.shields.io/badge/version-1.0.5-green.svg" alt="Version: 1.0.5" />
   <img src="https://img.shields.io/badge/Made_with-Bash-1f425f.svg?logo=gnubash&logoColor=white" alt="Made with Bash" />
@@ -36,6 +36,8 @@
 
 LaneKeep 让你的 AI 编程代理在你掌控的边界内运行。
 
+**173 条默认规则 · 17 个评估器 · 零网络调用 · Apache 2.0**
+
 **数据不会离开你的机器。**
 
 **每一条策略和规则都由你控制。**
@@ -43,7 +45,7 @@ LaneKeep 让你的 AI 编程代理在你掌控的边界内运行。
 - **实时仪表盘** — 所有决策本地记录
 - **预算限制** — 使用模式、费用上限、Token 和操作次数限制
 - **完整审计追踪** — 每次工具调用均记录匹配规则和原因
-- **纵深防御** — 可扩展的策略层：9+ 确定性评估器及可选的语义层（另一个 LLM）作为评估器；PII 检测、配置完整性校验、注入检测
+- **纵深防御** — 可扩展的策略层：17 个确定性评估器及可选的语义层（另一个 LLM）作为评估器；PII 检测、配置完整性校验、注入检测
 - **代理记忆/知识视图** — 查看你的代理所见内容
 - **覆盖度与合规性** — 内置合规标签（NIST、OWASP、CWE、ATT&CK）；支持自定义标签
 

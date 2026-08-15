@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0" /></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Licenca: Apache 2.0" /></a>
   <a href="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml"><img src="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
   <img src="https://img.shields.io/badge/version-1.0.5-green.svg" alt="Version: 1.0.5" />
   <img src="https://img.shields.io/badge/Made_with-Bash-1f425f.svg?logo=gnubash&logoColor=white" alt="Made with Bash" />
@@ -36,6 +36,8 @@
 
 O LaneKeep permite que seu agente de IA para codificacao opere dentro de limites que voce controla.
 
+**173 regras padrao · 17 avaliadores · zero chamadas de rede · Apache 2.0**
+
 **Nenhum dado sai da sua maquina.**
 
 **Toda politica e regra e controlada por voce.**
@@ -43,7 +45,7 @@ O LaneKeep permite que seu agente de IA para codificacao opere dentro de limites
 - **Dashboard em tempo real** — cada decisao registrada localmente
 - **Limites de orcamento** — padroes de uso, limites de custo, tokens e acoes
 - **Trilha de auditoria completa** — cada chamada de ferramenta registrada com regra correspondente e motivo
-- **Defesa em profundidade** — camadas de politica extensiveis: 9+ avaliadores deterministicos e uma camada semantica opcional (outro LLM) como avaliador; deteccao de PII, verificacoes de integridade de configuracao e deteccao de injecao
+- **Defesa em profundidade** — camadas de politica extensiveis: 17 avaliadores deterministicos e uma camada semantica opcional (outro LLM) como avaliador; deteccao de PII, verificacoes de integridade de configuracao e deteccao de injecao
 - **Visualizacao de memoria/conhecimento do agente** — veja o que seu agente ve
 - **Cobertura e conformidade** — tags de conformidade integradas (NIST, OWASP, CWE, ATT&CK); adicione as suas
 

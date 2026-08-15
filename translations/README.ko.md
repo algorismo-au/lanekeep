@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0" /></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="라이선스: Apache 2.0" /></a>
   <a href="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml"><img src="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
   <img src="https://img.shields.io/badge/version-1.0.5-green.svg" alt="Version: 1.0.5" />
   <img src="https://img.shields.io/badge/Made_with-Bash-1f425f.svg?logo=gnubash&logoColor=white" alt="Made with Bash" />
@@ -36,6 +36,8 @@
 
 LaneKeep은 AI 코딩 에이전트가 사용자가 설정한 경계 안에서 동작하도록 합니다.
 
+**173개 기본 규칙 · 17개 평가기 · 네트워크 호출 0회 · Apache 2.0**
+
 **데이터가 사용자의 머신 밖으로 나가지 않습니다.**
 
 **모든 정책과 규칙은 사용자가 직접 제어합니다.**
@@ -43,7 +45,7 @@ LaneKeep은 AI 코딩 에이전트가 사용자가 설정한 경계 안에서 �
 - **실시간 대시보드** — 모든 판단이 로컬에 기록됩니다
 - **예산 제한** — 사용 패턴, 비용 상한, 토큰 및 작업 횟수 제한
 - **완전한 감사 추적** — 모든 도구 호출이 매칭된 규칙 및 사유와 함께 기록됩니다
-- **심층 방어** — 확장 가능한 정책 계층: 9개 이상의 결정론적 평가기와 선택적 시맨틱 계층(다른 LLM)을 평가기로 활용; PII 탐지, 설정 무결성 검사, 인젝션 탐지
+- **심층 방어** — 확장 가능한 정책 계층: 17개의 결정론적 평가기와 선택적 시맨틱 계층(다른 LLM)을 평가기로 활용; PII 탐지, 설정 무결성 검사, 인젝션 탐지
 - **에이전트 메모리/지식 뷰** — 에이전트가 보는 것을 확인하세요
 - **커버리지 및 정합성** — 내장 컴플라이언스 태그(NIST, OWASP, CWE, ATT&CK); 사용자 정의 태그 추가 가능
 

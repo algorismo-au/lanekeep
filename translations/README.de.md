@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0" /></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Lizenz: Apache 2.0" /></a>
   <a href="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml"><img src="https://github.com/algorismo-au/lanekeep/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
   <img src="https://img.shields.io/badge/version-1.0.5-green.svg" alt="Version: 1.0.5" />
   <img src="https://img.shields.io/badge/Made_with-Bash-1f425f.svg?logo=gnubash&logoColor=white" alt="Made with Bash" />
@@ -36,6 +36,8 @@
 
 LaneKeep ermöglicht es Ihrem KI-Coding-Agenten, innerhalb von Grenzen zu arbeiten, die Sie kontrollieren.
 
+**173 Standard-Regeln · 17 Evaluatoren · null Netzwerkaufrufe · Apache 2.0**
+
 **Keine Daten verlassen Ihren Rechner.**
 
 **Jede Richtlinie und Regel wird von Ihnen gesteuert.**
@@ -43,7 +45,7 @@ LaneKeep ermöglicht es Ihrem KI-Coding-Agenten, innerhalb von Grenzen zu arbeit
 - **Live-Dashboard** — jede Entscheidung wird lokal protokolliert
 - **Budgetlimits** — Nutzungsmuster, Kostenobergrenzen, Token- und Aktionslimits
 - **Vollständiger Audit-Trail** — jeder Tool-Aufruf wird mit zugeordneter Regel und Begründung protokolliert
-- **Mehrstufige Absicherung** — erweiterbare Richtlinienebenen: 9+ deterministische Evaluatoren und eine optionale semantische Schicht (ein weiteres LLM) als Evaluator; PII-Erkennung, Konfigurationsintegritätsprüfungen und Injection-Erkennung
+- **Mehrstufige Absicherung** — erweiterbare Richtlinienebenen: 17 deterministische Evaluatoren und eine optionale semantische Schicht (ein weiteres LLM) als Evaluator; PII-Erkennung, Konfigurationsintegritätsprüfungen und Injection-Erkennung
 - **Agenten-Gedächtnis/Wissensansicht** — sehen Sie, was Ihr Agent sieht
 - **Abdeckung und Konformität** — integrierte Compliance-Tags (NIST, OWASP, CWE, ATT&CK); eigene hinzufügen möglich
 
