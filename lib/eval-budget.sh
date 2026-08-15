@@ -271,6 +271,33 @@ budget_eval() {
     "_prev_token_source=" + (.token_source // "" | @sh),
     "_prev_model=" + (.model // "" | @sh)
   ' "$state" 2>/dev/null)" || { action_count=0; start_epoch=$now_epoch; token_count=0; input_tokens_st=0; output_tokens_st=0; cache_creation_st=0; cache_read_st=0; total_events=0; session_id=""; task_id=""; task_action_count=0; task_input_tokens_st=0; task_output_tokens_st=0; task_token_count=0; task_start_epoch=$now_epoch; _prev_token_source=""; _prev_model=""; }
+
+  # AG-005: hydrate per-agent bucket for the current agent (if tagged).
+  # Buckets are keyed by _TRACE_AGENT_ID; untagged sessions skip this entirely.
+  local agt_actions=0 agt_input=0 agt_output=0 agt_tokens=0 agt_events=0
+  local agt_ccr=0 agt_crd=0 agt_start=0
+  if [ -n "${_TRACE_AGENT_ID:-}" ]; then
+    eval "$(jq -r --arg aid "$_TRACE_AGENT_ID" '
+      (.per_agent[$aid] // {}) as $b |
+      "agt_actions=" + ($b.action_count // 0 | tostring | @sh),
+      "agt_input=" + ($b.input_tokens // 0 | tostring | @sh),
+      "agt_output=" + ($b.output_tokens // 0 | tostring | @sh),
+      "agt_tokens=" + ($b.token_count // 0 | tostring | @sh),
+      "agt_events=" + ($b.total_events // 0 | tostring | @sh),
+      "agt_ccr=" + ($b.cache_creation_input_tokens // 0 | tostring | @sh),
+      "agt_crd=" + ($b.cache_read_input_tokens // 0 | tostring | @sh),
+      "agt_start=" + ($b.start_epoch // 0 | tostring | @sh)
+    ' "$state" 2>/dev/null)" || true
+    [[ "$agt_actions" =~ ^[0-9]+$ ]] || agt_actions=0
+    [[ "$agt_input" =~ ^[0-9]+$ ]] || agt_input=0
+    [[ "$agt_output" =~ ^[0-9]+$ ]] || agt_output=0
+    [[ "$agt_tokens" =~ ^[0-9]+$ ]] || agt_tokens=0
+    [[ "$agt_events" =~ ^[0-9]+$ ]] || agt_events=0
+    [[ "$agt_ccr" =~ ^[0-9]+$ ]] || agt_ccr=0
+    [[ "$agt_crd" =~ ^[0-9]+$ ]] || agt_crd=0
+    [[ "$agt_start" =~ ^[0-9]+$ ]] || agt_start=0
+    [ "$agt_start" -eq 0 ] && agt_start=$now_epoch
+  fi
   # Guard against non-numeric values from corrupted state
   [[ "$action_count" =~ ^[0-9]+$ ]] || action_count=0
   # Expose pre-increment session action count to downstream evaluators
@@ -297,17 +324,30 @@ budget_eval() {
   # Session boundary: detect when Claude Code session_id changes
   if [ -n "$cc_session_id" ] && [ "$cc_session_id" != "$session_id" ]; then
     if [ -n "$session_id" ] && [ "$action_count" -gt 0 ]; then
+      # AG-006: capture per_agent block BEFORE we overwrite state.json so we can
+      # re-attach it and let cumulative_init fold each bucket into its lifetime totals.
+      local _prev_per_agent=""
+      _prev_per_agent=$(jq -c '.per_agent // empty' "$state" 2>/dev/null) || _prev_per_agent=""
       # Finalize old session into cumulative.json before resetting
       local _sb_model=""
       [ -n "${_prev_model:-}" ] && _sb_model="$(printf ',"model":"%s"' "$(_json_escape "$_prev_model")")"
       printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"cache_creation_input_tokens":%d,"cache_read_input_tokens":%d,"total_events":%d,"start_epoch":%d,"session_id":"%s","lanekeep_session_id":"%s"%s}\n' \
         "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$start_epoch" "$(_json_escape "$session_id")" "$(_json_escape "${LANEKEEP_SESSION_ID:-}")" "$_sb_model" > "${state}.tmp" \
         && mv "${state}.tmp" "$state"
+      if [ -n "$_prev_per_agent" ]; then
+        local _sb_merged
+        _sb_merged=$(jq -c --argjson pa "$_prev_per_agent" '. + {per_agent: $pa}' "$state" 2>/dev/null) \
+          && printf '%s\n' "$_sb_merged" > "${state}.tmp" \
+          && mv "${state}.tmp" "$state"
+      fi
       cumulative_init
       # Reset counters for new session (incl. cumulative-risk warn/ask counters)
       action_count=0; token_count=0; input_tokens_st=0; output_tokens_st=0; cache_creation_st=0; cache_read_st=0; total_events=0; start_epoch=$now_epoch
       warn_count=0; ask_count=0
       _SESSION_WARN_COUNT=0; _SESSION_ASK_COUNT=0
+      # AG-005: per-agent buckets are session-scoped; reset to zero on boundary.
+      agt_actions=0; agt_input=0; agt_output=0; agt_tokens=0; agt_events=0
+      agt_ccr=0; agt_crd=0; agt_start=$now_epoch
     fi
     session_id="$cc_session_id"
   fi
@@ -327,6 +367,8 @@ budget_eval() {
 
   # Always increment total_events (tracks all tool calls for UI display)
   total_events=$((total_events + 1))
+  # AG-005: mirror per-agent event count when tagged.
+  [ -n "${_TRACE_AGENT_ID:-}" ] && agt_events=$((agt_events + 1))
 
   # Update counters based on mode and token source
   # skip_increment: when pipeline decision is "ask", don't count the action
@@ -345,6 +387,11 @@ budget_eval() {
       task_output_tokens_st=$((task_output_tokens_st + new_tokens))
       task_token_count=$((task_token_count + new_tokens))
     fi
+    # AG-005: mirror per-agent output-side updates.
+    if [ -n "${_TRACE_AGENT_ID:-}" ]; then
+      agt_output=$((agt_output + new_tokens))
+      agt_tokens=$((agt_tokens + new_tokens))
+    fi
   elif [ "$_use_transcript" = true ]; then
     # Transcript mode: input_tokens = context window size (snapshot, not cumulative).
     # Task-scoped input mirrors session input — the transcript reflects the live
@@ -361,6 +408,16 @@ budget_eval() {
       action_count=$((action_count + 1))
       [ "$_task_scope_active" = true ] && task_action_count=$((task_action_count + 1))
     fi
+    # AG-005: mirror per-agent transcript-mode updates.
+    if [ -n "${_TRACE_AGENT_ID:-}" ]; then
+      agt_input=$_TRANSCRIPT_INPUT_TOKENS
+      agt_ccr=$_TRANSCRIPT_CACHE_CREATION_TOKENS
+      agt_crd=$_TRANSCRIPT_CACHE_READ_TOKENS
+      agt_tokens=$((agt_input + agt_output))
+      if [ "$already_blocked" != "true" ] && [ "$skip_increment" != "true" ]; then
+        agt_actions=$((agt_actions + 1))
+      fi
+    fi
   else
     # Fallback: cumulative estimation
     input_tokens_st=$((input_tokens_st + new_tokens))
@@ -372,6 +429,14 @@ budget_eval() {
     if [ "$already_blocked" != "true" ] && [ "$skip_increment" != "true" ]; then
       action_count=$((action_count + 1))
       [ "$_task_scope_active" = true ] && task_action_count=$((task_action_count + 1))
+    fi
+    # AG-005: mirror per-agent estimation-mode updates.
+    if [ -n "${_TRACE_AGENT_ID:-}" ]; then
+      agt_input=$((agt_input + new_tokens))
+      agt_tokens=$((agt_tokens + new_tokens))
+      if [ "$already_blocked" != "true" ] && [ "$skip_increment" != "true" ]; then
+        agt_actions=$((agt_actions + 1))
+      fi
     fi
   fi
 
@@ -391,9 +456,54 @@ budget_eval() {
   if [ -z "$_model_field" ] && [ -n "${_prev_model:-}" ]; then
     _model_field="$(printf ',"model":"%s"' "$(_json_escape "$_prev_model")")"
   fi
+  # AG-005: capture existing per_agent block before the printf overwrites state.
+  # Every write (tagged or not) preserves the block so untagged calls in a mixed
+  # session don't wipe other agents' buckets. Reads happen under the same flock
+  # we hold, so no other writer can race.
+  local _pa_existing=""
+  _pa_existing=$(jq -c '.per_agent // empty' "$state" 2>/dev/null) || _pa_existing=""
   printf '{"action_count":%d,"token_count":%d,"input_tokens":%d,"output_tokens":%d,"cache_creation_input_tokens":%d,"cache_read_input_tokens":%d,"total_events":%d,"warn_count":%d,"ask_count":%d,"start_epoch":%d,"elapsed_seconds":%d,"session_id":"%s","lanekeep_session_id":"%s","token_source":"%s","task_id":"%s","task_action_count":%d,"task_input_tokens":%d,"task_output_tokens":%d,"task_token_count":%d,"task_start_epoch":%d%s}\n' \
     "$action_count" "$token_count" "$input_tokens_st" "$output_tokens_st" "$cache_creation_st" "$cache_read_st" "$total_events" "$warn_count" "$ask_count" "$start_epoch" "$elapsed_seconds" "$(_json_escape "$session_id")" "$(_json_escape "${LANEKEEP_SESSION_ID:-}")" "$_token_source" "$(_json_escape "$task_id")" "$task_action_count" "$task_input_tokens_st" "$task_output_tokens_st" "$task_token_count" "$task_start_epoch" "$_model_field" > "${state}.tmp" \
     && mv "${state}.tmp" "$state"
+  # AG-005: merge current agent bucket into per_agent map (lazy — only when tagged).
+  # Preserves other agents' buckets by starting from the previously-read map.
+  if [ -n "${_TRACE_AGENT_ID:-}" ]; then
+    local _pa_base="${_pa_existing:-{\}}"
+    local _pa_merged
+    _pa_merged=$(jq -c \
+      --argjson pa "$_pa_base" \
+      --arg aid "$_TRACE_AGENT_ID" \
+      --argjson ac "$agt_actions" \
+      --argjson it "$agt_input" \
+      --argjson ot "$agt_output" \
+      --argjson tc "$agt_tokens" \
+      --argjson ev "$agt_events" \
+      --argjson cc "$agt_ccr" \
+      --argjson cr "$agt_crd" \
+      --argjson st "$agt_start" \
+      --argjson ls "$now_epoch" '
+      . + {per_agent: ($pa + {($aid): {
+        action_count: $ac,
+        input_tokens: $it,
+        output_tokens: $ot,
+        token_count: $tc,
+        total_events: $ev,
+        cache_creation_input_tokens: $cc,
+        cache_read_input_tokens: $cr,
+        start_epoch: $st,
+        last_seen_epoch: $ls
+      }})}
+    ' "$state" 2>/dev/null) \
+      && printf '%s\n' "$_pa_merged" > "${state}.tmp" \
+      && mv "${state}.tmp" "$state"
+  elif [ -n "$_pa_existing" ]; then
+    # Untagged write in a session that already has tagged buckets: re-attach
+    # the block so mixed sessions preserve per-agent state across untagged calls.
+    local _pa_reattach
+    _pa_reattach=$(jq -c --argjson pa "$_pa_existing" '. + {per_agent: $pa}' "$state" 2>/dev/null) \
+      && printf '%s\n' "$_pa_reattach" > "${state}.tmp" \
+      && mv "${state}.tmp" "$state"
+  fi
   exec 9>&-
 
   # Skip limit enforcement when already blocked by earlier tier

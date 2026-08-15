@@ -137,6 +137,10 @@ cumulative_init() {
   [[ "$prev_cache_read" =~ ^[0-9]+$ ]] || prev_cache_read=0
   [[ "$prev_start" =~ ^[0-9]+$ ]] || prev_start=0
 
+  # AG-006: read per_agent block from the finalizing session (may be empty {}).
+  local prev_per_agent
+  prev_per_agent=$(jq -c '.per_agent // {}' "$state" 2>/dev/null) || prev_per_agent='{}'
+
   # Compute session cost from pricing table (with config overrides)
   local session_cost=0 session_savings=0
   local pricing_file="${LANEKEEP_DIR:-}/data/pricing.json"
@@ -195,7 +199,8 @@ cumulative_init() {
     --argjson cost "$session_cost" \
     --argjson savings "$session_savings" \
     --arg model "$prev_model" \
-    --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+    --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --argjson pa "$prev_per_agent" '
     .updated_at = $now |
     .total_sessions += 1 |
     .total_events += $evts |
@@ -208,7 +213,40 @@ cumulative_init() {
     .total_time_seconds += $secs |
     .total_cost = ((.total_cost // 0) + $cost) |
     .total_cache_savings = ((.total_cache_savings // 0) + $savings) |
-    if $model != "" then .last_model = $model else . end
+    if $model != "" then .last_model = $model else . end |
+    # AG-006: fold per-agent buckets from the closing session into per-agent
+    # cumulative counters. Only agents that had activity this session get a
+    # total_sessions bump; the global total_sessions counter is untouched.
+    # TODO(AG-006-cost): compute per-agent cost via cumulative::_calc_cost_jq
+    # once we track per-agent token totals against pricing. For now, per-agent
+    # total_cost and total_cache_savings stay 0.
+    reduce ($pa | to_entries[]) as $e (.;
+      .per_agent[$e.key] = (
+        (.per_agent[$e.key] // {
+          total_sessions: 0,
+          total_actions: 0,
+          total_input_tokens: 0,
+          total_output_tokens: 0,
+          total_tokens: 0,
+          total_cache_creation_input_tokens: 0,
+          total_cache_read_input_tokens: 0,
+          total_time_seconds: 0,
+          total_cost: 0,
+          total_cache_savings: 0,
+          last_seen_at: ""
+        }) as $b |
+        $b
+        | .total_sessions = ($b.total_sessions + 1)
+        | .total_actions = ($b.total_actions + ($e.value.action_count // 0))
+        | .total_input_tokens = ($b.total_input_tokens + ($e.value.input_tokens // 0))
+        | .total_output_tokens = ($b.total_output_tokens + ($e.value.output_tokens // 0))
+        | .total_tokens = ($b.total_tokens + ($e.value.token_count // 0))
+        | .total_cache_creation_input_tokens = ($b.total_cache_creation_input_tokens + ($e.value.cache_creation_input_tokens // 0))
+        | .total_cache_read_input_tokens = ($b.total_cache_read_input_tokens + ($e.value.cache_read_input_tokens // 0))
+        | .total_time_seconds = ($b.total_time_seconds + $secs)
+        | .last_seen_at = $now
+      )
+    )
   ' "$cumfile" 2>/dev/null) || { exec 8>&-; return 0; }
 
   printf '%s\n' "$updated" > "${cumfile}.tmp" && mv "${cumfile}.tmp" "$cumfile"
