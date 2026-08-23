@@ -16,3 +16,6 @@ plugins.d/*.plugin.py
 plugins.d/*.plugin.js
 plugins.d/*.plugin.sh
 plugins.d/*.plugin
+# Private artifacts that must never ship in the public repo
+.claude/skills/generate-posts/
+strategy/SOCIALMEDIAPOST*.md
