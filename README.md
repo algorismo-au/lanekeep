@@ -30,7 +30,11 @@
   <a href="translations/README.ar.md">العربية</a> ·
   <a href="translations/README.vi.md">Tiếng Việt</a> ·
   <a href="translations/README.it.md">Italiano</a> ·
-  <a href="translations/README.hi.md">हिन्दी</a>
+  <a href="translations/README.hi.md">हिन्दी</a> ·
+  <a href="translations/README.ta.md">தமிழ்</a> ·
+  <a href="translations/README.fa.md">فارسی</a> ·
+  <a href="translations/README.id.md">Bahasa Indonesia</a> ·
+  <a href="translations/README.pl.md">Polski</a>
 </p>
 
 <p align="center"><sub>Built by <a href="https://www.algorismo.com">Algorismo</a></sub></p>
