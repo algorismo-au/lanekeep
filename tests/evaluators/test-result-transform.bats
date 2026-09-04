@@ -385,3 +385,79 @@ INNER
   [ "$count" -eq 2 ]
   echo "$RESULT_TRANSFORM_DETECTIONS" | jq -e 'map(.category) | sort == ["policy:domains", "policy:ips"]'
 }
+
+# --- Edit/Write originalFile leak fix ---
+#
+# Regression guard: pattern-based redaction in the `redact` branch only rewrites
+# strings that MATCH a pattern literally. Secret VALUES inside the Edit tool's
+# `originalFile` field (e.g. a JWT, a hex API secret) generally do NOT match the
+# textual patterns like `password=` — so before this fix, the whole pre-edit
+# file was passed through verbatim in the transformed content, dumping every
+# secret in the file into agent context under a "REDACTED" label.
+#
+# The fix: when tool is Edit/Write/MultiEdit and the payload is a JSON object
+# with an `originalFile` field, drop that field entirely before redaction.
+
+@test "Edit originalFile field stripped when secret detected" {
+  local payload
+  payload=$(jq -nc '{
+    filePath: "/repo/.env",
+    oldString: "A=1",
+    newString: "A=2",
+    originalFile: "POSTIZ_JWT_SECRET=abc.def.ghi\npassword=leaked-value-here\nX_API_SECRET=deadbeefcafebabe1234567890\nOTHER=fine",
+    structuredPatch: [{oldStart: 1, newStart: 1, lines: ["-A=1","+A=2"]}]
+  }')
+  result_transform_eval "Edit" "$payload" '{"file_path":"/repo/.env"}'
+  [ "$RESULT_TRANSFORM_ACTION" = "redact" ]
+  # originalFile must be gone entirely
+  printf '%s' "$RESULT_TRANSFORM_CONTENT" | jq -e 'has("originalFile") | not'
+  # None of the secret values from originalFile may survive
+  [[ "$RESULT_TRANSFORM_CONTENT" != *"abc.def.ghi"* ]]
+  [[ "$RESULT_TRANSFORM_CONTENT" != *"leaked-value-here"* ]]
+  [[ "$RESULT_TRANSFORM_CONTENT" != *"deadbeefcafebabe1234567890"* ]]
+  # structuredPatch (which only contains the diffed lines, not full file) preserved
+  printf '%s' "$RESULT_TRANSFORM_CONTENT" | jq -e '.structuredPatch | length == 1'
+}
+
+@test "Write originalFile field stripped when secret detected" {
+  local payload
+  payload=$(jq -nc '{
+    filePath: "/repo/config",
+    content: "new content",
+    originalFile: "api_key=super-secret-value-9999\nDB_PASSWORD=hunter2xxxxxxx"
+  }')
+  result_transform_eval "Write" "$payload" '{"file_path":"/repo/config"}'
+  [ "$RESULT_TRANSFORM_ACTION" = "redact" ]
+  printf '%s' "$RESULT_TRANSFORM_CONTENT" | jq -e 'has("originalFile") | not'
+  [[ "$RESULT_TRANSFORM_CONTENT" != *"super-secret-value-9999"* ]]
+  [[ "$RESULT_TRANSFORM_CONTENT" != *"hunter2xxxxxxx"* ]]
+}
+
+@test "Edit originalFile stripping is a no-op for non-Edit/Write tools" {
+  # A Bash payload that happens to look like JSON with originalFile must not
+  # be mutated by the Edit-specific stripping logic. Bash payloads are treated
+  # as opaque strings, so awk-based redaction mangles JSON shape — we assert on
+  # substring presence, not jq-parseability.
+  local payload='{"originalFile":"password=abc","structuredPatch":[]}'
+  result_transform_eval "Bash" "$payload"
+  [ "$RESULT_TRANSFORM_ACTION" = "redact" ]
+  # originalFile substring must survive — proves the Edit-specific `del` didn't run.
+  [[ "$RESULT_TRANSFORM_CONTENT" == *"originalFile"* ]]
+  # And the pattern-matched value must still be redacted normally.
+  [[ "$RESULT_TRANSFORM_CONTENT" != *"password=abc"* ]]
+}
+
+@test "Edit with clean originalFile passes through unchanged" {
+  # No secrets detected → no redact branch taken → originalFile preserved.
+  local payload
+  payload=$(jq -nc '{
+    filePath: "/repo/README.md",
+    oldString: "foo",
+    newString: "bar",
+    originalFile: "just some clean markdown text"
+  }')
+  result_transform_eval "Edit" "$payload" '{"file_path":"/repo/README.md"}'
+  [ "$RESULT_TRANSFORM_ACTION" = "pass" ]
+  # transformed_content is empty when nothing changed
+  [ -z "$RESULT_TRANSFORM_CONTENT" ]
+}
