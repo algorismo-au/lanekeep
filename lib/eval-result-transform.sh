@@ -295,6 +295,25 @@ result_transform_eval() {
     redact|*)
       RESULT_TRANSFORM_ACTION="redact"
 
+      # SECRET LEAK FIX: Edit/Write/MultiEdit tool results embed the ENTIRE pre-edit
+      # file contents under the `originalFile` field. Pattern-based `gsub` redaction
+      # below only rewrites strings matching a pattern LITERALLY (e.g. the word
+      # "password"), so real secret VALUES (JWTs, hex API secrets, tokens) inside
+      # originalFile pass through unmodified even though the detector fired. Drop
+      # the field entirely before any downstream processing — Claude Code does not
+      # need originalFile after a successful Edit (the harness tracks file state).
+      case "$tool_name" in
+        Edit|Write|MultiEdit)
+          # Only touch the payload if it parses as an object with originalFile.
+          # Fail-safe: if jq fails or field is absent, leave transformed untouched.
+          local _rt_stripped
+          _rt_stripped=$(printf '%s' "$transformed" | jq -c 'if type == "object" and has("originalFile") then del(.originalFile) else . end' 2>/dev/null) || _rt_stripped=""
+          if [ -n "$_rt_stripped" ] && [ "$_rt_stripped" != "$transformed" ]; then
+            transformed="$_rt_stripped"
+          fi
+          ;;
+      esac
+
       # Redact injection patterns (case-insensitive fixed string via awk)
       local injection_patterns
       injection_patterns=$(_rt_extract_patterns "injection_patterns")
