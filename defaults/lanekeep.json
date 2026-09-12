@@ -2146,7 +2146,7 @@
     {
       "id": "git-007",
       "match": {
-        "command": "origin/(main|master)"
+        "pattern": "\\bgit\\s+push\\b.*[\\s:](main|master)([\\s\"]|$)"
       },
       "decision": "ask",
       "reason": "Main/master branch push requires approval",
