@@ -576,13 +576,15 @@ apply_profile() {
       printf '%s\n' "$prepended" > "$_tmp" && mv "$_tmp" "$config"
       ;;
     guided)
-      # Network needs approval, push needs approval, moderate budget
+      # Defaults already ask on push to main/master (git-007) and hard-deny
+      # bare --force / -f (hard_blocks_regex). The remaining gap is
+      # --force-with-lease, where users are rewriting shared history and
+      # should confirm. Guided adds one rule for that case.
       overlay='{
         "budget": {"max_actions": 2000, "timeout_seconds": 36000}
       }'
-      # Prepend ask-push rule
       local guided_rules='[
-        {"id":"profile-001","match":{"command":"git push"},"decision":"ask","reason":"Push requires approval in guided profile","category":"profile","intent":"Guided mode requires human approval before pushing to remote","type":"free"}
+        {"id":"profile-001","match":{"pattern":"\\bgit\\s+push\\b.*--force-with-lease\\b"},"decision":"ask","reason":"Force-with-lease push requires human approval","category":"profile","intent":"Rewriting shared history requires explicit confirmation","type":"free"}
       ]'
       local prepended
       prepended=$(jq --argjson gr "$guided_rules" '.rules = ($gr + ((.rules // []) | map(select(.category != "profile"))))' "$config" 2>/dev/null) || return 0
@@ -590,7 +592,9 @@ apply_profile() {
       printf '%s\n' "$prepended" > "$_tmp" && mv "$_tmp" "$config"
       ;;
     autonomous)
-      # Budget + trace only, permissive evaluators
+      # Budget + trace only, permissive evaluators.
+      # Also strip any stale category:profile rules left over from a prior
+      # guided/strict session, so switching profiles cleans up correctly.
       overlay='{
         "budget": {"max_actions": 5000, "timeout_seconds": 72000},
         "evaluators": {
@@ -598,6 +602,10 @@ apply_profile() {
           "semantic": {"enabled": false}
         }
       }'
+      local stripped
+      stripped=$(jq '.rules = ((.rules // []) | map(select(.category != "profile")))' "$config" 2>/dev/null) || return 0
+      local _tmp; _tmp=$(mktemp "${config}.XXXXXX")
+      printf '%s\n' "$stripped" > "$_tmp" && mv "$_tmp" "$config"
       ;;
     *)
       echo "[LaneKeep] WARNING: Unknown profile '$profile', ignoring (valid: strict, guided, autonomous)" >&2
