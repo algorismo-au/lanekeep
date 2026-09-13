@@ -96,3 +96,18 @@ setup() {
   narration_eval "Write" '{"file_path":"lanekeep/README.md","content":"fragment the string to work around this"}' || true
   [ "$NARRATION_PASSED" = true ]
 }
+
+@test "narration_eval Bash whitelists .lanekeep/** project sidecar writes" {
+  # Downstream tools (shipper etc.) write their handoff files under the project-side
+  # .lanekeep/ sidecar dir. The 'lanekeep' substring would otherwise trip lane[- ]?keep;
+  # .lanekeep/** must be whitelisted so legitimate sidecar writes aren't blocked.
+  narration_eval "Bash" '{"command":"shipper next --emit taskspec > .lanekeep/taskspec.json"}' || true
+  [ "$NARRATION_PASSED" = true ]
+}
+
+@test "narration_eval Bash still denies unrelated evasion when .lanekeep token is absent" {
+  # Guard the whitelist add: without a .lanekeep/ token the pattern scan still runs.
+  narration_eval "Bash" '{"command":"# work around the check"}' || true
+  [ "$NARRATION_PASSED" = false ]
+  [ "$NARRATION_DECISION" = "ask" ]
+}
