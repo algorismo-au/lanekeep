@@ -670,7 +670,7 @@
     "narration": {
       "enabled": true,
       "patterns": [
-        "fragment(ing|ed)?",
+        "(?:let me|I'll) (?:fragment|split|break) (?:this|the change)",
         "work[- ]?around",
         "bypass(es|ed|ing)?",
         "gets? the code shipped",

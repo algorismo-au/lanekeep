@@ -111,3 +111,35 @@ setup() {
   [ "$NARRATION_PASSED" = false ]
   [ "$NARRATION_DECISION" = "ask" ]
 }
+
+# --- Fragment pattern context-scoping (replaced bare fragment(ing|ed)?) ---
+
+@test "narration_eval context-scoped fragment matches 'let me fragment this' evasion" {
+  narration_eval "Task" '{"prompt":"let me fragment this into smaller commits"}' || true
+  [ "$NARRATION_PASSED" = false ]
+  [ "$NARRATION_DECISION" = "ask" ]
+}
+
+@test "narration_eval context-scoped fragment matches 'I'\''ll split the change'" {
+  narration_eval "Task" "{\"prompt\":\"I'll split the change into three parts\"}" || true
+  [ "$NARRATION_PASSED" = false ]
+  [ "$NARRATION_DECISION" = "ask" ]
+}
+
+@test "narration_eval context-scoped fragment matches 'let me break this'" {
+  narration_eval "Task" '{"prompt":"let me break this up so it slips past the check"}' || true
+  [ "$NARRATION_PASSED" = false ]
+  [ "$NARRATION_DECISION" = "ask" ]
+}
+
+@test "narration_eval does not fire on innocent 'HTML fragment' vocabulary" {
+  # bare fragment(ing|ed)? used to trip this; context-scoped pattern requires
+  # a 'let me' / 'I'll' preamble, so tech vocab is no longer flagged.
+  narration_eval "Write" '{"file_path":"src/dom.js","content":"const frag = new DocumentFragment(); // build HTML fragment"}' || true
+  [ "$NARRATION_PASSED" = true ]
+}
+
+@test "narration_eval does not fire on 'fragmenting the DOM' noun form" {
+  narration_eval "Write" '{"file_path":"src/render.js","content":"// avoid fragmenting the DOM tree during hydration"}' || true
+  [ "$NARRATION_PASSED" = true ]
+}
