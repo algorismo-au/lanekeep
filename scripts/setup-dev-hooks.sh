@@ -25,7 +25,9 @@ for hook in "$HOOKS_SRC"/*; do
     continue
   fi
   chmod +x "$hook"
-  ln -sf "$hook" "$dest"
+  # Relative target so the checked-in symlink is portable across clones and
+  # re-runs of this script don't dirty the working tree.
+  ln -sf "../scripts/git-hooks/$name" "$dest"
   echo "Installed: .githooks/$name → scripts/git-hooks/$name"
 done
 
