@@ -14,7 +14,10 @@ if [ -f "$PATTERNS" ]; then
   REPO=$(basename "$(git rev-parse --show-toplevel)")
   FILTERED=$(mktemp)
   grep -v "^\[$REPO\]" "$PATTERNS" | grep -v '^#' | grep -v '^$' | sed 's/^\[[^]]*\][[:space:]]*//' > "$FILTERED"
-  DIFF=$(git diff --cached)
+  # Filter to added lines only; deleting a boundary-crossing symbol should not
+  # be denied. `|| true` protects against pipefail when no `+` lines exist
+  # (pure-deletion or rename-only commits).
+  DIFF=$(git diff --cached | grep '^+' | grep -v '^+++' || true)
   MATCH=$(printf '%s\n' "$DIFF" | grep -Ef "$FILTERED" | head -3 || true)
   rm -f "$FILTERED"
   if [ -n "$MATCH" ]; then
