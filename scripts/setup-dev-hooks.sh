@@ -5,7 +5,17 @@ set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 HOOKS_SRC="$REPO_ROOT/scripts/git-hooks"
-HOOKS_DEST="$REPO_ROOT/.git/hooks"
+HOOKS_DEST="$REPO_ROOT/.githooks"
+
+mkdir -p "$HOOKS_DEST"
+
+# Ensure git looks at .githooks/ (the repo ships hooks there so they can be
+# tracked under version control). Idempotent — safe to re-run.
+current_hooks_path="$(git config core.hooksPath || true)"
+if [[ "$current_hooks_path" != ".githooks" ]]; then
+  git config core.hooksPath .githooks
+  echo "Set core.hooksPath = .githooks (was: ${current_hooks_path:-unset})"
+fi
 
 for hook in "$HOOKS_SRC"/*; do
   name="$(basename "$hook")"
@@ -16,7 +26,7 @@ for hook in "$HOOKS_SRC"/*; do
   fi
   chmod +x "$hook"
   ln -sf "$hook" "$dest"
-  echo "Installed: .git/hooks/$name → scripts/git-hooks/$name"
+  echo "Installed: .githooks/$name → scripts/git-hooks/$name"
 done
 
 echo ""
