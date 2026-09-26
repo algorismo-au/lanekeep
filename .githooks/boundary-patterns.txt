@@ -12,7 +12,9 @@
 
 # --- shipper: CLI subcommand handlers (bash) ---
 [shipper] \bcmd_ship\b
-[shipper] \bcmd_verify\b
+# Local drop (lanekeep): \bcmd_verify\b — bin/lanekeep-rules already defines
+# cmd_verify() for pack signature verification. Same token, different domain.
+# The 4 remaining shipper CLI patterns still catch drift into shipper's surface.
 [shipper] \bcmd_next\b
 [shipper] \bcmd_classify\b
 [shipper] \bcmd_run_next\b
