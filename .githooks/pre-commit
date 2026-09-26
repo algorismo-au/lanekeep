@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+#
+# pre-commit — sibling boundary guard (v1).
+# Denies staged changes matching another sibling's owned patterns per
+# .githooks/boundary-patterns.txt. See /home/mo/src/siblings/BOUNDARY_GUARD_V1.md.
+#
+# Bypass: git commit --no-verify (documented; operator honor rule).
+
+set -euo pipefail
+
+# BEGIN sibling-boundary-guard v1 — do not edit between markers; managed by BOUNDARY_GUARD_V1.md
+PATTERNS="$(git rev-parse --show-toplevel)/.githooks/boundary-patterns.txt"
+if [ -f "$PATTERNS" ]; then
+  REPO=$(basename "$(git rev-parse --show-toplevel)")
+  FILTERED=$(mktemp)
+  grep -v "^\[$REPO\]" "$PATTERNS" | grep -v '^#' | grep -v '^$' | sed 's/^\[[^]]*\][[:space:]]*//' > "$FILTERED"
+  DIFF=$(git diff --cached)
+  MATCH=$(printf '%s\n' "$DIFF" | grep -Ef "$FILTERED" | head -3 || true)
+  rm -f "$FILTERED"
+  if [ -n "$MATCH" ]; then
+    cat >&2 <<'EOF'
+sibling-boundary-guard: staged changes match another sibling's owned patterns.
+EOF
+    printf '\nMatched (first 3):\n%s\n\n' "$MATCH" >&2
+    cat >&2 <<'EOF'
+See .githooks/boundary-patterns.txt and driver/docs/SHIPPER-BUGS-UPSTREAM.md.
+Delegate via that sibling's CLI (e.g. ~/.local/bin/shipper) instead of reimplementing.
+
+Intentional (e.g. moving a primitive between siblings):
+  git commit --no-verify + update .githooks/boundary-patterns.txt in the same PR.
+EOF
+    exit 1
+  fi
+fi
+# END sibling-boundary-guard v1
+
+exit 0

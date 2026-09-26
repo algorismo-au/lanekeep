@@ -1,0 +1,46 @@
+# Sibling boundary patterns — Phase 1 v1
+# Seeded 2026-09-26 from driver/docs/SHIPPER-BUGS-UPSTREAM.md and shipper/lib/.
+# See /home/mo/src/siblings/BOUNDARY_GUARD_V1.md for install spec.
+# See /home/mo/.claude/plans/ok-read-the-plan-humble-map.md for design + rationale.
+#
+# Format: [owner] <regex> — [owner] prefix marks the sibling that owns the
+# pattern. Own-repo patterns are filtered out by the hook (a shipper repo
+# doesn't trigger on [shipper] patterns; a driver repo does).
+#
+# Update policy: edit this file directly via PR. No sentinel, no self-protection.
+# If a match is a false positive: refine the regex, don't disable the file.
+
+# --- shipper: CLI subcommand handlers (bash) ---
+[shipper] \bcmd_ship\b
+[shipper] \bcmd_verify\b
+[shipper] \bcmd_next\b
+[shipper] \bcmd_classify\b
+[shipper] \bcmd_run_next\b
+
+# --- shipper: TS-class mirrors retired by M29 (must not reappear) ---
+[shipper] \bclass\s+LoopRunner\b
+[shipper] \bclass\s+RetryPolicy\b
+[shipper] \bpickNextReady\b
+[shipper] \brunTick\b
+[shipper] \bmoveToDone\b
+[shipper] \bopenShipPr\b
+
+# --- shipper: internal task-picker helpers ---
+[shipper] \b_classify_duplicate_work\b
+[shipper] \b_classify_novel_surface\b
+[shipper] \bpromote_next_to_now\b
+[shipper] \bautomerge_wait_ci\b
+[shipper] \bcompose_taskspec\b
+
+# --- fleet (planned): cross-repo scheduler namespace reservation ---
+# Fleet doesn't exist yet. Any repo implementing cross-repo scheduling primitives
+# is drifting into fleet's future territory. Delegate to a human decision
+# ("do we build fleet now?") rather than bolting it into driver or shipper.
+# Per SIBLINGSREADME.md:82 fleet owns cross-repo priority + scheduling.
+[fleet] \bcrossRepoScheduler\b
+[fleet] \bcross_repo_scheduler\b
+[fleet] \bcrossRepoQueue\b
+[fleet] \bcross_repo_priority\b
+[fleet] \bfleetScore\b
+[fleet] \bfleet_score\b
+[fleet] \bschedule_next_repo\b
