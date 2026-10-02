@@ -77,6 +77,10 @@ Event (raw hook call)
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor setup, workflow, PR checklist |
 | [plugins.d/AUTHORING.md](plugins.d/AUTHORING.md) | Plugin contract — Bash and polyglot |
 
+## Lanekeep self-governance intentionally not wired
+
+This repo opts out of lanekeep hook wiring. Reason: self-governance would be recursive (daemon running against its own development sessions is awkward during tests and bootstrap). The pre-push bats test suite (`.githooks/pre-push`) and the server-side GitHub ruleset `mainprotect` (added 2026-10-02) provide push-to-main protection. See `/home/mo/src/siblings/PUSH_POLICY_AUDIT.md` §7.
+
 ---
 
 <div align="center">
