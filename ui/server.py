@@ -31,12 +31,17 @@ VALID_DECISIONS = {'deny', 'warn', 'ask', 'allow'}
 
 # Model name → context window size (tokens)
 _MODEL_CONTEXT_WINDOWS = {
-    'claude-opus-4-6': 1_000_000,
-    'claude-opus-4-7': 1_000_000,
-    'claude-opus-4-8': 1_000_000,
-    'claude-sonnet-4-6': 1_000_000,
-    'claude-sonnet-5': 1_000_000,
+    'claude-fable-5-1': 1_000_000,
     'claude-fable-5': 1_000_000,
+    'claude-opus-5-5': 1_000_000,
+    'claude-opus-5': 1_000_000,
+    'claude-opus-4-8': 1_000_000,
+    'claude-opus-4-7': 1_000_000,
+    'claude-opus-4-6': 1_000_000,
+    'claude-sonnet-5-5': 1_000_000,
+    'claude-sonnet-5': 1_000_000,
+    'claude-sonnet-4-6': 1_000_000,
+    'claude-haiku-4-5': 200_000,
 }
 _DEFAULT_CONTEXT_WINDOW = 200_000
 
