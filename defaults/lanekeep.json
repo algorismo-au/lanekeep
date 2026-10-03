@@ -285,7 +285,7 @@
     "semantic": {
       "enabled": false,
       "provider": "anthropic",
-      "model": "claude-haiku-4-5-20251001",
+      "model": "claude-opus-5-5",
       "api_key_env": "ANTHROPIC_API_KEY",
       "timeout": 10,
       "on_error": "deny",

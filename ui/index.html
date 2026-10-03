@@ -1326,12 +1326,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, td input:focu
       <div class="settings-row" id="set-semantic-model-row" style="display:none;">
         <span class="settings-label">Semantic model</span>
         <select class="settings-select" id="set-semantic-model">
-          <option value="claude-haiku-4-5-20251001">claude-haiku-4-5</option>
+          <option value="claude-opus-5-5">claude-opus-5-5</option>
+          <option value="claude-fable-5-1">claude-fable-5-1</option>
+          <option value="claude-fable-5">claude-fable-5</option>
+          <option value="claude-opus-5">claude-opus-5</option>
+          <option value="claude-sonnet-5-5">claude-sonnet-5-5</option>
           <option value="claude-sonnet-5">claude-sonnet-5</option>
-          <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
-          <option value="claude-opus-4-8">claude-opus-4-8</option>
-          <option value="claude-opus-4-7">claude-opus-4-7</option>
-          <option value="claude-opus-4-6">claude-opus-4-6</option>
+          <option value="claude-haiku-4-5-20251001">claude-haiku-4-5</option>
         </select>
       </div>
     </div>
@@ -6072,7 +6073,7 @@ async function loadSettings() {
       budget: Object.assign({}, cfg.budget || {}),
       trace: Object.assign({ retention_days: 365, max_sessions: 5000 }, cfg.trace || {}),
       autoformat: Object.assign({ enabled: true }, cfg.autoformat || {}),
-      evaluators_semantic: Object.assign({ enabled: false, model: 'claude-haiku-4-5-20251001' }, (cfg.evaluators && cfg.evaluators.semantic) || {}),
+      evaluators_semantic: Object.assign({ enabled: false, model: 'claude-opus-5-5' }, (cfg.evaluators && cfg.evaluators.semantic) || {}),
       evaluators_input_pii: Object.assign({ enabled: true, on_detect: 'ask', pii_patterns: [] }, (cfg.evaluators && cfg.evaluators.input_pii) || {}),
       evaluators_context_budget: Object.assign({ enabled: false, decision: 'ask' }, (cfg.evaluators && cfg.evaluators.context_budget) || {}),
       evaluators_multi_session: Object.assign({ enabled: false, deny_rate_threshold: 5, tool_deny_threshold: 100, cost_warn_percent: 80, min_sessions: 3 }, (cfg.evaluators && cfg.evaluators.multi_session) || {}),
@@ -6159,7 +6160,7 @@ function renderSettings() {
   document.getElementById('set-trace-max_sessions').value = settingsData.trace.max_sessions || 5000;
   document.getElementById('set-autoformat-enabled').checked = settingsData.autoformat.enabled !== false;
   document.getElementById('set-semantic-enabled').checked = settingsData.evaluators_semantic.enabled === true;
-  document.getElementById('set-semantic-model').value = settingsData.evaluators_semantic.model || 'claude-haiku-4-5-20251001';
+  document.getElementById('set-semantic-model').value = settingsData.evaluators_semantic.model || 'claude-opus-5-5';
   toggleSemanticModel();
   const pii = settingsData.evaluators_input_pii;
   document.getElementById('set-pii-enabled').checked = pii.enabled !== false;
