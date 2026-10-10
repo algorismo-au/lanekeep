@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 #
-# pre-commit — sibling boundary guard (v1).
-# Denies staged changes matching another sibling's owned patterns per
-# .githooks/boundary-patterns.txt. See /home/mo/src/siblings/BOUNDARY_GUARD_V1.md.
+# pre-commit — sibling boundary guard (v1) + gitleaks secret scan.
 #
-# Bypass: git commit --no-verify (documented; operator honor rule).
+# 1. Boundary guard: denies staged changes matching another sibling's owned
+#    patterns per .githooks/boundary-patterns.txt.
+#    See /home/mo/src/siblings/BOUNDARY_GUARD_V1.md.
+# 2. Gitleaks: scans staged content against .gitleaks.toml for leaked secrets.
+#    Install: sudo apt install gitleaks  (Ubuntu 24.04 universe)
+#
+# Bypass:
+#   git commit --no-verify     — bypasses both checks (operator honor rule)
+#   SKIP_LEAKS=1 git commit    — bypasses gitleaks only (boundary guard still runs)
 
 set -euo pipefail
 
@@ -36,5 +42,19 @@ EOF
   fi
 fi
 # END sibling-boundary-guard v1
+
+# BEGIN gitleaks secret scan
+if [[ "${SKIP_LEAKS:-0}" != "1" ]]; then
+  if ! command -v gitleaks >/dev/null 2>&1; then
+    echo "[pre-commit] gitleaks not found. Install: sudo apt install gitleaks" >&2
+    echo "[pre-commit] Or skip with: SKIP_LEAKS=1 git commit" >&2
+    exit 1
+  fi
+  cd "$(git rev-parse --show-toplevel)"
+  gitleaks protect --staged --no-banner --redact
+else
+  echo "[pre-commit] SKIP_LEAKS=1 — skipping gitleaks scan." >&2
+fi
+# END gitleaks secret scan
 
 exit 0
