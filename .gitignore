@@ -19,3 +19,5 @@ plugins.d/*.plugin
 # Private artifacts that must never ship in the public repo
 .claude/skills/generate-posts/
 strategy/SOCIALMEDIAPOST*.md
+.claude/SIBLING_CLI_CHEATSHEET.md
+.claude/SIBLING_CLI_CHEATSHEET.md.sha256
