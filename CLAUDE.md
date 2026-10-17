@@ -79,7 +79,7 @@ Event (raw hook call)
 
 ## Lanekeep self-governance intentionally not wired
 
-This repo opts out of lanekeep hook wiring. Reason: self-governance would be recursive (daemon running against its own development sessions is awkward during tests and bootstrap). The pre-push bats test suite (`.githooks/pre-push`) and the server-side GitHub ruleset `mainprotect` (added 2026-10-02) provide push-to-main protection. See `/home/mo/src/siblings/PUSH_POLICY_AUDIT.md` §7.
+This repo opts out of lanekeep hook wiring. Reason: self-governance would be recursive (daemon running against its own development sessions is awkward during tests and bootstrap). The pre-push bats test suite (`.githooks/pre-push`) and the server-side GitHub ruleset `mainprotect` (added 2026-10-02) provide push-to-main protection. See `/home/mo/src/my_environment/sibling-pack/PUSH_POLICY_AUDIT.md` §7.
 
 ---
 
