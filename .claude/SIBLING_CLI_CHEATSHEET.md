@@ -6,7 +6,7 @@ Every sibling exposes a stable CLI so other siblings can consume its primitives 
 
 **Distribution:** intended to sync into every adopter's repo alongside `AGENT_OPERATING_PROTOCOL.md` via `scaffold/bin/sync-operating-protocol.sh`. Injected into every session's SessionStart context alongside the branch/commits summary.
 
-**Complements:** `/home/mo/src/siblings/BOUNDARY_GUARD_V1.md` (the enforcement side — commit-time deny) and `/home/mo/src/siblings/SIBLINGSREADME.md` (the pack overview).
+**Complements:** `/home/mo/src/my_environment/sibling-pack/BOUNDARY_GUARD_V1.md` (the enforcement side — commit-time deny) and `/home/mo/src/my_environment/README.md` (the pack overview).
 
 ---
 
