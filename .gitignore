@@ -1,6 +1,5 @@
 .lanekeep/
 defaults/.lanekeep/
-.shipper/
 .venv/
 __pycache__/
 *.bak

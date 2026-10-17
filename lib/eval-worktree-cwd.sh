@@ -8,9 +8,9 @@
 # repo running Bash tools that then touch files outside its intended
 # blast radius.
 #
-# WORKTREE_ROOT is expected to be set by the loop runner (shipper) when it
+# WORKTREE_ROOT is expected to be set by the loop runner when it
 # spawns Claude in a per-task worktree. If unset, the evaluator skips
-# entirely — that's the permissive default for non-shipper sessions.
+# entirely — that's the permissive default for sessions without a loop runner.
 #
 # Rollout (per Symphony §9.5): advisory-only for one week — evaluator
 # always returns 0 and the handler emits a WARN advisory. Flip the return
@@ -30,7 +30,7 @@ worktree_cwd_eval() {
   WORKTREE_CWD_PASSED=true
   WORKTREE_CWD_REASON="Passed"
 
-  # Skip if worktree root is not configured (typical for non-shipper sessions).
+  # Skip if worktree root is not configured (typical for sessions without a loop runner).
   [ -n "${WORKTREE_ROOT:-}" ] || return 0
 
   # Only check cwd-sensitive tools. Read/Grep/Glob take explicit paths; Bash

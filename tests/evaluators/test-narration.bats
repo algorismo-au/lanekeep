@@ -98,10 +98,10 @@ setup() {
 }
 
 @test "narration_eval Bash whitelists .lanekeep/** project sidecar writes" {
-  # Downstream tools (shipper etc.) write their handoff files under the project-side
+  # Downstream orchestrators write their handoff files under the project-side
   # .lanekeep/ sidecar dir. The 'lanekeep' substring would otherwise trip lane[- ]?keep;
   # .lanekeep/** must be whitelisted so legitimate sidecar writes aren't blocked.
-  narration_eval "Bash" '{"command":"shipper next --emit taskspec > .lanekeep/taskspec.json"}' || true
+  narration_eval "Bash" '{"command":"orchestrator next --emit taskspec > .lanekeep/taskspec.json"}' || true
   [ "$NARRATION_PASSED" = true ]
 }
 

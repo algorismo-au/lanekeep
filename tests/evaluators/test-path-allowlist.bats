@@ -68,7 +68,7 @@ teardown() {
 }
 
 @test "input_pii skips Edit of SECURITY.md at nested path" {
-  local input='{"file_path":"project/SECURITY.md","new_string":"Contact: admin@algorismo.com"}'
+  local input='{"file_path":"project/SECURITY.md","new_string":"Contact: admin@example.com"}'
   input_pii_eval "Edit" "$input"
   [ "$INPUT_PII_PASSED" = true ]
 }
