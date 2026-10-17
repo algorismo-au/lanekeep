@@ -24,7 +24,7 @@ if ! type _json_escape &>/dev/null; then
 fi
 
 # Emit a stop signal when a CUMULATIVE (lifetime) budget cap trips.
-# Writes a sibling file next to cumulative.json that loopers/orchestrators
+# Writes a sibling file next to cumulative.json that orchestrators
 # can poll to decide whether to spawn the next iteration.
 # Per-session caps do NOT emit a halt — they reset on session boundary.
 _budget_emit_halt() {

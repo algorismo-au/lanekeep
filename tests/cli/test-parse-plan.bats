@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for lanekeep-parse-plan — scaffold03 IMPLEMENTATION_PLAN.json → TaskSpec
+# Tests for lanekeep-parse-plan — IMPLEMENTATION_PLAN.json → TaskSpec
 
 setup() {
   LANEKEEP_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"

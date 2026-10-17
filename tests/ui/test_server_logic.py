@@ -1299,7 +1299,7 @@ class TestGraphsExtendsDefaults(_ServerTestCase):
 
     @classmethod
     def _setup_project(cls):
-        # Mimics the real buildinglanekeep/lanekeep.json pattern
+        # Mimics the buildinglanekeep/lanekeep.json pattern
         config = {
             'extends': 'defaults',
             'extra_rules': [

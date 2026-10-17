@@ -4,7 +4,6 @@
 #
 # 1. Boundary guard: denies staged changes matching another sibling's owned
 #    patterns per .githooks/boundary-patterns.txt.
-#    See /home/mo/src/siblings/BOUNDARY_GUARD_V1.md.
 # 2. Gitleaks: scans staged content against .gitleaks.toml for leaked secrets.
 #    Install: sudo apt install gitleaks  (Ubuntu 24.04 universe)
 #
@@ -32,8 +31,8 @@ sibling-boundary-guard: staged changes match another sibling's owned patterns.
 EOF
     printf '\nMatched (first 3):\n%s\n\n' "$MATCH" >&2
     cat >&2 <<'EOF'
-See .githooks/boundary-patterns.txt and driver/docs/SHIPPER-BUGS-UPSTREAM.md.
-Delegate via that sibling's CLI (e.g. ~/.local/bin/shipper) instead of reimplementing.
+See .githooks/boundary-patterns.txt.
+Delegate via that sibling's CLI instead of reimplementing.
 
 Intentional (e.g. moving a primitive between siblings):
   git commit --no-verify + update .githooks/boundary-patterns.txt in the same PR.

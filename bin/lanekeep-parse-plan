@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# scaffold03-style IMPLEMENTATION_PLAN.json → TaskSpec JSON
+# IMPLEMENTATION_PLAN.json → TaskSpec JSON
 # Reads {now,next,blocked,done} buckets; emits a TaskSpec the lanekeep
 # handler already understands. stdout: TaskSpec JSON. stderr: resolved task id.
 
