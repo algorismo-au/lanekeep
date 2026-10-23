@@ -145,7 +145,7 @@ The agent does not self-declare a gate passed, ever. This is the single most imp
 
 ## 7a. Task safety tier — plan-file vocabulary
 
-The `IMPLEMENTATION_PLAN.json` schema carries an optional per-task `safety` field with three levels. Loop runners key off it to decide whether a shipped PR merges automatically or waits for human review; PR reviewers key off it to recognise how much autonomy went into the change at a glance.
+The `IMPLEMENTATION_PLAN.json` schema carries an optional per-task `safety` field with three levels. Loop runners (shipper) key off it to decide whether a shipped PR merges automatically or waits for human review; PR reviewers key off it to recognise how much autonomy went into the change at a glance.
 
 The vocabulary maps onto Linear's coding-mode terminology so PR readers coming from that world can translate without a lookup:
 
@@ -220,7 +220,7 @@ The `done_when` field on a task and each entry in the optional `requirements[]` 
 Rewrite vague criteria before committing the task:
 
 > ❌ `done_when: "PR body Cost line shows real numbers from lanekeep"`
-> ✅ `done_when: "WHEN the loop runner ships a PR, THE SYSTEM SHALL populate the PR body Cost line from .lanekeep/cumulative.json"`
+> ✅ `done_when: "WHEN shipper ship runs, THE SYSTEM SHALL populate the PR body Cost line from .lanekeep/cumulative.json"`
 
 When a task has multiple acceptance clauses, the primary one stays in `done_when` and the rest move to `requirements[]` (one EARS clause per array entry).
 
