@@ -40,7 +40,7 @@
 
 LaneKeep, yapay zeka kodlama aracınızın kontrol ettiğiniz sınırlar içinde çalışmasını sağlar.
 
-**173 varsayılan kural · 17 değerlendirici · sıfır ağ çağrısı · Apache 2.0**
+**182 varsayılan kural · 17 değerlendirici · sıfır ağ çağrısı · Apache 2.0**
 
 **Hiçbir veri makinenizden çıkmaz.**
 

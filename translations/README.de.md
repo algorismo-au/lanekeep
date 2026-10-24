@@ -40,7 +40,7 @@
 
 LaneKeep ermöglicht es Ihrem KI-Coding-Agenten, innerhalb von Grenzen zu arbeiten, die Sie kontrollieren.
 
-**173 Standard-Regeln · 17 Evaluatoren · null Netzwerkaufrufe · Apache 2.0**
+**182 Standard-Regeln · 17 Evaluatoren · null Netzwerkaufrufe · Apache 2.0**
 
 **Keine Daten verlassen Ihren Rechner.**
 

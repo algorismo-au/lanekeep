@@ -143,6 +143,7 @@ setup_file() {
     "noreply@anthropic.com"
     "49699333+dependabot[bot]@users.noreply.github.com"
     "13957238+mabbas1@users.noreply.github.com"
+    "177217569+algorismo-au@users.noreply.github.com"
   )
 
   local unexpected=0

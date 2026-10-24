@@ -30,7 +30,7 @@ graph LR
 
 | Content | Community | Pro | Enterprise |
 |---------|:---------:|:---:|:----------:|
-| 173 default rules | ✓ | ✓ | ✓ |
+| 182 default rules | ✓ | ✓ | ✓ |
 | Community pack installs (`lanekeep rules install`) | ✓ | ✓ | ✓ |
 | Compliance tag overlays (`lanekeep-pro/packs/`) | — | ✓ | ✓ |
 | Enterprise evaluators (`ee/lib/`) | — | — | ✓ |

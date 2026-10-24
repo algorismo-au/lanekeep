@@ -40,7 +40,7 @@
 
 LaneKeep consente al tuo agente di codifica AI di operare entro i limiti che tu controlli.
 
-**173 regole predefinite · 17 valutatori · zero chiamate di rete · Apache 2.0**
+**182 regole predefinite · 17 valutatori · zero chiamate di rete · Apache 2.0**
 
 **Nessun dato lascia la tua macchina.**
 
