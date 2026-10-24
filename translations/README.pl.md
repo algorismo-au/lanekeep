@@ -43,7 +43,7 @@
 
 Agenci AI do pisania kodu wpisują `rm -rf`, czytają pliki `.env`, pushują do niewłaściwej gałęzi i spalają tokeny w niekontrolowanych pętlach. **LaneKeep przechwytuje każde wywołanie narzędzia i egzekwuje deterministyczne reguły, zanim zostanie ono wykonane.**
 
-**173 reguły domyślne · 17 ewaluatorów · zero wywołań sieciowych · Apache 2.0**
+**182 reguły domyślne · 17 ewaluatorów · zero wywołań sieciowych · Apache 2.0**
 
 - **Panel na żywo:** każda decyzja logowana lokalnie
 - **Limity budżetu:** wzorce użycia, limity kosztów, limity tokenów i akcji

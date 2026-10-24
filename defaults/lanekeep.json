@@ -1042,11 +1042,77 @@
       "match": {
         "pattern": "\\bfind\\b.*((-delete|-exec(dir)?\\s+(rm|shred|truncate)\\b)|\\|.*xargs\\s.*(\\brm\\b|\\bshred\\b|\\btruncate\\b))"
       },
-      "decision": "warn",
-      "reason": "Mass file destruction via find pipeline — review carefully",
+      "decision": "ask",
+      "reason": "Mass file destruction via find pipeline — confirm targets",
       "category": "system",
       "intent": "Using find with -delete, -exec rm/shred/truncate, or piping to xargs achieves uncontrolled mass file destruction",
       "type": "free"
+    },
+    {
+      "id": "sys-092",
+      "match": {
+        "tool": "Bash",
+        "pattern": "\\b(LD_PRELOAD|LD_AUDIT|DYLD_INSERT_LIBRARIES)\\s*="
+      },
+      "decision": "deny",
+      "reason": "Dynamic linker injection blocked — LD_PRELOAD/LD_AUDIT/DYLD_INSERT_LIBRARIES loads arbitrary code into any command",
+      "category": "system",
+      "intent": "Preloading a shared object runs attacker-controlled code inside an otherwise harmless command (LD_PRELOAD=x.so cat README.md), bypassing command-based rules entirely",
+      "type": "free",
+      "compliance_tags": [
+        "attck:t1574.006",
+        "five-eyes:untrusted-default",
+        "nist-agent:safety-limits"
+      ]
+    },
+    {
+      "id": "sys-093",
+      "match": {
+        "tool": "Bash",
+        "pattern": "\\bsed\\b[^|&]*\\bs([^\\w\\s\\\\])(?:(?!\\1).)*\\1(?:(?!\\1).)*\\1[gpim0-9]*e|\\bsed\\b[^|&]*(['\";{]|\\s-e\\s+)\\s*(\\d+|\\$|/[^/]*/)?(,(\\d+|\\$|/[^/]*/))?!?\\s*e(\\s|['\";}]|$)"
+      },
+      "decision": "deny",
+      "reason": "GNU sed e command / s///e flag blocked — executes shell commands from a sed script",
+      "category": "system",
+      "intent": "GNU sed's e command runs a shell command and the s///e flag executes the pattern space, turning a text filter into arbitrary execution (sed -n '1e touch x' file)",
+      "type": "free",
+      "compliance_tags": [
+        "attck:t1059.004",
+        "five-eyes:untrusted-default",
+        "nist-agent:safety-limits"
+      ]
+    },
+    {
+      "id": "sys-094",
+      "match": {
+        "tool": "Bash",
+        "pattern": "(^|[\\s;&|(\"])(fd|fdfind)\\s[^|;&]*\\s(-x|--exec|--exec-batch)(\\s|=|\"|$)"
+      },
+      "decision": "ask",
+      "reason": "fd -x/-X runs a command for every match — confirm the command",
+      "category": "system",
+      "intent": "fd --exec/--exec-batch executes an arbitrary program per search result (fd . -x touch), so a file search can mass-modify or delete files",
+      "type": "free",
+      "compliance_tags": [
+        "attck:t1059.004",
+        "nist-agent:safety-limits"
+      ]
+    },
+    {
+      "id": "sys-095",
+      "match": {
+        "tool": "Bash",
+        "pattern": "(^|[\\s;&|(\"])rg\\s[^|;&]*--pre(\\s|=)"
+      },
+      "decision": "ask",
+      "reason": "ripgrep --pre runs a preprocessor program on every file — confirm the program",
+      "category": "system",
+      "intent": "rg --pre executes an arbitrary command for each searched file (rg --pre touch foo); legitimate for pdftotext-style filters but turns a search into execution",
+      "type": "free",
+      "compliance_tags": [
+        "attck:t1059.004",
+        "nist-agent:safety-limits"
+      ]
     },
     {
       "id": "sys-053",
@@ -2021,6 +2087,23 @@
       ]
     },
     {
+      "id": "sec-046",
+      "match": {
+        "tool": "Bash",
+        "pattern": "(^|[\\s;&|(\"])(source|\\.)\\s+['\"]?\\S*?\\.env(\\.(?!(example|sample|template|dist)\\b)[\\w.-]+)?['\"]?(\\s|$|[;&|)}\"])"
+      },
+      "decision": "deny",
+      "reason": "Sourcing a .env file blocked — executes it as shell code and loads secrets into the session",
+      "category": "security",
+      "intent": "source/. of a .env file runs its contents as shell (not just KEY=VALUE parsing) and exports credentials to every later command; shell configs are already denied by the shell_configs policy, this closes the . ~/.env form",
+      "type": "free",
+      "compliance_tags": [
+        "attck:t1552.001",
+        "five-eyes:untrusted-default",
+        "nist-agent:safety-limits"
+      ]
+    },
+    {
       "id": "git-009",
       "match": {
         "pattern": "\\bgit\\s+(reset\\b(?=.*\\s--hard\\b)|clean\\b(?=.*\\s-[a-z]*f[a-z]*\\b)(?=.*\\s-[a-z]*d[a-z]*\\b))",
@@ -2177,6 +2260,73 @@
       "category": "git",
       "intent": "Merging PRs should require human review — AI-initiated merges bypass the collaborative review process",
       "type": "free"
+    },
+    {
+      "id": "git-026",
+      "match": {
+        "tool": "Bash",
+        "pattern": "\\bGIT_EXTERNAL_DIFF\\s*=|\\bgit\\b.*\\s-c\\s*diff\\.external\\s*="
+      },
+      "decision": "deny",
+      "reason": "External diff driver override blocked — makes git diff execute an arbitrary program",
+      "category": "git",
+      "intent": "GIT_EXTERNAL_DIFF (or -c diff.external) replaces git's diff with any program, so a read-only git diff becomes arbitrary execution",
+      "type": "free",
+      "compliance_tags": [
+        "attck:t1059",
+        "five-eyes:untrusted-default",
+        "nist-agent:safety-limits"
+      ]
+    },
+    {
+      "id": "git-027",
+      "match": {
+        "tool": "Bash",
+        "pattern": "\\bGIT_CONFIG_(COUNT|KEY_\\d+|VALUE_\\d+|PARAMETERS)\\s*=|\\bgit\\b.*\\s-c\\s*core\\.fsmonitor\\s*="
+      },
+      "decision": "deny",
+      "reason": "Git config injection via environment blocked — can set core.fsmonitor and other exec hooks",
+      "category": "git",
+      "intent": "GIT_CONFIG_COUNT/KEY/VALUE inject arbitrary config into any git command; core.fsmonitor makes git status execute a program",
+      "type": "free",
+      "compliance_tags": [
+        "attck:t1059",
+        "five-eyes:untrusted-default",
+        "nist-agent:safety-limits"
+      ]
+    },
+    {
+      "id": "git-028",
+      "match": {
+        "tool": "Bash",
+        "pattern": "\\bgit\\b.*--(upload|receive)-pack(=|\\s)"
+      },
+      "decision": "deny",
+      "reason": "--upload-pack/--receive-pack override blocked — makes git execute an arbitrary program",
+      "category": "git",
+      "intent": "Overriding the pack program (git ls-remote --upload-pack=touch .) runs any binary under a read-only-looking git command",
+      "type": "free",
+      "compliance_tags": [
+        "attck:t1059",
+        "five-eyes:untrusted-default",
+        "nist-agent:safety-limits"
+      ]
+    },
+    {
+      "id": "git-029",
+      "match": {
+        "tool": "Bash",
+        "pattern": "\\bGIT_(SEQUENCE_)?EDITOR\\s*=(?!\\s*['\"]?(true|:)['\"]?(\\s|\"|}|$))|\\bgit\\b.*\\s-c\\s*(core|sequence)\\.editor\\s*="
+      },
+      "decision": "ask",
+      "reason": "Custom git editor — git will execute this program; confirm it",
+      "category": "git",
+      "intent": "GIT_EDITOR/GIT_SEQUENCE_EDITOR run any program when git needs an editor (GIT_EDITOR=touch git branch --edit-description). No-op editors (true, :) are exempt for non-interactive rebases",
+      "type": "free",
+      "compliance_tags": [
+        "attck:t1059",
+        "nist-agent:safety-limits"
+      ]
     },
     {
       "id": "db-003",

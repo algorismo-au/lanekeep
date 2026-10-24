@@ -40,7 +40,7 @@
 
 LaneKeep permite que tu agente de IA para programar opere dentro de los limites que tu defines.
 
-**173 reglas predeterminadas · 17 evaluadores · cero llamadas de red · Apache 2.0**
+**182 reglas predeterminadas · 17 evaluadores · cero llamadas de red · Apache 2.0**
 
 **Ningun dato sale de tu maquina.**
 

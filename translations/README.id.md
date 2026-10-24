@@ -43,7 +43,7 @@
 
 Agen coding AI mengetik `rm -rf`, membaca berkas `.env`, melakukan push ke branch yang salah, dan membakar token dalam loop yang lepas kendali. **LaneKeep mencegat setiap panggilan tool dan menegakkan aturan deterministik sebelum panggilan itu dijalankan.**
 
-**173 aturan bawaan · 17 evaluator · nol panggilan jaringan · Apache 2.0**
+**182 aturan bawaan · 17 evaluator · nol panggilan jaringan · Apache 2.0**
 
 - **Dashboard langsung:** setiap keputusan dicatat secara lokal
 - **Batas anggaran:** pola pemakaian, plafon biaya, batas token dan aksi

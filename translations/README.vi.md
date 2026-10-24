@@ -40,7 +40,7 @@
 
 LaneKeep cho phép đại lý mã hóa AI của bạn chạy trong các ranh giới mà bạn kiểm soát.
 
-**173 quy tắc mặc định · 17 bộ đánh giá · không có lệnh gọi mạng · Apache 2.0**
+**182 quy tắc mặc định · 17 bộ đánh giá · không có lệnh gọi mạng · Apache 2.0**
 
 **Không có dữ liệu rời khỏi máy của bạn.**
 

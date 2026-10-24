@@ -40,7 +40,7 @@
 
 O LaneKeep permite que seu agente de IA para codificacao opere dentro de limites que voce controla.
 
-**173 regras padrao · 17 avaliadores · zero chamadas de rede · Apache 2.0**
+**182 regras padrao · 17 avaliadores · zero chamadas de rede · Apache 2.0**
 
 **Nenhum dado sai da sua maquina.**
 

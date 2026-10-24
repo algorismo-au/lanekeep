@@ -40,7 +40,7 @@
 
 LaneKeep permet a votre agent IA de coder dans les limites que vous definissez.
 
-**173 regles par defaut · 17 evaluateurs · zero appel reseau · Apache 2.0**
+**182 regles par defaut · 17 evaluateurs · zero appel reseau · Apache 2.0**
 
 **Aucune donnee ne quitte votre machine.**
 

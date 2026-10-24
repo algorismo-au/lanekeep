@@ -5,8 +5,9 @@
 #
 # `expect` is LaneKeep's verdict (allow/ask/deny) from hardblock + rules, NOT
 # planlock's read-only verdict (kept under `.planlock` for provenance).
-# `known_gap: true` rows are dangerous commands LaneKeep currently allows; the
-# gap test fails once a rule closes one, so the fixture gets flipped.
+# `known_gap: true` rows are dangerous commands LaneKeep currently allows (none
+# today: the 12 imported gaps are closed); the gap test fails once a rule
+# closes one, so the fixture gets flipped.
 
 load ../test_helper
 

@@ -43,7 +43,7 @@
 
 AI coding agents type `rm -rf`, read `.env` files, push to the wrong branch, and burn tokens in runaway loops. **LaneKeep intercepts every tool call and enforces deterministic rules before they execute.**
 
-**173 default rules · 17 evaluators · zero network calls · Apache 2.0**
+**182 default rules · 17 evaluators · zero network calls · Apache 2.0**
 
 - **Live dashboard:** every decision logged locally
 - **Budget limits:** usage patterns, cost caps, token and action limits
