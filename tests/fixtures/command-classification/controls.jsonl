@@ -1,0 +1,4 @@
+{"id":"ctl-001","label":"control: cd && ls","cmd":"cd src && ls","expect":"allow","known_gap":false,"planlock":{"expect":"allow","note":"wrongly denied by planlock (review C9)"}}
+{"id":"ctl-002","label":"control: git -C","cmd":"git -C src log --oneline","expect":"allow","known_gap":false,"planlock":{"expect":"allow","note":"wrongly denied by planlock (review C9)"}}
+{"id":"ctl-003","label":"control: grep '>'","cmd":"grep -n '>' README.md","expect":"allow","known_gap":false,"planlock":{"expect":"allow","note":"wrongly denied by planlock (review C9)"}}
+{"id":"ctl-004","label":"control: pytest","cmd":"pytest -q","expect":"allow","known_gap":false,"planlock":{"expect":"allow","note":"wrongly denied by planlock (review C9)"}}
