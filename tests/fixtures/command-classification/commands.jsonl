@@ -1,0 +1,82 @@
+{"id":"cmd-001","cmd":"git status","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-002","cmd":"git log --oneline -5","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-003","cmd":"git diff --cached","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-004","cmd":"git ls-files","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-005","cmd":"git config --get user.email","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-006","cmd":"git config user.email x@example.com","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-GIT-CONFIG"}}
+{"id":"cmd-007","cmd":"git stash list","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-008","cmd":"git stash pop","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-GIT-STASH"}}
+{"id":"cmd-009","cmd":"git worktree list","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-010","cmd":"git push origin main","expect":"ask","known_gap":false,"planlock":{"expect":"deny","rule":"S1-GIT-SUB"}}
+{"id":"cmd-011","cmd":"cat README.md","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-012","cmd":"ls -la","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-013","cmd":"grep -rn TODO src/","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-014","cmd":"find . -name '*.py'","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-015","cmd":"find . -name '*.tmp' -delete","expect":"deny","known_gap":true,"gap_reason":"Bulk deletion; xargs rm is denied by sys-079 but this is not","planlock":{"expect":"deny","rule":"S1-FIND"}}
+{"id":"cmd-016","cmd":"find . -exec rm {} +","expect":"deny","known_gap":true,"gap_reason":"Bulk deletion; xargs rm is denied by sys-079 but this is not","planlock":{"expect":"deny","rule":"S1-FIND"}}
+{"id":"cmd-017","cmd":"sed -n '1,10p' file.py","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-018","cmd":"sed -i s/a/b/ file.py","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-SED-INPLACE"}}
+{"id":"cmd-019","cmd":"sed s/a/b/ file.py","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-SED-NO-N"}}
+{"id":"cmd-020","cmd":"sort file.txt","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-021","cmd":"sort -o out.txt in.txt","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-SORT-O"}}
+{"id":"cmd-022","cmd":"gh pr view 42","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-023","cmd":"gh pr checks","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-024","cmd":"gh pr create --title x --body y","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-GH-VERB"}}
+{"id":"cmd-025","cmd":"gh api repos/algorismo-au/planlock","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-026","cmd":"gh api -X POST repos/x/y/issues","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-GH-METHOD"}}
+{"id":"cmd-027","cmd":"gh api --method POST repos/x","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-GH-METHOD"}}
+{"id":"cmd-028","cmd":"gh api -XPOST repos/x","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-GH-METHOD"}}
+{"id":"cmd-029","cmd":"docker ps","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-030","cmd":"docker run alpine","expect":"ask","known_gap":false,"planlock":{"expect":"deny","rule":"S1-DOCKER-SUB"}}
+{"id":"cmd-031","cmd":"kubectl get pods","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-032","cmd":"kubectl exec -it pod -- sh","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-KUBECTL-SUB"}}
+{"id":"cmd-033","cmd":"eval 'ls'","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-BUILTIN"}}
+{"id":"cmd-034","cmd":"exec ls","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-BUILTIN"}}
+{"id":"cmd-035","cmd":"sudo apt install curl","expect":"deny","known_gap":false,"planlock":{"expect":"deny","rule":"S1-BUILTIN"}}
+{"id":"cmd-036","cmd":"source ~/.bashrc","expect":"deny","known_gap":false,"planlock":{"expect":"deny","rule":"S1-BUILTIN"}}
+{"id":"cmd-037","cmd":". ~/.env","expect":"deny","known_gap":true,"gap_reason":"Dot-sources a secrets/env file; source ~/.bashrc is denied but the . form is not","planlock":{"expect":"deny","rule":"S1-BUILTIN"}}
+{"id":"cmd-038","cmd":"export FOO=bar","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-BUILTIN"}}
+{"id":"cmd-039","cmd":"bash script.sh","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-NEVER"}}
+{"id":"cmd-040","cmd":"sh -c 'ls'","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-NEVER"}}
+{"id":"cmd-041","cmd":"python3 -c 'import os'","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-NEVER"}}
+{"id":"cmd-042","cmd":"python -m pytest","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-NEVER"}}
+{"id":"cmd-043","cmd":"node -e 'console.log(1)'","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-NEVER"}}
+{"id":"cmd-044","cmd":"npx create-react-app","expect":"ask","known_gap":false,"planlock":{"expect":"deny","rule":"S1-NEVER"}}
+{"id":"cmd-045","cmd":"pip install requests","expect":"ask","known_gap":false,"planlock":{"expect":"deny","rule":"S1-NEVER"}}
+{"id":"cmd-046","cmd":"curl https://example.com","expect":"ask","known_gap":false,"planlock":{"expect":"deny","rule":"S1-NEVER"}}
+{"id":"cmd-047","cmd":"wget https://example.com/file","expect":"ask","known_gap":false,"planlock":{"expect":"deny","rule":"S1-NEVER"}}
+{"id":"cmd-048","cmd":"ssh host 'ls'","expect":"ask","known_gap":false,"planlock":{"expect":"deny","rule":"S1-NEVER"}}
+{"id":"cmd-049","cmd":"echo hi > /etc/motd","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-RED"}}
+{"id":"cmd-050","cmd":"echo hi >> file","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-RED"}}
+{"id":"cmd-051","cmd":"cat <<EOF\nhello\nEOF","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-RED"}}
+{"id":"cmd-052","cmd":"cat <<<'hello'","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-RED"}}
+{"id":"cmd-053","cmd":"ls | tee out.txt","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-RED"}}
+{"id":"cmd-054","cmd":"ls 2>/dev/null","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-055","cmd":"git log 2>&1","expect":"allow","known_gap":false,"planlock":{"expect":"allow","rule":null}}
+{"id":"cmd-056","cmd":"echo `whoami`","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-SUB"}}
+{"id":"cmd-057","cmd":"echo $(whoami)","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-SUB"}}
+{"id":"cmd-058","cmd":"diff <(cat a) <(cat b)","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-SUB"}}
+{"id":"cmd-059","cmd":"cat >(logger)","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-SUB"}}
+{"id":"cmd-060","cmd":"grep -r token . `id`","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-SUB"}}
+{"id":"cmd-061","cmd":"git status​","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-ZW1"}}
+{"id":"cmd-062","cmd":"git‌status","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-ZW1"}}
+{"id":"cmd-063","cmd":"git status﻿","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-ZW1"}}
+{"id":"cmd-064","cmd":"IFS=X git status","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-NUL"}}
+{"id":"cmd-065","cmd":"echo IFS=X","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-NUL"}}
+{"id":"cmd-066","cmd":"=curl example.com","expect":"ask","known_gap":false,"planlock":{"expect":"deny","rule":"S1-EQX"}}
+{"id":"cmd-067","cmd":"ls; =rm foo","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-EQX"}}
+{"id":"cmd-068","cmd":"FOO=1 go test","expect":"allow","known_gap":false,"planlock":{"expect":"grey","rule":null}}
+{"id":"cmd-069","cmd":"FOO=1 make lint","expect":"allow","known_gap":false,"planlock":{"expect":"grey","rule":null}}
+{"id":"cmd-070","cmd":"pytest tests/ -q","expect":"allow","known_gap":false,"planlock":{"expect":"grey","rule":null}}
+{"id":"cmd-071","cmd":"npm test","expect":"allow","known_gap":false,"planlock":{"expect":"grey","rule":null}}
+{"id":"cmd-072","cmd":"pnpm run typecheck","expect":"allow","known_gap":false,"planlock":{"expect":"grey","rule":null}}
+{"id":"cmd-073","cmd":"xargs rm","expect":"deny","known_gap":false,"planlock":{"expect":"grey","rule":null}}
+{"id":"cmd-074","cmd":"git status; rm -rf /","expect":"deny","known_gap":false,"planlock":{"expect":"grey","rule":null}}
+{"id":"cmd-075","cmd":"git status && rm -rf /","expect":"deny","known_gap":false,"planlock":{"expect":"grey","rule":null}}
+{"id":"cmd-076","cmd":"/bin/ls","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-PATH-HEAD"}}
+{"id":"cmd-077","cmd":"./script.sh","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-PATH-HEAD"}}
+{"id":"cmd-078","cmd":"git","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-NO-SUB"}}
+{"id":"cmd-079","cmd":"gh","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-NO-SUB"}}
+{"id":"cmd-080","cmd":"","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-PARSE"}}
+{"id":"cmd-081","cmd":"   ","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-PARSE"}}
+{"id":"cmd-082","cmd":"'unterminated","expect":"allow","known_gap":false,"planlock":{"expect":"deny","rule":"S1-PARSE"}}
