@@ -1,23 +1,21 @@
 # Command-classification corpus
 
-Bash command strings imported from planlock's read-only classifier
-(`planlock/tests/fixtures/commands.jsonl` and the bypass battery in
-`planlock/docs/PLANLOCK_REVIEW_2026-10-23.md` Appendix R4) when planlock was
-retired (my_environment ADR 0007, D5 row 5). Run by
+Bash command strings imported from a retired read-only command classifier,
+kept as a regression corpus for LaneKeep's verdicts. Run by
 `tests/rules/test-command-classification.bats`.
 
 | File | Rows | Source |
 |---|---:|---|
-| `commands.jsonl` | 82 | planlock's classifier fixtures |
-| `bypass.jsonl` | 29 | strings planlock classified read-only but which write or execute (review C8) |
-| `controls.jsonl` | 4 | read-only habits planlock wrongly denied (review C9) |
+| `commands.jsonl` | 82 | the retired classifier's fixtures |
+| `bypass.jsonl` | 29 | strings the retired classifier treated as read-only but which write or execute |
+| `controls.jsonl` | 4 | read-only habits the retired classifier wrongly denied |
 
 ## Fields
 
 - `expect`: LaneKeep's verdict from hardblock + rules: `allow`, `ask` or `deny`.
-  It is **not** planlock's label. Planlock denied anything non-read-only
+  It is **not** the retired classifier's label. That classifier denied anything non-read-only
   (`pip install`, `git push`, `sed -i`); LaneKeep only stops what is dangerous.
-- `planlock`: the original planlock label (and rule ID), kept for reference.
+- `legacy`: the retired classifier's original label (and rule ID), kept for reference.
 - `known_gap`: `true` for a dangerous command LaneKeep currently allows.
   `expect` holds the target (`deny`) and `gap_reason` says why. The test
   asserts each gap is still open, so a rule that closes one fails the test
