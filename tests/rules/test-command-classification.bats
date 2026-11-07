@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
-# Command-classification regression corpus — imported from planlock's read-only
+# Command-classification regression corpus — imported from the retired classifier's read-only
 # Bash classifier (82 fixtures + 29 bypass strings + 4 controls, see
 # tests/fixtures/command-classification/README.md).
 #
 # `expect` is LaneKeep's verdict (allow/ask/deny) from hardblock + rules, NOT
-# planlock's read-only verdict (kept under `.planlock` for provenance).
+# the retired classifier's read-only verdict (kept under `.legacy` for provenance).
 # `known_gap: true` rows are dangerous commands LaneKeep currently allows (none
 # today: the 12 imported gaps are closed); the gap test fails once a rule
 # closes one, so the fixture gets flipped.
@@ -88,19 +88,19 @@ _check_corpus() {
 
 # ── Verdicts ──
 
-@test "classification: planlock command fixtures match LaneKeep verdicts" {
+@test "classification: legacy-classifier command fixtures match LaneKeep verdicts" {
   run _check_corpus "$FIXTURES/commands.jsonl"
   echo "$output"
   [ "$status" -eq 0 ]
 }
 
-@test "classification: planlock bypass strings match LaneKeep verdicts" {
+@test "classification: legacy-classifier bypass strings match LaneKeep verdicts" {
   run _check_corpus "$FIXTURES/bypass.jsonl"
   echo "$output"
   [ "$status" -eq 0 ]
 }
 
-@test "classification: planlock false-positive controls stay allowed" {
+@test "classification: legacy-classifier false-positive controls stay allowed" {
   run _check_corpus "$FIXTURES/controls.jsonl"
   echo "$output"
   [ "$status" -eq 0 ]
