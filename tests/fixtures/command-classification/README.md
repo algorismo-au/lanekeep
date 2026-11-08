@@ -2,8 +2,6 @@
 
 Bash command strings imported from a retired read-only command classifier,
 kept as a regression corpus for LaneKeep's verdicts. Run by
-`tests/rules/test-command-classification.bats`.
-
 | File | Rows | Source |
 |---|---:|---|
 | `commands.jsonl` | 82 | the retired classifier's fixtures |
