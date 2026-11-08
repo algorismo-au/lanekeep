@@ -2,8 +2,6 @@
 
 Bash command strings imported from a retired read-only command classifier,
 kept as a regression corpus for LaneKeep's verdicts. Run by
-| File | Rows | Source |
-|---|---:|---|
 | `commands.jsonl` | 82 | the retired classifier's fixtures |
 | `bypass.jsonl` | 29 | strings the retired classifier treated as read-only but which write or execute |
 | `controls.jsonl` | 4 | read-only habits the retired classifier wrongly denied |
