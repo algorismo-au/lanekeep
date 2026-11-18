@@ -24,10 +24,11 @@ lanekeep/
                   lanekeep-policy, lanekeep-scan, lanekeep-parse-spec, etc.)
   lib/            Evaluator modules and shared libraries
   hooks/          Claude Code hook scripts (evaluate.sh, post-evaluate.sh,
-                  stop.sh, auto-format.sh, cursor-eval.sh, cursor-post-eval.sh)
+                  stop.sh, auto-format.sh, cursor-eval.sh, cursor-post-eval.sh,
+                  session-start.sh, pre-compact.sh)
   defaults/       Default config (lanekeep.json)
   ui/             Web dashboard (index.html + server.py)
-    vendor/       Vendored JS libs (DOMPurify, Mermaid)
+    js/           Vendored JS libs (DOMPurify, Mermaid)
   tests/          Bats tests and fixtures (organized by category)
     config/       Config loading, integrity, layering, schema
     evaluators/   Hardblock, codediff, result-transform
@@ -37,6 +38,7 @@ lanekeep/
     pipeline/     Handler, dispatcher, concurrency, session boundary
     observability/ Trace, trace-clear, insights metrics
     ui/           Server API tests (Python)
+    hardening/    Leak and git-history audits
     cli/          CLI commands, PRP parser
     fixtures/     JSON test fixtures, sample PRPs
   plugins.d/      Plugin evaluators (subshell isolated)
@@ -77,9 +79,9 @@ Event (raw hook call)
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor setup, workflow, PR checklist |
 | [plugins.d/AUTHORING.md](plugins.d/AUTHORING.md) | Plugin contract — Bash and polyglot |
 
-## Lanekeep self-governance intentionally not wired
+## LaneKeep hooks and push protection
 
-This repo opts out of lanekeep hook wiring. Reason: self-governance would be recursive (daemon running against its own development sessions is awkward during tests and bootstrap). The pre-push bats test suite (`.githooks/pre-push`) and the server-side GitHub ruleset `mainprotect` (added 2026-10-02) provide push-to-main protection.
+No LaneKeep hooks are wired in tracked settings. Maintainers may opt in locally with `lanekeep enable`, which writes the untracked `.claude/settings.local.json`. The pre-push bats suite (`.githooks/pre-push`) and the server-side ruleset `mainprotect` protect main.
 
 ---
 

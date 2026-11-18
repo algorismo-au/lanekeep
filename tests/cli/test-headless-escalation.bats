@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # Tests for the headless escalation sink
-# Spec: specs/HEADLESS-ESCALATION-SINK.md (buildinglanekeep meta-repo)
+# Spec: specs/HEADLESS-ESCALATION-SINK.md (in the meta repo)
 
 setup() {
   LANEKEEP_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
