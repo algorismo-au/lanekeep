@@ -404,7 +404,7 @@ INNER
     filePath: "/repo/.env",
     oldString: "A=1",
     newString: "A=2",
-    originalFile: "POSTIZ_JWT_SECRET=abc.def.ghi\npassword=leaked-value-here\nX_API_SECRET=deadbeefcafebabe1234567890\nOTHER=fine",
+    originalFile: "APP_JWT_SECRET=abc.def.ghi\npassword=leaked-value-here\nX_API_SECRET=deadbeefcafebabe1234567890\nOTHER=fine",
     structuredPatch: [{oldStart: 1, newStart: 1, lines: ["-A=1","+A=2"]}]
   }')
   result_transform_eval "Edit" "$payload" '{"file_path":"/repo/.env"}'

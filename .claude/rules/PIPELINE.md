@@ -28,7 +28,7 @@ flowchart LR
         E["trace.sh →\n.lanekeep/traces/*.jsonl"]
     end
 
-    A -- "PreToolUse hook\n(stdin via nc -U)" --> B
+    A -- "PreToolUse hook\n(stdin via socat UNIX-CONNECT)" --> B
     B --> C --> D --> T0 --> T1 --> T35 --> T67
 
     T67 -->|"allow:\nexit 0, no stdout"| ALLOW(["✓ Allow\ntool executes"])

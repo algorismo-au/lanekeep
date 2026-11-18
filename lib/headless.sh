@@ -3,7 +3,7 @@
 # to `deny` and persist the asked-about context as .lanekeep/escalations/<id>.json
 # so a parent runtime (orchestrator, CI) can act on it after the agent exits.
 #
-# Spec: specs/HEADLESS-ESCALATION-SINK.md (in buildinglanekeep meta-repo)
+# Spec: specs/HEADLESS-ESCALATION-SINK.md (in the meta repo)
 
 # True when this invocation is running unattended (no human to answer ask).
 # Accepts 1 | true | yes (case-insensitive) — cron env files vary in convention.
