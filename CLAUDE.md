@@ -79,9 +79,9 @@ Event (raw hook call)
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor setup, workflow, PR checklist |
 | [plugins.d/AUTHORING.md](plugins.d/AUTHORING.md) | Plugin contract — Bash and polyglot |
 
-## LaneKeep hooks and push protection
+## LaneKeep self-governance intentionally not wired
 
-No LaneKeep hooks are wired in tracked settings. Maintainers may opt in locally with `lanekeep enable`, which writes the untracked `.claude/settings.local.json`. The pre-push bats suite (`.githooks/pre-push`) and the server-side ruleset `mainprotect` protect main.
+This repo opts out of LaneKeep hook wiring. Reason: self-governance would be recursive, and development sessions on LaneKeep must not be gated by, or able to loosen, their own gate. Do not run `lanekeep enable` in this checkout. The pre-push bats suite (`.githooks/pre-push`) and the server-side GitHub ruleset `mainprotect` protect main.
 
 ---
 
